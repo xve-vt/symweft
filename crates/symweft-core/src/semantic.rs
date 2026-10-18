@@ -235,7 +235,9 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
         "semantic.preview.start"
         | "semantic.preview.progress"
         | "semantic.preview.at"
-        | "semantic.preview.relations" => {
+        | "semantic.preview.relations"
+        | "semantic.project.at"
+        | "semantic.project.relations" => {
             let path = parameter(params, "path")?;
             let revision = number(params, "revision")?;
             let source = session
@@ -267,11 +269,17 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
             }
             let job_id = number(params, "job_id")?;
             let expected = query_version_parameter(params)?;
+            if request.method.starts_with("semantic.project.") && expected.is_none() {
+                return Err(CoreError::new(
+                    "invalid_params",
+                    "Project queries require a current project query_version.",
+                ));
+            }
             let result = match request.method.as_str() {
                 "semantic.preview.progress" => semantic
                     .check_preview(job_id, path, revision)
                     .map_err(index_error)?,
-                "semantic.preview.at" => {
+                "semantic.preview.at" | "semantic.project.at" => {
                     let byte = offset(params, "byte_offset")?;
                     if byte > source.len() || !source.is_char_boundary(byte) {
                         return Err(CoreError::new(
@@ -279,11 +287,17 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                             "Byte offset must be a UTF-8 boundary within the buffer.",
                         ));
                     }
-                    semantic
-                        .preview_at(job_id, path, revision, byte as u64)
-                        .map_err(index_error)?
+                    if request.method == "semantic.project.at" {
+                        semantic
+                            .project_at(job_id, path, revision, byte as u64)
+                            .map_err(index_error)?
+                    } else {
+                        semantic
+                            .preview_at(job_id, path, revision, byte as u64)
+                            .map_err(index_error)?
+                    }
                 }
-                _ => semantic
+                "semantic.preview.relations" => semantic
                     .preview_relations(
                         job_id,
                         path,
@@ -293,6 +307,22 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                         limit,
                     )
                     .map_err(index_error)?,
+                "semantic.project.relations" => semantic
+                    .project_relations(
+                        job_id,
+                        path,
+                        revision,
+                        parameter(params, "entity_id")?,
+                        parameter(params, "direction")?,
+                        limit,
+                    )
+                    .map_err(index_error)?,
+                _ => {
+                    return Err(CoreError::new(
+                        "method_not_found",
+                        "Unknown semantic method.",
+                    ));
+                }
             };
             validate_result_query_version(&result, expected.as_ref())?;
             Ok(result)

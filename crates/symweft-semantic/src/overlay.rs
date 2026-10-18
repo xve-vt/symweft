@@ -158,8 +158,15 @@ impl Controller {
         self.overlay_query_version(self.query_store.disk_baseline()?)
             .ok_or_else(|| "preview ticket unavailable".into())
     }
+    fn project_overlay_query_version(&self, disk: DiskBaseline) -> Option<QueryVersion> {
+        let unit_id = self.overlay.ticket.as_ref()?.unit_id.clone();
+        let mut version = self.overlay_query_version(disk)?;
+        version.coverage = QueryCoverage::OverlayWithPersistentIndex { unit_id };
+        Some(version)
+    }
     pub(super) fn preview_status_with_disk(&self, disk: DiskBaseline) -> Result<Value> {
-        let query_version = self.overlay_query_version(disk);
+        let query_version = self.overlay_query_version(disk.clone());
+        let project_query_version = self.project_overlay_query_version(disk);
         let overlay = &self.overlay;
         let result = overlay.result.as_ref();
         Ok(
@@ -175,7 +182,7 @@ impl Controller {
             "profile":result.and_then(|r|r.reply.profile.as_ref()).map(|run|json!({"run":run,"result_validation_micros":result.map(|r|r.validation_micros)})),
             "diagnostics":result.map(|r|r.reply.diagnostics.iter().take(64).map(|d|
                 json!({"severity":d.severity,"message":excerpt(&d.message,1024),"location":d.location})).collect::<Vec<_>>()),
-            "completeness":COMPLETENESS,"query_version":query_version}),
+            "completeness":COMPLETENESS,"query_version":query_version,"project_query_version":project_query_version}),
         )
     }
     pub fn preview_status(&self) -> Result<Value> {
@@ -443,6 +450,7 @@ impl Controller {
             row["revision"] = ticket.revision.into();
             row["preview_id"] = ticket.job_id.into();
         }
+        row["evidence"] = "clang_semantic_overlay".into();
         row["freshness"] = "overlay".into();
         if let Some(snapshot) = self
             .overlay

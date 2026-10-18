@@ -38,6 +38,7 @@ pub struct DocumentRevision {
 pub enum QueryCoverage {
     PersistentIndex,
     OverlayTranslationUnit { unit_id: String },
+    OverlayWithPersistentIndex { unit_id: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

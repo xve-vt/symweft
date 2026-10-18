@@ -545,6 +545,7 @@ impl Store {
                 .unwrap_or(Value::Null);
             row["unit_id"] = id.into();
             row["main_file"] = file.into();
+            row["evidence"] = "clang_semantic".into();
             row["freshness"] = "included_inputs_validated".into();
             output.push(row);
         }
@@ -577,6 +578,35 @@ impl Store {
         provider: &str,
         limit: usize,
     ) -> Result<Value> {
+        self.relations_inner(configuration, entity, direction, provider, None, limit)
+    }
+    pub fn relations_except(
+        &self,
+        configuration: &str,
+        entity: &str,
+        direction: &str,
+        provider: &str,
+        excluded_unit: &str,
+        limit: usize,
+    ) -> Result<Value> {
+        self.relations_inner(
+            configuration,
+            entity,
+            direction,
+            provider,
+            Some(excluded_unit),
+            limit,
+        )
+    }
+    fn relations_inner(
+        &self,
+        configuration: &str,
+        entity: &str,
+        direction: &str,
+        provider: &str,
+        excluded_unit: Option<&str>,
+        limit: usize,
+    ) -> Result<Value> {
         let (table, predicate) = match direction {
             "definitions" => (
                 "symbols",
@@ -594,11 +624,18 @@ impl Store {
         };
         let limit = limit.clamp(1, 1000) as i64;
         let started = Instant::now();
+        let exclusion = excluded_unit.map(|_| " AND u.id<>?3").unwrap_or("");
+        let limit_parameter = if excluded_unit.is_some() { 4 } else { 3 };
         let sql = format!(
-            "SELECT u.id,u.main_file,f.digest,f.payload FROM {table} x JOIN units u ON u.pk=x.unit_pk JOIN facts f ON f.pk=x.fact WHERE u.configuration=?1 AND u.state='current' AND {predicate} ORDER BY x.unit_pk,x.n LIMIT ?3"
+            "SELECT u.id,u.main_file,f.digest,f.payload FROM {table} x JOIN units u ON u.pk=x.unit_pk JOIN facts f ON f.pk=x.fact WHERE u.configuration=?1 AND u.state='current' AND {predicate}{exclusion} ORDER BY x.unit_pk,x.n LIMIT ?{limit_parameter}"
         );
+        let mut parameters: Vec<&dyn rusqlite::ToSql> = vec![&configuration, &entity];
+        if let Some(excluded_unit) = &excluded_unit {
+            parameters.push(excluded_unit);
+        }
+        parameters.push(&limit);
         let transaction = self.connection.unchecked_transaction()?;
-        let rows = self.rows(&sql, &[&configuration, &entity, &limit], provider)?;
+        let rows = self.rows(&sql, &parameters, provider)?;
         let disk_baseline = self.disk_baseline()?;
         transaction.commit()?;
         Ok(
@@ -612,11 +649,45 @@ impl Store {
         offset: u64,
         provider: &str,
     ) -> Result<Value> {
+        self.at_inner(configuration, path, offset, provider, None)
+    }
+    pub fn at_except(
+        &self,
+        configuration: &str,
+        path: &str,
+        offset: u64,
+        provider: &str,
+        excluded_unit: &str,
+    ) -> Result<Value> {
+        self.at_inner(configuration, path, offset, provider, Some(excluded_unit))
+    }
+    fn at_inner(
+        &self,
+        configuration: &str,
+        path: &str,
+        offset: u64,
+        provider: &str,
+        excluded_unit: Option<&str>,
+    ) -> Result<Value> {
         let transaction = self.connection.unchecked_transaction()?;
         let offset = i64::try_from(offset)?;
-        let refs=self.rows("SELECT u.id,u.main_file,f.digest,f.payload FROM refs r JOIN units u ON u.pk=r.unit_pk JOIN facts f ON f.pk=r.fact WHERE u.configuration=?1 AND u.state='current' AND r.path=(SELECT pk FROM paths WHERE key=?2) AND r.start<=?3 AND r.end>?3 ORDER BY r.end-r.start LIMIT 32",&[&configuration,&path,&offset],provider)?;
-        let declarations=self.rows("SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current' AND s.path=(SELECT pk FROM paths WHERE key=?2) AND s.name_start<=?3 AND s.name_end>?3 ORDER BY s.definition DESC LIMIT 32",&[&configuration,&path,&offset],provider)?;
-        let enclosing=self.rows("SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current' AND s.path=(SELECT pk FROM paths WHERE key=?2) AND s.callable=1 AND s.definition=1 AND s.start<=?3 AND s.end>?3 ORDER BY s.end-s.start LIMIT 32",&[&configuration,&path,&offset],provider)?;
+        let exclusion = excluded_unit.map(|_| " AND u.id<>?4").unwrap_or("");
+        let refs_sql = format!(
+            "SELECT u.id,u.main_file,f.digest,f.payload FROM refs r JOIN units u ON u.pk=r.unit_pk JOIN facts f ON f.pk=r.fact WHERE u.configuration=?1 AND u.state='current'{exclusion} AND r.path=(SELECT pk FROM paths WHERE key=?2) AND r.start<=?3 AND r.end>?3 ORDER BY r.end-r.start LIMIT 32"
+        );
+        let declarations_sql = format!(
+            "SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current'{exclusion} AND s.path=(SELECT pk FROM paths WHERE key=?2) AND s.name_start<=?3 AND s.name_end>?3 ORDER BY s.definition DESC LIMIT 32"
+        );
+        let enclosing_sql = format!(
+            "SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current'{exclusion} AND s.path=(SELECT pk FROM paths WHERE key=?2) AND s.callable=1 AND s.definition=1 AND s.start<=?3 AND s.end>?3 ORDER BY s.end-s.start LIMIT 32"
+        );
+        let mut parameters: Vec<&dyn rusqlite::ToSql> = vec![&configuration, &path, &offset];
+        if let Some(excluded_unit) = &excluded_unit {
+            parameters.push(excluded_unit);
+        }
+        let refs = self.rows(&refs_sql, &parameters, provider)?;
+        let declarations = self.rows(&declarations_sql, &parameters, provider)?;
+        let enclosing = self.rows(&enclosing_sql, &parameters, provider)?;
         let entities: HashSet<&str> = refs
             .iter()
             .filter_map(|row| row.get("target").and_then(Value::as_str))

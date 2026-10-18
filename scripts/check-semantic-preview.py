@@ -35,7 +35,14 @@ def start(client, path, revision, **params):
     assert document["path"] == ack["ticket"]["path"] and document["revision"] == revision
     assert len(document["content_key"]) == 64
     assert version["coverage"] == {"kind": "overlay_translation_unit", "unit_id": ack["ticket"]["unit_id"]}
-    return dict(path=path, revision=revision, job_id=ack["ticket"]["job_id"], query_version=version)
+    project_version = ack["project_query_version"]
+    assert project_version["documents"] == version["documents"]
+    assert project_version["coverage"] == {"kind": "overlay_with_persistent_index", "unit_id": ack["ticket"]["unit_id"]}
+    return dict(path=path, revision=revision, job_id=ack["ticket"]["job_id"], query_version=version, project_query_version=project_version)
+
+
+def project(key):
+    return dict(path=key["path"], revision=key["revision"], job_id=key["job_id"], query_version=key["project_query_version"])
 
 
 def main():
@@ -49,7 +56,8 @@ def main():
         (root / "api.h").write_text(header)
         (root / "a.c").write_text('int first(void){return 1;} int second(void){return 2;}\n')
         (root / "b.cpp").write_text(source)
-        commands = [{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp"]]
+        (root / "c.c").write_text('#include "api.h"\nint other(void){return first();}\n')
+        commands = [{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp", "c.c"]]
         (root / "compile_commands.json").write_text(json.dumps(commands))
         client = protocol.Client(root, root / "cache")
         try:
@@ -83,8 +91,44 @@ def main():
             wrong_version["documents"][0]["revision"] += 1
             error = client.rpc("semantic.preview.at", dict(key, query_version=wrong_version, byte_offset=offset), expect_error=True)
             assert error["code"] == "stale_query_version", error
+
+            project_context = client.rpc("semantic.project.at", dict(project(key), byte_offset=offset))
+            assert project_context["entity_id"] == second
+            assert project_context["query_version"] == key["project_query_version"]
+            assert project_context["overlay_unit_id"] == key["project_query_version"]["coverage"]["unit_id"]
+            first_incoming = client.rpc("semantic.project.relations", dict(project(key), entity_id=first, direction="incoming"))
+            assert len(first_incoming["rows"]) == 1, first_incoming
+            assert first_incoming["rows"][0]["main_file"].endswith("c.c")
+            assert first_incoming["rows"][0]["evidence"] == "clang_semantic"
+            second_incoming = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming"))
+            assert len(second_incoming["rows"]) == 1 and second_incoming["rows"][0]["target"] == second
+            assert second_incoming["rows"][0]["evidence"] == "clang_semantic_overlay"
+            second_definitions = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="definitions"))
+            assert len(second_definitions["rows"]) == 1
+            assert second_definitions["rows"][0]["main_file"].endswith("a.c")
+            assert second_definitions["rows"][0]["evidence"] == "clang_semantic"
+            outgoing = client.rpc("semantic.project.relations", dict(project(key), entity_id=caller, direction="outgoing"))
+            assert len(outgoing["rows"]) == 1 and outgoing["rows"][0]["target"] == second
+            declarations = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="declarations"))["rows"]
+            assert any(row["evidence"] == "clang_semantic" for row in declarations)
+            assert any(row["evidence"] == "clang_semantic_overlay" for row in declarations)
+            references = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="references"))["rows"]
+            assert len(references) == 1 and references[0]["evidence"] == "clang_semantic_overlay"
+            merged_rows = first_incoming["rows"] + second_incoming["rows"] + second_definitions["rows"] + outgoing["rows"] + declarations + references
+            assert all(row["unit_id"] and row["main_file"] and row["freshness"] for row in merged_rows)
+            assert all(row["evidence"] in ["clang_semantic", "clang_semantic_overlay"] for row in merged_rows)
+            missing_version = project(key)
+            del missing_version["query_version"]
+            error = client.rpc("semantic.project.relations", dict(missing_version, entity_id=first, direction="incoming"), expect_error=True)
+            assert error["code"] == "invalid_params", error
+            error = client.rpc("semantic.project.relations", dict(project(key), query_version=key["query_version"], entity_id=first, direction="incoming"), expect_error=True)
+            assert error["code"] == "stale_query_version", error
+            results["project"] = {"first_incoming": len(first_incoming["rows"]), "second_incoming": len(second_incoming["rows"]), "declarations": len(declarations)}
+            print("PASS single-overlay project merge masks old edges and retains other TU definitions/callers and evidence")
+
             assert not client.relations(second, "incoming"), "overlay must not leak into disk relations"
-            assert not client.relations(first, "incoming"), "dirty TU must suppress old disk edges"
+            disk_first = client.relations(first, "incoming")
+            assert len(disk_first) == 1 and disk_first[0]["main_file"].endswith("c.c"), disk_first
             assert client.rpc("semantic.status")["index"] == before, "preview must not publish persistent facts"
             assert (root / "b.cpp").read_text() == source
             results["read_during_preview_ms"] = {"p50": statistics.median(responsive), "max": max(responsive)}

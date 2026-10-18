@@ -136,6 +136,23 @@ fn c_macro_conditionals_internal_linkage_and_cross_file_bidirectional_queries() 
         incoming["disk_baseline"],
         serde_json::to_value(store.disk_baseline()?)?
     );
+    let without_b = store.relations_except(
+        &db.configuration,
+        &target.id,
+        "incoming",
+        &a.provider,
+        &b.unit_id,
+        100,
+    )?;
+    assert_eq!(without_b["rows"].as_array().unwrap().len(), 2);
+    assert!(
+        without_b["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["unit_id"].as_str() != Some(b.unit_id.as_str()))
+    );
+    assert_eq!(without_b["disk_baseline"], incoming["disk_baseline"]);
     let defs = store.relations(
         &db.configuration,
         &target.id,
