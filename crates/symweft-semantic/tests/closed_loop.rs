@@ -103,8 +103,13 @@ fn c_macro_conditionals_internal_linkage_and_cross_file_bidirectional_queries() 
             .any(|r| r.name == "WRAP" && r.kind == "macro expansion")
     );
     let mut store = Store::open(&f.0.join("semantics.sqlite3"))?;
+    let initial_baseline = store.disk_baseline()?;
     store.publish(&a)?;
+    let a_baseline = store.disk_baseline()?;
+    assert_eq!(a_baseline.store_id, initial_baseline.store_id);
+    assert_eq!(a_baseline.revision, initial_baseline.revision + 1);
     store.publish(&b)?;
+    assert_eq!(store.disk_baseline()?.revision, a_baseline.revision + 1);
     assert_eq!(
         store.incompatible_provider_units(&db.configuration, &a.provider)?,
         0
@@ -127,6 +132,10 @@ fn c_macro_conditionals_internal_linkage_and_cross_file_bidirectional_queries() 
     );
     let incoming = store.relations(&db.configuration, &target.id, "incoming", &a.provider, 100)?;
     assert_eq!(incoming["rows"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        incoming["disk_baseline"],
+        serde_json::to_value(store.disk_baseline()?)?
+    );
     let defs = store.relations(
         &db.configuration,
         &target.id,
@@ -153,6 +162,10 @@ fn c_macro_conditionals_internal_linkage_and_cross_file_bidirectional_queries() 
     let incoming = store.relations(&db.configuration, &target.id, "incoming", &a.provider, 100)?;
     assert_eq!(incoming["rows"].as_array().unwrap().len(), 1);
     assert!(store.reusable(&db.commands[1], &b.provider)?);
+    let final_baseline = store.disk_baseline()?;
+    drop(store);
+    let store = Store::open(&f.0.join("semantics.sqlite3"))?;
+    assert_eq!(store.disk_baseline()?, final_baseline);
     Ok(())
 }
 
@@ -406,13 +419,13 @@ json.dump({'snapshot':None,'error':message,'diagnostics':[]},sys.stdout)
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
         controller.maintain(&HashSet::new(), true)?;
-        if controller.preview_status()["state"] == "failed" {
+        if controller.preview_status()?["state"] == "failed" {
             break;
         }
         thread::sleep(Duration::from_millis(10));
     }
-    assert_eq!(controller.preview_status()["state"], "failed");
-    assert_eq!(controller.preview_status()["ticket"]["job_id"], id);
+    assert_eq!(controller.preview_status()?["state"], "failed");
+    assert_eq!(controller.preview_status()?["ticket"]["job_id"], id);
     assert!(!f.0.join("overlap").exists());
     assert_eq!(fs::read_to_string(f.0.join("workers"))?.lines().count(), 2);
     controller.start_preview("main.c", 3, "running preview", None, 32)?;
@@ -426,12 +439,12 @@ json.dump({'snapshot':None,'error':message,'diagnostics':[]},sys.stdout)
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
         controller.maintain(&HashSet::new(), true)?;
-        if controller.preview_status()["state"] == "failed" {
+        if controller.preview_status()?["state"] == "failed" {
             break;
         }
         thread::sleep(Duration::from_millis(10));
     }
-    let status = controller.preview_status();
+    let status = controller.preview_status()?;
     assert_eq!(status["ticket"], ack["ticket"]);
     assert!(
         status["reason"]

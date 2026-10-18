@@ -5,7 +5,10 @@ mod realtime;
 use crate::{
     Result,
     compdb::CompileDatabase,
-    model::{Overlay, WorkerReply, WorkerRequest},
+    model::{
+        DiskBaseline, DocumentRevision, Overlay, QUERY_VERSION_CONTRACT, QueryConfiguration,
+        QueryCoverage, QueryVersion, WorkerReply, WorkerRequest,
+    },
     provider,
     store::Store,
 };
@@ -222,6 +225,8 @@ pub struct Controller {
     pub limits: Limits,
     executable: PathBuf,
     database_hash: [u8; 32],
+    workspace_root: PathBuf,
+    configuration_key: String,
     cancel: Arc<AtomicBool>,
     state: Arc<Mutex<Value>>,
     job: Option<JoinHandle<()>>,
@@ -240,7 +245,9 @@ impl Controller {
         limits: Limits,
     ) -> Result<Self> {
         limits.validate()?;
-        let database = CompileDatabase::load(root, commands)?;
+        let workspace_root = root.canonicalize()?;
+        let database = CompileDatabase::load(&workspace_root, commands)?;
+        let configuration_key = crate::compdb::key(&(&database.commands, &database.rejected));
         let provider = provider::identity_key()?;
         let mut query_store = Store::open(&storage)?;
         query_store.reconcile(&database)?;
@@ -252,6 +259,8 @@ impl Controller {
             limits,
             executable,
             database_hash,
+            workspace_root,
+            configuration_key,
             cancel: Arc::new(AtomicBool::new(false)),
             state: Arc::new(Mutex::new(json!({"state":"idle"}))),
             job: None,
@@ -279,19 +288,57 @@ impl Controller {
         self.ensure_configuration()?;
         Ok(&self.query_store)
     }
+    pub fn query_version(
+        &self,
+        disk: DiskBaseline,
+        mut documents: Vec<DocumentRevision>,
+        coverage: QueryCoverage,
+    ) -> QueryVersion {
+        documents.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then(left.revision.cmp(&right.revision))
+        });
+        QueryVersion {
+            contract: QUERY_VERSION_CONTRACT.into(),
+            workspace: self.workspace_root.to_string_lossy().into_owned(),
+            configuration: QueryConfiguration {
+                id: self.database.configuration.clone(),
+                content_key: self.configuration_key.clone(),
+                provider: self.provider.clone(),
+            },
+            disk,
+            documents,
+            coverage,
+        }
+    }
+    pub fn disk_query_version(&self) -> Result<QueryVersion> {
+        Ok(self.query_version(
+            self.query_store.disk_baseline()?,
+            Vec::new(),
+            QueryCoverage::PersistentIndex,
+        ))
+    }
     pub fn status(&self) -> Result<Value> {
         let store = &self.query_store;
-        let mut result = json!({"configured":true,"compile_commands":self.database.path,"configuration":self.database.configuration,"configured_units":self.database.commands.len(),"rejected":self.database.rejected,"provider":self.provider,"limits":self.limits,"job":self.state.lock().map_err(|_|"semantic status poisoned")?.clone(),"index":store.status(&self.database.configuration)?,"configuration_matches":fs::read(&self.database.path).is_ok_and(|b|symweft_index::hash(&b)==self.database_hash)});
+        let disk = store.disk_baseline()?;
+        let query_version =
+            self.query_version(disk.clone(), Vec::new(), QueryCoverage::PersistentIndex);
+        let preview = self.preview_status_with_disk(disk)?;
+        let mut result = json!({"configured":true,"compile_commands":self.database.path,"configuration":self.database.configuration,"configured_units":self.database.commands.len(),"rejected":self.database.rejected,"provider":self.provider,"limits":self.limits,"job":self.state.lock().map_err(|_|"semantic status poisoned")?.clone(),"index":store.status(&self.database.configuration)?,"configuration_matches":fs::read(&self.database.path).is_ok_and(|b|symweft_index::hash(&b)==self.database_hash),"query_version":query_version,"preview":preview});
         result["incompatible_provider_units"] = store
             .incompatible_provider_units(&self.database.configuration, &self.provider)?
             .into();
         result["watch"] = self.watch_status();
-        result["preview"] = self.preview_status();
         Ok(result)
     }
     pub fn progress(&self) -> Result<Value> {
+        let disk = self.query_store.disk_baseline()?;
+        let query_version =
+            self.query_version(disk.clone(), Vec::new(), QueryCoverage::PersistentIndex);
+        let preview = self.preview_status_with_disk(disk)?;
         Ok(
-            json!({"configured":true,"configured_units":self.database.commands.len(),"rejected_units":self.database.rejected.len(),"job":self.state.lock().map_err(|_|"semantic status poisoned")?.clone(),"watch":self.watch_status(),"preview":self.preview_status()}),
+            json!({"configured":true,"configured_units":self.database.commands.len(),"rejected_units":self.database.rejected.len(),"job":self.state.lock().map_err(|_|"semantic status poisoned")?.clone(),"watch":self.watch_status(),"preview":preview,"query_version":query_version}),
         )
     }
     pub fn index(&mut self, paths: &[String], limit: usize) -> Result<Value> {

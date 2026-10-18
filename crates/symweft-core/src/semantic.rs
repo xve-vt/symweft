@@ -1,10 +1,66 @@
 use super::*;
-use symweft_semantic::service::{Controller, Limits};
+use symweft_semantic::{
+    model::{DiskBaseline, QUERY_VERSION_CONTRACT, QueryCoverage, QueryVersion},
+    service::{Controller, Limits},
+};
 fn storage(root: &Path) -> PathBuf {
     cache_directory(root)
         .parent()
         .expect("cache has parent")
         .join("a2-clang-v2/index.sqlite3")
+}
+fn query_version_parameter(params: &Value) -> Result<Option<QueryVersion>, CoreError> {
+    params
+        .get("query_version")
+        .map(|value| {
+            serde_json::from_value(value.clone()).map_err(|error| {
+                CoreError::new("invalid_params", format!("Invalid query_version: {error}"))
+            })
+        })
+        .transpose()
+}
+fn validate_query_version(expected: &QueryVersion, actual: &QueryVersion) -> Result<(), CoreError> {
+    if expected.contract != QUERY_VERSION_CONTRACT {
+        return Err(CoreError::new(
+            "unsupported_query_version",
+            format!("Expected query contract {QUERY_VERSION_CONTRACT}; refresh the query version."),
+        ));
+    }
+    if expected != actual {
+        return Err(CoreError::new(
+            "stale_query_version",
+            "Query version no longer matches the workspace, configuration, disk baseline, documents, or coverage; refresh it before querying.",
+        ));
+    }
+    Ok(())
+}
+fn finish_disk_query(
+    semantic: &Controller,
+    mut result: Value,
+    expected: Option<&QueryVersion>,
+) -> Result<Value, CoreError> {
+    let baseline = result
+        .as_object_mut()
+        .and_then(|object| object.remove("disk_baseline"))
+        .ok_or_else(|| CoreError::new("index_error", "Semantic query baseline is missing."))?;
+    let baseline: DiskBaseline = serde_json::from_value(baseline).map_err(index_error)?;
+    let actual = semantic.query_version(baseline, Vec::new(), QueryCoverage::PersistentIndex);
+    if let Some(expected) = expected {
+        validate_query_version(expected, &actual)?;
+    }
+    result["query_version"] = serde_json::to_value(actual).map_err(index_error)?;
+    Ok(result)
+}
+fn validate_result_query_version(
+    result: &Value,
+    expected: Option<&QueryVersion>,
+) -> Result<(), CoreError> {
+    if let Some(expected) = expected {
+        let actual: QueryVersion =
+            serde_json::from_value(result["query_version"].clone()).map_err(index_error)?;
+        validate_query_version(expected, &actual)?;
+    }
+    Ok(())
 }
 pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError> {
     let params = &request.params;
@@ -104,28 +160,37 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                 .map_err(index_error)?;
             Ok(json!({"invalidated_units":count}))
         }
-        "semantic.symbols" => semantic
-            .store()
-            .map_err(index_error)?
-            .symbols(
-                &semantic.database.configuration,
-                parameter(params, "name")?,
-                &semantic.provider,
-                limit,
-            )
-            .map_err(index_error),
-        "semantic.relations" => semantic
-            .store()
-            .map_err(index_error)?
-            .relations(
-                &semantic.database.configuration,
-                parameter(params, "entity_id")?,
-                parameter(params, "direction")?,
-                &semantic.provider,
-                limit,
-            )
-            .map_err(index_error),
+        "semantic.symbols" => {
+            let expected = query_version_parameter(params)?;
+            let result = semantic
+                .store()
+                .map_err(index_error)?
+                .symbols(
+                    &semantic.database.configuration,
+                    parameter(params, "name")?,
+                    &semantic.provider,
+                    limit,
+                )
+                .map_err(index_error)?;
+            finish_disk_query(semantic, result, expected.as_ref())
+        }
+        "semantic.relations" => {
+            let expected = query_version_parameter(params)?;
+            let result = semantic
+                .store()
+                .map_err(index_error)?
+                .relations(
+                    &semantic.database.configuration,
+                    parameter(params, "entity_id")?,
+                    parameter(params, "direction")?,
+                    &semantic.provider,
+                    limit,
+                )
+                .map_err(index_error)?;
+            finish_disk_query(semantic, result, expected.as_ref())
+        }
         "semantic.at" => {
+            let expected = query_version_parameter(params)?;
             let requested = parameter(params, "path")?;
             let path = semantic.absolute_path(requested).map_err(index_error)?;
             if let Some((opened, hash)) = &session.opened_hash {
@@ -142,7 +207,7 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                     ));
                 }
             }
-            semantic
+            let result = semantic
                 .store()
                 .map_err(index_error)?
                 .at(
@@ -151,7 +216,8 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                     number(params, "byte_offset")?,
                     &semantic.provider,
                 )
-                .map_err(index_error)
+                .map_err(index_error)?;
+            finish_disk_query(semantic, result, expected.as_ref())
         }
         "semantic.preview" => {
             let path = parameter(params, "path")?;
@@ -200,10 +266,11 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                     .map_err(index_error);
             }
             let job_id = number(params, "job_id")?;
-            match request.method.as_str() {
+            let expected = query_version_parameter(params)?;
+            let result = match request.method.as_str() {
                 "semantic.preview.progress" => semantic
                     .check_preview(job_id, path, revision)
-                    .map_err(index_error),
+                    .map_err(index_error)?,
                 "semantic.preview.at" => {
                     let byte = offset(params, "byte_offset")?;
                     if byte > source.len() || !source.is_char_boundary(byte) {
@@ -214,7 +281,7 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                     }
                     semantic
                         .preview_at(job_id, path, revision, byte as u64)
-                        .map_err(index_error)
+                        .map_err(index_error)?
                 }
                 _ => semantic
                     .preview_relations(
@@ -225,8 +292,10 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                         parameter(params, "direction")?,
                         limit,
                     )
-                    .map_err(index_error),
-            }
+                    .map_err(index_error)?,
+            };
+            validate_result_query_version(&result, expected.as_ref())?;
+            Ok(result)
         }
         _ => Err(CoreError::new(
             "method_not_found",

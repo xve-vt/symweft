@@ -1,5 +1,45 @@
 use serde::{Deserialize, Serialize};
 
+pub const QUERY_VERSION_CONTRACT: &str = "a2-query-v1";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct QueryVersion {
+    pub contract: String,
+    pub workspace: String,
+    pub configuration: QueryConfiguration,
+    pub disk: DiskBaseline,
+    pub documents: Vec<DocumentRevision>,
+    pub coverage: QueryCoverage,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct QueryConfiguration {
+    pub id: String,
+    pub content_key: String,
+    pub provider: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DiskBaseline {
+    pub schema: String,
+    pub store_id: String,
+    pub revision: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentRevision {
+    pub path: String,
+    pub revision: u64,
+    pub content_key: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum QueryCoverage {
+    PersistentIndex,
+    OverlayTranslationUnit { unit_id: String },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
     pub path: String,

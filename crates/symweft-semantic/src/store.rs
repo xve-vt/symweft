@@ -2,7 +2,7 @@
 use crate::{
     Result,
     compdb::{CompileCommand, CompileDatabase},
-    model::{Call, Reference, Snapshot, Symbol},
+    model::{Call, DiskBaseline, Reference, Snapshot, Symbol},
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,8 @@ const MAX_FACT: usize = 2 * 1024 * 1024;
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS semantic_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 INSERT OR IGNORE INTO semantic_meta VALUES('schema','a2-store-v2');
+INSERT OR IGNORE INTO semantic_meta VALUES('store_id',lower(hex(randomblob(16))));
+INSERT OR IGNORE INTO semantic_meta VALUES('disk_revision','0');
 CREATE TABLE IF NOT EXISTS units(pk INTEGER PRIMARY KEY,id TEXT NOT NULL UNIQUE,configuration TEXT NOT NULL,main_file TEXT NOT NULL,command_key TEXT NOT NULL,provider TEXT NOT NULL,state TEXT NOT NULL,report TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS units_configuration ON units(configuration,state);
 CREATE TABLE IF NOT EXISTS inputs(unit_pk INTEGER REFERENCES units(pk) ON DELETE CASCADE,path TEXT NOT NULL,hash BLOB NOT NULL,PRIMARY KEY(unit_pk,path)) WITHOUT ROWID;
@@ -157,6 +159,13 @@ fn fact(
         .execute(params![&digest[..], packed])?;
     Ok(tx.last_insert_rowid())
 }
+fn bump_baseline(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute(
+        "UPDATE semantic_meta SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) WHERE key='disk_revision'",
+        [],
+    )?;
+    Ok(())
+}
 pub struct Store {
     connection: Connection,
     fingerprints: RefCell<crate::fingerprint::Fingerprints>,
@@ -181,6 +190,18 @@ impl Store {
         Ok(Self {
             connection,
             fingerprints: RefCell::new(crate::fingerprint::Fingerprints::default()),
+        })
+    }
+    pub fn disk_baseline(&self) -> Result<DiskBaseline> {
+        let (schema, store_id, revision): (String, String, String) = self.connection.query_row(
+            "SELECT (SELECT value FROM semantic_meta WHERE key='schema'),(SELECT value FROM semantic_meta WHERE key='store_id'),(SELECT value FROM semantic_meta WHERE key='disk_revision')",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        Ok(DiskBaseline {
+            schema,
+            store_id,
+            revision: revision.parse()?,
         })
     }
     pub fn cache_validation(&self, enabled: bool) {
@@ -209,6 +230,9 @@ impl Store {
                 removed += tx.execute("DELETE FROM units WHERE id=?1", [id])?;
             }
         }
+        if removed > 0 {
+            bump_baseline(&tx)?;
+        }
         tx.commit()?;
         Ok(removed)
     }
@@ -219,7 +243,10 @@ impl Store {
         state: &str,
         report: &Value,
     ) -> Result<()> {
-        self.connection.execute("INSERT INTO units(id,configuration,main_file,command_key,provider,state,report) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET state=excluded.state,report=excluded.report",params![command.unit_id,command.configuration,command.file.to_string_lossy(),command.command_key,provider,state,serde_json::to_string(report)?])?;
+        let tx = self.connection.unchecked_transaction()?;
+        tx.execute("INSERT INTO units(id,configuration,main_file,command_key,provider,state,report) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET state=excluded.state,report=excluded.report",params![command.unit_id,command.configuration,command.file.to_string_lossy(),command.command_key,provider,state,serde_json::to_string(report)?])?;
+        bump_baseline(&tx)?;
+        tx.commit()?;
         Ok(())
     }
     pub fn publish(&mut self, snapshot: &Snapshot) -> Result<()> {
@@ -347,6 +374,7 @@ impl Store {
                 ])?;
             }
         }
+        bump_baseline(&tx)?;
         let commit = crate::profile::Clock::start(profile.enabled);
         tx.commit()?;
         profile.commit_micros = commit.micros();
@@ -408,7 +436,13 @@ impl Store {
         Ok(self.connection.prepare_cached("SELECT u.id FROM units u WHERE u.main_file=?1 AND u.configuration=?2 UNION SELECT u.id FROM input_aliases i JOIN units u ON u.pk=i.unit_pk WHERE (i.real_path=?1 OR i.input_path=?1) AND u.configuration=?2")?.query_map(params![path,configuration],|r|r.get(0))?.collect::<std::result::Result<_,_>>()?)
     }
     pub fn invalidate(&self, configuration: &str, path: &str) -> Result<usize> {
-        Ok(self.connection.execute("UPDATE units SET state='stale' WHERE configuration=?1 AND pk IN (SELECT unit_pk FROM input_aliases WHERE real_path=?2 OR input_path=?2)",params![configuration,path])?)
+        let tx = self.connection.unchecked_transaction()?;
+        let changed = tx.execute("UPDATE units SET state='stale' WHERE configuration=?1 AND state<>'stale' AND pk IN (SELECT unit_pk FROM input_aliases WHERE real_path=?2 OR input_path=?2)",params![configuration,path])?;
+        if changed > 0 {
+            bump_baseline(&tx)?;
+        }
+        tx.commit()?;
+        Ok(changed)
     }
     pub fn recorded_units(&self, configuration: &str) -> Result<Vec<String>> {
         Ok(self
@@ -419,11 +453,15 @@ impl Store {
     }
     pub fn invalidate_units(&mut self, configuration: &str, ids: &HashSet<String>) -> Result<()> {
         let tx = self.connection.transaction()?;
+        let mut changed = 0;
         for id in ids {
-            tx.execute(
-                "UPDATE units SET state='stale' WHERE configuration=?1 AND id=?2",
+            changed += tx.execute(
+                "UPDATE units SET state='stale' WHERE configuration=?1 AND id=?2 AND state<>'stale'",
                 params![configuration, id],
             )?;
+        }
+        if changed > 0 {
+            bump_baseline(&tx)?;
         }
         tx.commit()?;
         self.clear_validation();
@@ -523,9 +561,12 @@ impl Store {
         limit: usize,
     ) -> Result<Value> {
         let limit = limit.clamp(1, 1000) as i64;
+        let transaction = self.connection.unchecked_transaction()?;
         let rows=self.rows("SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current' AND s.name=?2 ORDER BY s.definition DESC,s.path,s.name_start LIMIT ?3",&[&configuration,&name,&limit],provider)?;
+        let disk_baseline = self.disk_baseline()?;
+        transaction.commit()?;
         Ok(
-            json!({"evidence":"clang_semantic","rows":rows,"limit":limit,"completeness":"indexed contributions only; unindexed units/changes may exist"}),
+            json!({"evidence":"clang_semantic","rows":rows,"limit":limit,"completeness":"indexed contributions only; unindexed units/changes may exist","disk_baseline":disk_baseline}),
         )
     }
     pub fn relations(
@@ -556,9 +597,12 @@ impl Store {
         let sql = format!(
             "SELECT u.id,u.main_file,f.digest,f.payload FROM {table} x JOIN units u ON u.pk=x.unit_pk JOIN facts f ON f.pk=x.fact WHERE u.configuration=?1 AND u.state='current' AND {predicate} ORDER BY x.unit_pk,x.n LIMIT ?3"
         );
+        let transaction = self.connection.unchecked_transaction()?;
         let rows = self.rows(&sql, &[&configuration, &entity, &limit], provider)?;
+        let disk_baseline = self.disk_baseline()?;
+        transaction.commit()?;
         Ok(
-            json!({"evidence":"clang_semantic","entity_id":entity,"direction":direction,"rows":rows,"limit":limit,"query_micros":started.elapsed().as_micros(),"completeness":"indexed contributions only; virtual/indirect targets are not expanded"}),
+            json!({"evidence":"clang_semantic","entity_id":entity,"direction":direction,"rows":rows,"limit":limit,"query_micros":started.elapsed().as_micros(),"completeness":"indexed contributions only; virtual/indirect targets are not expanded","disk_baseline":disk_baseline}),
         )
     }
     pub fn at(
@@ -587,9 +631,10 @@ impl Store {
         } else {
             None
         };
+        let disk_baseline = self.disk_baseline()?;
         transaction.commit()?;
         Ok(
-            json!({"entity_id":entity,"references":refs,"declarations":declarations,"enclosing_functions":enclosing,"evidence":"clang_semantic","completeness":"indexed contributions; multiple variants remain separate"}),
+            json!({"entity_id":entity,"references":refs,"declarations":declarations,"enclosing_functions":enclosing,"evidence":"clang_semantic","completeness":"indexed contributions; multiple variants remain separate","disk_baseline":disk_baseline}),
         )
     }
     pub fn checkpoint(&self) -> Result<()> {

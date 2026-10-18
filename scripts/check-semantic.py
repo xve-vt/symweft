@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise production stdio + isolated compiler + persistence, including edits."""
+import copy
 import json
 import os
 from pathlib import Path
@@ -93,19 +94,59 @@ def main():
             client.rpc("semantic.index", {"paths": []})
             opened = client.rpc("document.open", {"path": "b.cpp"})
             results["initial"] = client.wait()
-            target = client.symbol("target")["id"]
+            disk_version = client.rpc("semantic.progress")["query_version"]
+            assert disk_version["contract"] == "a2-query-v1"
+            assert disk_version["workspace"] == str(root)
+            assert set(disk_version["configuration"]) == {"id", "content_key", "provider"}
+            assert disk_version["configuration"]["provider"].startswith("a2-clang-v3:")
+            assert disk_version["disk"]["schema"] == "a2-store-v2"
+            assert disk_version["disk"]["store_id"] and isinstance(disk_version["disk"]["revision"], int)
+            assert disk_version["documents"] == []
+            assert disk_version["coverage"] == {"kind": "persistent_index"}
+            versioned_symbols = client.rpc("semantic.symbols", {"name": "target", "query_version": disk_version})
+            assert versioned_symbols["query_version"] == disk_version
+            target = next(s["id"] for s in versioned_symbols["rows"] if s["definition"])
             alternate = client.symbol("alternate")["id"]
             assert len(client.relations(target, "incoming")) == 2
             definitions = client.relations(target, "definitions")
             assert len(definitions) == 1 and definitions[0]["location"]["path"].endswith("a.c")
             offset = len(b[:b.index("target(7)")].encode())
-            context = client.rpc("semantic.at", {"path": "b.cpp", "byte_offset": offset})
-            assert context["entity_id"] == target
+            context = client.rpc("semantic.at", {"path": "b.cpp", "byte_offset": offset, "query_version": disk_version})
+            assert context["entity_id"] == target and context["query_version"] == disk_version
             caller = context["enclosing_functions"][0]["id"]
-            assert client.relations(caller, "outgoing")[0]["target"] == target
+            outgoing = client.rpc("semantic.relations", {"entity_id": caller, "direction": "outgoing", "query_version": disk_version})
+            assert outgoing["rows"][0]["target"] == target and outgoing["query_version"] == disk_version
             print("PASS cross C/C++ linkage, definitions/references/calls and UTF-8 locations")
 
+            mutations = [
+                ("workspace", lambda v: v.update(workspace="/wrong-workspace")),
+                ("configuration id", lambda v: v["configuration"].update(id="wrong")),
+                ("configuration content", lambda v: v["configuration"].update(content_key="0" * 64)),
+                ("provider", lambda v: v["configuration"].update(provider="wrong")),
+                ("disk", lambda v: v["disk"].update(revision=v["disk"]["revision"] + 1)),
+                ("documents", lambda v: v.update(documents=[{"path": "b.cpp", "revision": 1, "content_key": "0" * 64}])),
+                ("coverage", lambda v: v.update(coverage={"kind": "overlay_translation_unit", "unit_id": "wrong"})),
+            ]
+            for label, mutate in mutations:
+                candidate = copy.deepcopy(disk_version)
+                mutate(candidate)
+                error = client.rpc("semantic.relations", {"entity_id": target, "direction": "definitions", "limit": 1, "query_version": candidate}, expect_error=True)
+                assert error["code"] == "stale_query_version", (label, error)
+            legacy = copy.deepcopy(disk_version)
+            legacy["contract"] = "a2-query-v0"
+            error = client.rpc("semantic.relations", {"entity_id": target, "direction": "definitions", "query_version": legacy}, expect_error=True)
+            assert error["code"] == "unsupported_query_version", error
+            error = client.rpc("semantic.relations", {"entity_id": target, "direction": "definitions", "query_version": {"contract": "a2-query-v1"}}, expect_error=True)
+            assert error["code"] == "invalid_params", error
+            unknown = copy.deepcopy(disk_version)
+            unknown["generation"] = 0
+            error = client.rpc("semantic.relations", {"entity_id": target, "direction": "definitions", "query_version": unknown}, expect_error=True)
+            assert error["code"] == "invalid_params", error
+            print("PASS unified query version identity, full mismatch rejection and legacy compatibility")
+
             edited = client.rpc("document.edit", {"path": "b.cpp", "base_revision": opened["analysis"]["revision"], "start_byte": offset, "old_end_byte": offset + 6, "new_text": "alternate"})
+            error = client.rpc("semantic.relations", {"entity_id": target, "direction": "incoming", "query_version": disk_version}, expect_error=True)
+            assert error["code"] == "stale_query_version", error
             assert len(client.relations(target, "incoming")) == 1
             preview = client.rpc("semantic.preview", {"path": "b.cpp", "revision": edited["analysis"]["revision"]})
             assert preview["overlay"] and not preview["persisted"]

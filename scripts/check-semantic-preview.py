@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Production async overlay lifecycle, latest revision, queries and isolation."""
+import copy
 import importlib.util
 import json
 import statistics
@@ -27,7 +28,14 @@ def wait(client, key, expected="ready"):
 def start(client, path, revision, **params):
     ack = client.rpc("semantic.preview.start", dict(path=path, revision=revision, **params))
     assert ack["overlay"] and not ack["persisted"]
-    return dict(path=path, revision=revision, job_id=ack["ticket"]["job_id"])
+    version = ack["query_version"]
+    assert version["contract"] == "a2-query-v1"
+    assert len(version["documents"]) == 1
+    document = version["documents"][0]
+    assert document["path"] == ack["ticket"]["path"] and document["revision"] == revision
+    assert len(document["content_key"]) == 64
+    assert version["coverage"] == {"kind": "overlay_translation_unit", "unit_id": ack["ticket"]["unit_id"]}
+    return dict(path=path, revision=revision, job_id=ack["ticket"]["job_id"], query_version=version)
 
 
 def main():
@@ -63,18 +71,24 @@ def main():
                 responsive.append((time.perf_counter_ns() - begin) / 1e6)
             results["initial"] = wait(client, key)
             context = client.rpc("semantic.preview.at", dict(key, byte_offset=offset))
-            assert context["entity_id"] == second, context
+            assert context["entity_id"] == second and context["query_version"] == key["query_version"], context
             caller = context["enclosing_functions"][0]["id"]
             for direction, entity, count in [("outgoing", caller, 1), ("incoming", second, 1), ("references", second, 1), ("definitions", caller, 1), ("definitions", second, 0)]:
-                rows = client.rpc("semantic.preview.relations", dict(key, entity_id=entity, direction=direction))["rows"]
+                relation = client.rpc("semantic.preview.relations", dict(key, entity_id=entity, direction=direction))
+                rows = relation["rows"]
+                assert relation["query_version"] == key["query_version"]
                 assert len(rows) == count, (direction, rows)
                 assert all(r["freshness"] == "overlay" and r["revision"] == revision for r in rows)
+            wrong_version = copy.deepcopy(key["query_version"])
+            wrong_version["documents"][0]["revision"] += 1
+            error = client.rpc("semantic.preview.at", dict(key, query_version=wrong_version, byte_offset=offset), expect_error=True)
+            assert error["code"] == "stale_query_version", error
             assert not client.relations(second, "incoming"), "overlay must not leak into disk relations"
             assert not client.relations(first, "incoming"), "dirty TU must suppress old disk edges"
             assert client.rpc("semantic.status")["index"] == before, "preview must not publish persistent facts"
             assert (root / "b.cpp").read_text() == source
             results["read_during_preview_ms"] = {"p50": statistics.median(responsive), "max": max(responsive)}
-            print("PASS async launch, nonblocking source reads, exact overlay relations and disk isolation")
+            print("PASS async launch, versioned overlay relations, stale document-set rejection and disk isolation")
 
             # A completed old revision and a running superseded request are both rejected.
             edit = client.rpc("document.edit", {"path": "b.cpp", "base_revision": revision, "start_byte": offset, "old_end_byte": offset + 6, "new_text": "first"})

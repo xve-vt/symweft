@@ -1,6 +1,8 @@
 //! One transient TU, separate from the persistent disk index. No AST is retained.
 use super::*;
-use crate::model::{Diagnostic, Location, Snapshot};
+use crate::model::{
+    Diagnostic, DiskBaseline, DocumentRevision, Location, QueryCoverage, QueryVersion, Snapshot,
+};
 
 const MAX_SOURCE: usize = 8 * 1024 * 1024;
 // A delayed cancel must not match a new controller after workspace/configure.
@@ -84,6 +86,9 @@ fn diagnostic_bytes(d: &Diagnostic) -> usize {
 fn excerpt(text: &str, max_chars: usize) -> String {
     text.chars().take(max_chars).collect()
 }
+fn hex_key(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
 // Retained Vec storage + String capacities; excludes allocator overhead and RSS.
 fn retained_bytes(reply: &WorkerReply) -> usize {
     let mut bytes = std::mem::size_of::<Completed>()
@@ -135,10 +140,30 @@ fn retained_bytes(reply: &WorkerReply) -> usize {
     bytes
 }
 impl Controller {
-    pub fn preview_status(&self) -> Value {
+    fn overlay_query_version(&self, disk: DiskBaseline) -> Option<QueryVersion> {
+        let ticket = self.overlay.ticket.as_ref()?;
+        Some(self.query_version(
+            disk,
+            vec![DocumentRevision {
+                path: ticket.path.clone(),
+                revision: ticket.revision,
+                content_key: hex_key(&ticket.hash),
+            }],
+            QueryCoverage::OverlayTranslationUnit {
+                unit_id: ticket.unit_id.clone(),
+            },
+        ))
+    }
+    fn current_overlay_query_version(&self) -> Result<QueryVersion> {
+        self.overlay_query_version(self.query_store.disk_baseline()?)
+            .ok_or_else(|| "preview ticket unavailable".into())
+    }
+    pub(super) fn preview_status_with_disk(&self, disk: DiskBaseline) -> Result<Value> {
+        let query_version = self.overlay_query_version(disk);
         let overlay = &self.overlay;
         let result = overlay.result.as_ref();
-        json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
+        Ok(
+            json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
             "ticket":overlay.ticket,"reason":overlay.reason,
             "worker_active":overlay.running.is_some(),"queued":overlay.pending.is_some(),
             "overlay":true,"persisted":false,"memory_budget_bytes":overlay.budget,
@@ -150,7 +175,11 @@ impl Controller {
             "profile":result.and_then(|r|r.reply.profile.as_ref()).map(|run|json!({"run":run,"result_validation_micros":result.map(|r|r.validation_micros)})),
             "diagnostics":result.map(|r|r.reply.diagnostics.iter().take(64).map(|d|
                 json!({"severity":d.severity,"message":excerpt(&d.message,1024),"location":d.location})).collect::<Vec<_>>()),
-            "completeness":COMPLETENESS})
+            "completeness":COMPLETENESS,"query_version":query_version}),
+        )
+    }
+    pub fn preview_status(&self) -> Result<Value> {
+        self.preview_status_with_disk(self.query_store.disk_baseline()?)
     }
     pub fn start_preview(
         &mut self,
@@ -199,7 +228,7 @@ impl Controller {
         self.overlay.state = "queued";
         self.overlay.reason = None;
         self.pump_preview();
-        Ok(self.preview_status())
+        self.preview_status()
     }
     pub(super) fn preview_command(
         &self,
@@ -231,7 +260,7 @@ impl Controller {
         self.overlay
             .invalidate("cancelled", "preview cancelled by client");
         self.pump_preview();
-        Ok(self.preview_status())
+        self.preview_status()
     }
     pub fn invalidate_preview(&mut self, reason: &str) {
         if self.overlay.ticket.is_some() {
@@ -255,7 +284,7 @@ impl Controller {
         if self.overlay.state == "ready" && !self.preview_fresh() {
             self.invalidate_preview("preview dependency/configuration changed");
         }
-        Ok(self.preview_status())
+        self.preview_status()
     }
     fn preview_fresh(&self) -> bool {
         let Some(ticket) = &self.overlay.ticket else {
@@ -467,11 +496,13 @@ impl Controller {
         } else {
             None
         };
+        let query_version = self.current_overlay_query_version()?;
         Ok(
             json!({"evidence":"clang_semantic_overlay","completeness":COMPLETENESS,"entity_id":entity,
             "references":refs.into_iter().map(|v|self.overlay_row(v)).collect::<Vec<_>>(),
             "declarations":declarations.into_iter().map(|v|self.overlay_row(v)).collect::<Vec<_>>(),
-            "enclosing_functions":enclosing.into_iter().take(32).map(|v|self.overlay_row(v)).collect::<Vec<_>>()}),
+            "enclosing_functions":enclosing.into_iter().take(32).map(|v|self.overlay_row(v)).collect::<Vec<_>>(),
+            "query_version":query_version}),
         )
     }
     pub fn preview_relations(
@@ -520,8 +551,9 @@ impl Controller {
                 );
             }
         };
+        let query_version = self.current_overlay_query_version()?;
         Ok(
-            json!({"evidence":"clang_semantic_overlay","completeness":COMPLETENESS,"rows":rows,"limit":limit,"entity_id":entity,"direction":direction}),
+            json!({"evidence":"clang_semantic_overlay","completeness":COMPLETENESS,"rows":rows,"limit":limit,"entity_id":entity,"direction":direction,"query_version":query_version}),
         )
     }
 }
