@@ -30,10 +30,11 @@ def start(client, path, revision, **params):
     assert ack["overlay"] and not ack["persisted"]
     version = ack["query_version"]
     assert version["contract"] == "a2-query-v1"
-    assert len(version["documents"]) == 1
-    document = version["documents"][0]
-    assert document["path"] == ack["ticket"]["path"] and document["revision"] == revision
-    assert len(document["content_key"]) == 64
+    expected_count = len(params.get("documents", [])) or 1
+    assert len(version["documents"]) == expected_count
+    document = next(item for item in version["documents"] if item["path"] == ack["ticket"]["path"])
+    assert document["revision"] == revision
+    assert all(len(item["content_key"]) == 64 for item in version["documents"])
     assert version["coverage"] == {"kind": "overlay_translation_unit", "unit_id": ack["ticket"]["unit_id"]}
     project_version = ack["project_query_version"]
     assert project_version["documents"] == version["documents"]
@@ -43,6 +44,66 @@ def start(client, path, revision, **params):
 
 def project(key):
     return dict(path=key["path"], revision=key["revision"], job_id=key["job_id"], query_version=key["project_query_version"])
+
+
+def check_multiple_buffers(output):
+    with tempfile.TemporaryDirectory(prefix="semantic-preview-documents-", dir=output) as temp:
+        root = Path(temp).resolve()
+        header = '#ifdef __cplusplus\nextern "C" {\n#endif\nint first(void); int second(void);\n#define CHOSEN first\n#ifdef __cplusplus\n}\n#endif\n'
+        source = '#include "api.h"\nint caller(){return CHOSEN();}\n'
+        (root / "api.h").write_text(header)
+        (root / "a.c").write_text('int first(void){return 1;} int second(void){return 2;}\n')
+        (root / "b.cpp").write_text(source)
+        commands = [{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp"]]
+        (root / "compile_commands.json").write_text(json.dumps(commands))
+        client = protocol.Client(root, root / "cache")
+        try:
+            client.configure()
+            client.index()
+            second = client.symbol("second")["id"]
+            main_opened = client.rpc("document.open", {"path": "b.cpp"})
+            header_opened = client.rpc("document.open", {"path": "api.h"})
+            macro_offset = len(header[:header.index("first", header.index("#define CHOSEN"))].encode())
+            header_edit = client.rpc("document.edit", {"path": "api.h", "base_revision": header_opened["analysis"]["revision"], "start_byte": macro_offset, "old_end_byte": macro_offset + 5, "new_text": "second"})
+            header_revision = header_edit["analysis"]["revision"]
+            main_bytes = len(source.encode())
+            main_edit = client.rpc("document.edit", {"path": "b.cpp", "base_revision": main_opened["analysis"]["revision"], "start_byte": main_bytes, "old_end_byte": main_bytes, "new_text": "// unsaved main\n"})
+            main_revision = main_edit["analysis"]["revision"]
+            documents = [{"path": "api.h", "revision": header_revision}, {"path": "b.cpp", "revision": main_revision}]
+
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision}, expect_error=True)
+            assert error["code"] == "multiple_dirty_buffers", error
+            error = client.rpc("semantic.preview", {"path": "b.cpp", "revision": main_revision}, expect_error=True)
+            assert error["code"] == "multiple_dirty_buffers", error
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": [documents[1]]}, expect_error=True)
+            assert error["code"] == "missing_overlay_documents", error
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": [documents[1], documents[1], documents[0]]}, expect_error=True)
+            assert error["code"] == "invalid_params", error
+            wrong_primary = [{"path": "b.cpp", "revision": main_revision + 1}, documents[0]]
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": wrong_primary}, expect_error=True)
+            assert error["code"] == "invalid_params", error
+            stale_header = [{"path": "api.h", "revision": header_revision - 1}, documents[1]]
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": stale_header}, expect_error=True)
+            assert error["code"] == "stale_revision", error
+            too_many = documents + [{"path": "extra%d.h" % index, "revision": 1} for index in range(15)]
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": too_many}, expect_error=True)
+            assert error["code"] == "overlay_budget", error
+
+            key = start(client, "b.cpp", main_revision, documents=documents)
+            wait(client, key)
+            revisions = {(Path(item["path"]).name, item["revision"]) for item in key["query_version"]["documents"]}
+            assert revisions == {("api.h", header_revision), ("b.cpp", main_revision)}, revisions
+            offset = len(source[:source.index("CHOSEN")].encode())
+            context = client.rpc("semantic.preview.at", dict(key, byte_offset=offset))
+            assert any(row["name"] == "second" and row["target"] == second for row in context["references"]), context
+            definitions = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="definitions"))["rows"]
+            assert any(row["main_file"].endswith("a.c") and row["evidence"] == "clang_semantic" for row in definitions), definitions
+            assert (root / "api.h").read_text() == header
+            assert (root / "b.cpp").read_text() == source
+        finally:
+            client.close()
+    print("PASS main/header buffers compile together with complete revisions, dirty coverage and budget rejection")
+    return {"documents": 2, "target": "second"}
 
 
 def main():
@@ -211,6 +272,7 @@ def main():
             print("PASS compiler diagnostics without partial facts and explicit multiple-dirty-buffer boundary")
         finally:
             client.close()
+    results["multiple_buffers"] = check_multiple_buffers(output)
     (output / "semantic-preview.json").write_text(json.dumps(results, indent=2))
     print("All asynchronous semantic preview checks passed.")
 

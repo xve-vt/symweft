@@ -368,13 +368,13 @@ pub fn analyze(request: &WorkerRequest) -> Result<WorkerReply> {
     if fs::metadata(&command.file)?.len() > 8 * 1024 * 1024 {
         return Err("semantic main file exceeds 8 MiB budget".into());
     }
-    if request.overlays.len() > 16
+    if request.overlays.len() > MAX_OVERLAY_DOCUMENTS
         || request
             .overlays
             .iter()
             .map(|o| o.content.len())
             .sum::<usize>()
-            > 8 * 1024 * 1024
+            > MAX_OVERLAY_SOURCE_BYTES
     {
         return Err("overlay budget exceeded".into());
     }

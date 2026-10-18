@@ -7,7 +7,10 @@ use std::{
 use symweft_semantic::{
     Result,
     compdb::CompileDatabase,
-    model::{Overlay, Snapshot, WorkerRequest},
+    model::{
+        MAX_OVERLAY_DOCUMENTS, MAX_OVERLAY_SOURCE_BYTES, Overlay, PreviewDocument, Snapshot,
+        WorkerRequest,
+    },
     provider,
     store::Store,
 };
@@ -473,6 +476,35 @@ json.dump({'snapshot':None,'error':message,'diagnostics':[]},sys.stdout)
     assert_eq!(status["charged_bytes"], 0);
     assert!(!f.0.join("overlap").exists());
     assert_eq!(fs::read_to_string(f.0.join("workers"))?.lines().count(), 4);
+    let too_many = (0..=MAX_OVERLAY_DOCUMENTS)
+        .map(|_| PreviewDocument {
+            path: "main.c".into(),
+            revision: 1,
+            content: String::new(),
+        })
+        .collect();
+    let error = controller
+        .start_preview_documents(too_many, None, 32)
+        .unwrap_err();
+    assert!(error.to_string().contains("1..=16"));
+    assert_eq!(controller.preview_status()?["ticket"], status["ticket"]);
+    let too_large = vec![
+        PreviewDocument {
+            path: "main.c".into(),
+            revision: 1,
+            content: "x".repeat(MAX_OVERLAY_SOURCE_BYTES / 2 + 1),
+        },
+        PreviewDocument {
+            path: "other.c".into(),
+            revision: 1,
+            content: "x".repeat(MAX_OVERLAY_SOURCE_BYTES / 2 + 1),
+        },
+    ];
+    let error = controller
+        .start_preview_documents(too_large, None, 32)
+        .unwrap_err();
+    assert!(error.to_string().contains("8 MiB"));
+    assert_eq!(controller.preview_status()?["ticket"], status["ticket"]);
     Ok(())
 }
 

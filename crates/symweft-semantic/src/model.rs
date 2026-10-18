@@ -1,6 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 pub const QUERY_VERSION_CONTRACT: &str = "a2-query-v1";
+pub const MAX_OVERLAY_DOCUMENTS: usize = 16;
+pub const MAX_OVERLAY_SOURCE_BYTES: usize = 8 * 1024 * 1024;
+
+#[derive(Debug)]
+pub struct PreviewDocument {
+    pub path: String,
+    pub revision: u64,
+    pub content: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

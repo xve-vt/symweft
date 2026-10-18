@@ -1,10 +1,9 @@
 //! One transient TU, separate from the persistent disk index. No AST is retained.
 use super::*;
 use crate::model::{
-    Diagnostic, DiskBaseline, DocumentRevision, Location, QueryCoverage, QueryVersion, Snapshot,
+    Diagnostic, DiskBaseline, DocumentRevision, Location, MAX_OVERLAY_DOCUMENTS,
+    MAX_OVERLAY_SOURCE_BYTES, PreviewDocument, QueryCoverage, QueryVersion, Snapshot,
 };
-
-const MAX_SOURCE: usize = 8 * 1024 * 1024;
 // A delayed cancel must not match a new controller after workspace/configure.
 static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 fn next_id() -> Result<u64> {
@@ -20,6 +19,12 @@ fn next_id() -> Result<u64> {
 const COMPLETENESS: &str =
     "current overlay translation unit only; disk contributions are queried separately";
 
+#[derive(Clone)]
+struct TicketDocument {
+    path: String,
+    revision: u64,
+    hash: [u8; 32],
+}
 #[derive(Clone, Serialize)]
 struct Ticket {
     job_id: u64,
@@ -27,9 +32,9 @@ struct Ticket {
     revision: u64,
     unit_id: String,
     #[serde(skip)]
-    hash: [u8; 32],
-    #[serde(skip)]
     epoch: u64,
+    #[serde(skip)]
+    documents: Vec<TicketDocument>,
 }
 struct Pending {
     ticket: Ticket,
@@ -142,17 +147,23 @@ fn retained_bytes(reply: &WorkerReply) -> usize {
 impl Controller {
     fn overlay_query_version(&self, disk: DiskBaseline) -> Option<QueryVersion> {
         let ticket = self.overlay.ticket.as_ref()?;
-        Some(self.query_version(
-            disk,
-            vec![DocumentRevision {
-                path: ticket.path.clone(),
-                revision: ticket.revision,
-                content_key: hex_key(&ticket.hash),
-            }],
-            QueryCoverage::OverlayTranslationUnit {
-                unit_id: ticket.unit_id.clone(),
-            },
-        ))
+        Some(
+            self.query_version(
+                disk,
+                ticket
+                    .documents
+                    .iter()
+                    .map(|document| DocumentRevision {
+                        path: document.path.clone(),
+                        revision: document.revision,
+                        content_key: hex_key(&document.hash),
+                    })
+                    .collect(),
+                QueryCoverage::OverlayTranslationUnit {
+                    unit_id: ticket.unit_id.clone(),
+                },
+            ),
+        )
     }
     fn current_overlay_query_version(&self) -> Result<QueryVersion> {
         self.overlay_query_version(self.query_store.disk_baseline()?)
@@ -196,28 +207,82 @@ impl Controller {
         unit_id: Option<&str>,
         memory_mib: u64,
     ) -> Result<Value> {
-        if content.len() > MAX_SOURCE || !(1..=128).contains(&memory_mib) {
+        self.start_preview_documents(
+            vec![PreviewDocument {
+                path: path.into(),
+                revision,
+                content: content.into(),
+            }],
+            unit_id,
+            memory_mib,
+        )
+    }
+    pub fn start_preview_documents(
+        &mut self,
+        documents: Vec<PreviewDocument>,
+        unit_id: Option<&str>,
+        memory_mib: u64,
+    ) -> Result<Value> {
+        if documents.is_empty() || documents.len() > MAX_OVERLAY_DOCUMENTS {
             return Err(
-                "preview requires <=8 MiB source and 1..128 MiB retained-result budget".into(),
+                format!("preview requires 1..={MAX_OVERLAY_DOCUMENTS} overlay documents").into(),
             );
+        }
+        if !(1..=128).contains(&memory_mib) {
+            return Err("preview requires 1..128 MiB retained-result budget".into());
+        }
+        let mut total_bytes = 0usize;
+        for document in &documents {
+            total_bytes = total_bytes
+                .checked_add(document.content.len())
+                .ok_or("preview overlay source size overflow")?;
+            if document.content.len() > MAX_OVERLAY_SOURCE_BYTES
+                || total_bytes > MAX_OVERLAY_SOURCE_BYTES
+            {
+                return Err("preview overlay source budget exceeds 8 MiB".into());
+            }
         }
         if self.runtime.pressure_paused {
             return Err("preview paused by critical memory pressure".into());
         }
         self.ensure_configuration()?;
-        let full = self.absolute_path(path)?;
-        let command = self.preview_command(&full, unit_id)?;
+        let mut full_documents = Vec::with_capacity(documents.len());
+        let mut seen = HashSet::new();
+        for document in documents {
+            let full = self.absolute_path(&document.path)?;
+            if !seen.insert(full.clone()) {
+                return Err(format!("duplicate preview document: {full}").into());
+            }
+            full_documents.push(PreviewDocument {
+                path: full,
+                revision: document.revision,
+                content: document.content,
+            });
+        }
+        let primary = full_documents.first().ok_or("preview document missing")?;
+        let primary_path = primary.path.clone();
+        let primary_revision = primary.revision;
+        let command = self.preview_command(&primary_path, unit_id)?;
+        let mut ticket_documents: Vec<_> = full_documents
+            .iter()
+            .map(|document| TicketDocument {
+                path: document.path.clone(),
+                revision: document.revision,
+                hash: symweft_index::hash(document.content.as_bytes()),
+            })
+            .collect();
+        ticket_documents.sort_by(|left, right| left.path.cmp(&right.path));
         self.overlay
             .invalidate("superseded", "replaced by a newer preview request");
         self.defer_index_for_preview();
         let job_id = next_id()?;
         let ticket = Ticket {
             job_id,
-            path: full.clone(),
-            revision,
+            path: primary_path,
+            revision: primary_revision,
             unit_id: command.unit_id.clone(),
-            hash: symweft_index::hash(content.as_bytes()),
             epoch: self.source_epoch.load(Ordering::SeqCst),
+            documents: ticket_documents,
         };
         self.overlay.ticket = Some(ticket.clone());
         self.overlay.budget = memory_mib as usize * 1024 * 1024;
@@ -225,10 +290,13 @@ impl Controller {
             ticket,
             request: WorkerRequest {
                 command,
-                overlays: vec![Overlay {
-                    path: full,
-                    content: content.into(),
-                }],
+                overlays: full_documents
+                    .into_iter()
+                    .map(|document| Overlay {
+                        path: document.path,
+                        content: document.content,
+                    })
+                    .collect(),
             },
             budget: self.overlay.budget,
         });
@@ -307,11 +375,21 @@ impl Controller {
         };
         self.ensure_configuration().is_ok()
             && self.source_epoch.load(Ordering::SeqCst) == ticket.epoch
-            && snapshot.inputs.iter().all(|i| {
-                if i.path == ticket.path {
-                    i.hash == ticket.hash
+            && ticket.documents.iter().all(|document| {
+                snapshot
+                    .inputs
+                    .iter()
+                    .any(|input| input.path == document.path && input.hash == document.hash)
+            })
+            && snapshot.inputs.iter().all(|input| {
+                if let Some(document) = ticket
+                    .documents
+                    .iter()
+                    .find(|document| document.path == input.path)
+                {
+                    input.hash == document.hash
                 } else {
-                    self.query_store.input_digest(Path::new(&i.path)) == Some(i.hash)
+                    self.query_store.input_digest(Path::new(&input.path)) == Some(input.hash)
                 }
             })
     }
@@ -396,15 +474,21 @@ impl Controller {
                     || s.unit_id != command.unit_id
                     || s.command_key != command.command_key
                     || s.configuration != command.configuration
-                    || !s
-                        .inputs
-                        .iter()
-                        .any(|i| i.path == pending.ticket.path && i.hash == pending.ticket.hash)
-                    || !s.inputs.iter().all(|i| {
-                        if i.path == pending.ticket.path {
-                            i.hash == pending.ticket.hash
+                    || !pending.ticket.documents.iter().all(|document| {
+                        s.inputs
+                            .iter()
+                            .any(|input| input.path == document.path && input.hash == document.hash)
+                    })
+                    || !s.inputs.iter().all(|input| {
+                        if let Some(document) = pending
+                            .ticket
+                            .documents
+                            .iter()
+                            .find(|document| document.path == input.path)
+                        {
+                            input.hash == document.hash
                         } else {
-                            fingerprints.digest(Path::new(&i.path)) == Some(i.hash)
+                            fingerprints.digest(Path::new(&input.path)) == Some(input.hash)
                         }
                     })
                 {

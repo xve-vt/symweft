@@ -1,6 +1,9 @@
 use super::*;
 use symweft_semantic::{
-    model::{DiskBaseline, QUERY_VERSION_CONTRACT, QueryCoverage, QueryVersion},
+    model::{
+        DiskBaseline, MAX_OVERLAY_DOCUMENTS, MAX_OVERLAY_SOURCE_BYTES, PreviewDocument,
+        QUERY_VERSION_CONTRACT, QueryCoverage, QueryVersion,
+    },
     service::{Controller, Limits},
 };
 fn storage(root: &Path) -> PathBuf {
@@ -61,6 +64,115 @@ fn validate_result_query_version(
         validate_query_version(expected, &actual)?;
     }
     Ok(())
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreviewDocumentParam {
+    path: String,
+    revision: u64,
+}
+fn preview_documents(
+    engine: &Engine,
+    semantic_dirty: &std::collections::HashSet<String>,
+    params: &Value,
+    primary_path: &str,
+    primary_revision: u64,
+    primary_content: &str,
+) -> Result<Vec<PreviewDocument>, CoreError> {
+    let Some(mut documents) = params
+        .get("documents")
+        .map(|value| {
+            serde_json::from_value::<Vec<PreviewDocumentParam>>(value.clone()).map_err(|error| {
+                CoreError::new(
+                    "invalid_params",
+                    format!("Invalid preview documents: {error}"),
+                )
+            })
+        })
+        .transpose()?
+    else {
+        for dirty in semantic_dirty {
+            if dirty != primary_path {
+                return Err(CoreError::new(
+                    "multiple_dirty_buffers",
+                    "Preview without documents supports one unsaved buffer; include every dirty buffer in documents.",
+                ));
+            }
+        }
+        return Ok(vec![PreviewDocument {
+            path: primary_path.into(),
+            revision: primary_revision,
+            content: primary_content.into(),
+        }]);
+    };
+    if documents.is_empty() {
+        return Err(CoreError::new(
+            "invalid_params",
+            "Preview documents must include the primary path/revision.",
+        ));
+    }
+    if documents.len() > MAX_OVERLAY_DOCUMENTS {
+        return Err(CoreError::new(
+            "overlay_budget",
+            format!("Preview accepts at most {MAX_OVERLAY_DOCUMENTS} documents."),
+        ));
+    }
+    let mut paths = std::collections::HashSet::new();
+    for document in &documents {
+        if !paths.insert(document.path.clone()) {
+            return Err(CoreError::new(
+                "invalid_params",
+                format!("Duplicate preview document: {}", document.path),
+            ));
+        }
+    }
+    let missing = semantic_dirty.difference(&paths).count();
+    if missing > 0 {
+        return Err(CoreError::new(
+            "missing_overlay_documents",
+            format!(
+                "Preview documents are missing {missing} dirty buffers; refusing to read their disk contents."
+            ),
+        ));
+    }
+    let primary_index = documents
+        .iter()
+        .position(|document| document.path == primary_path && document.revision == primary_revision)
+        .ok_or_else(|| {
+            CoreError::new(
+                "invalid_params",
+                "Preview documents must contain the primary path and revision.",
+            )
+        })?;
+    let primary = documents.remove(primary_index);
+    documents.insert(0, primary);
+    let mut total_bytes = 0usize;
+    let mut output = Vec::with_capacity(documents.len());
+    for document in documents {
+        let content = if document.path == primary_path && document.revision == primary_revision {
+            primary_content.to_owned()
+        } else {
+            engine
+                .source(&document.path, document.revision)
+                .map_err(analysis_error)?
+                .to_owned()
+        };
+        total_bytes = total_bytes
+            .checked_add(content.len())
+            .ok_or_else(|| CoreError::new("overlay_budget", "Preview source size overflow."))?;
+        if content.len() > MAX_OVERLAY_SOURCE_BYTES || total_bytes > MAX_OVERLAY_SOURCE_BYTES {
+            return Err(CoreError::new(
+                "overlay_budget",
+                "Preview source exceeds the 8 MiB total budget.",
+            ));
+        }
+        output.push(PreviewDocument {
+            path: document.path,
+            revision: document.revision,
+            content,
+        });
+    }
+    Ok(output)
 }
 pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError> {
     let params = &request.params;
@@ -226,6 +338,21 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                 .engine
                 .source(path, revision)
                 .map_err(analysis_error)?;
+            if params.get("documents").is_some() {
+                return Err(CoreError::new(
+                    "invalid_params",
+                    "Synchronous semantic.preview accepts one document; use semantic.preview.start for multiple buffers.",
+                ));
+            }
+            let documents = preview_documents(
+                &session.engine,
+                &session.semantic_dirty,
+                params,
+                path,
+                revision,
+                source,
+            )?;
+            let source = &documents[0].content;
             let mut result = semantic
                 .preview(path, source, params.get("unit_id").and_then(Value::as_str))
                 .map_err(index_error)?;
@@ -245,20 +372,17 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                 .source(path, revision)
                 .map_err(analysis_error)?;
             if request.method == "semantic.preview.start" {
-                let full = semantic.absolute_path(path).map_err(index_error)?;
-                for dirty in &session.semantic_dirty {
-                    if semantic.absolute_path(dirty).map_err(index_error)? != full {
-                        return Err(CoreError::new(
-                            "multiple_dirty_buffers",
-                            "Preview currently supports one unsaved buffer; close or reload other edited buffers first.",
-                        ));
-                    }
-                }
+                let documents = preview_documents(
+                    &session.engine,
+                    &session.semantic_dirty,
+                    params,
+                    path,
+                    revision,
+                    source,
+                )?;
                 return semantic
-                    .start_preview(
-                        path,
-                        revision,
-                        source,
+                    .start_preview_documents(
+                        documents,
                         params.get("unit_id").and_then(Value::as_str),
                         params
                             .get("memory_mib")

@@ -75,7 +75,9 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
             "capabilities": ["workspace.open", "document.read", "document.open", "document.edit", "document.close", "analysis.get", "analysis.at", "analysis.stats", "cache.configure", "cache.status", "cache.pressure", "usage.record", "usage.clear", "heat.query", "index.flush", "semantic.configure", "semantic.index", "semantic.status", "semantic.progress", "semantic.cancel", "semantic.symbols", "semantic.at", "semantic.relations", "semantic.invalidate", "semantic.preview", "semantic.preview.start", "semantic.preview.progress", "semantic.preview.cancel", "semantic.preview.at", "semantic.preview.relations", "semantic.project.at", "semantic.project.relations", "semantic.watch", "semantic.refresh"],
             "limits": {"max_entries": MAX_ENTRIES, "max_document_bytes": MAX_DOCUMENT_BYTES,
                 "max_request_bytes": MAX_REQUEST_BYTES, "max_analysis_document_bytes": session.engine.budget().max_document_bytes,
-                "max_hot_documents": session.engine.budget().max_documents},
+                "max_hot_documents": session.engine.budget().max_documents,
+                "max_semantic_overlay_documents": symweft_semantic::model::MAX_OVERLAY_DOCUMENTS,
+                "max_semantic_overlay_source_bytes": symweft_semantic::model::MAX_OVERLAY_SOURCE_BYTES},
             "analysis_level": "syntax_on_demand"
         })),
         "workspace.open" => {
