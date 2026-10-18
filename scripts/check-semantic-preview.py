@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Production async overlay lifecycle, latest revision, queries and isolation."""
+import importlib.util
+import json
+import statistics
+import tempfile
+import time
+from pathlib import Path
+
+PROJECT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("protocol", PROJECT / "scripts/check-semantic.py")
+protocol = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(protocol)
+
+
+def wait(client, key, expected="ready"):
+    deadline = time.monotonic() + 12
+    while time.monotonic() < deadline:
+        value = client.rpc("semantic.preview.progress", key)
+        if value["state"] not in ["queued", "running"]:
+            assert value["state"] == expected, value
+            return value
+        time.sleep(.01)
+    raise AssertionError("preview deadline")
+
+
+def start(client, path, revision, **params):
+    ack = client.rpc("semantic.preview.start", dict(path=path, revision=revision, **params))
+    assert ack["overlay"] and not ack["persisted"]
+    return dict(path=path, revision=revision, job_id=ack["ticket"]["job_id"])
+
+
+def main():
+    output = PROJECT / "build/checks"
+    output.mkdir(parents=True, exist_ok=True)
+    results = {}
+    with tempfile.TemporaryDirectory(prefix="semantic-preview-", dir=output) as temp:
+        root = Path(temp).resolve()
+        source = '// UTF-8 织源\n#include "api.h"\nint caller(){return first();}\n'
+        header = '#ifdef __cplusplus\nextern "C" {\n#endif\nint first(void); int second(void);\n#ifdef __cplusplus\n}\n#endif\n'
+        (root / "api.h").write_text(header)
+        (root / "a.c").write_text('int first(void){return 1;} int second(void){return 2;}\n')
+        (root / "b.cpp").write_text(source)
+        commands = [{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp"]]
+        (root / "compile_commands.json").write_text(json.dumps(commands))
+        client = protocol.Client(root, root / "cache")
+        try:
+            client.configure()
+            client.index()
+            first = client.symbol("first")["id"]
+            second = client.symbol("second")["id"]
+            opened = client.rpc("document.open", {"path": "b.cpp"})
+            revision = opened["analysis"]["revision"]
+            offset = len(source[:source.index("first()")].encode())
+            edit = client.rpc("document.edit", {"path": "b.cpp", "base_revision": revision, "start_byte": offset, "old_end_byte": offset + 5, "new_text": "second"})
+            revision = edit["analysis"]["revision"]
+            before = client.rpc("semantic.status")["index"]
+            key = start(client, "b.cpp", revision)
+            responsive = []
+            for _ in range(8):
+                begin = time.perf_counter_ns()
+                client.rpc("document.read", {"path": "a.c"})
+                responsive.append((time.perf_counter_ns() - begin) / 1e6)
+            results["initial"] = wait(client, key)
+            context = client.rpc("semantic.preview.at", dict(key, byte_offset=offset))
+            assert context["entity_id"] == second, context
+            caller = context["enclosing_functions"][0]["id"]
+            for direction, entity, count in [("outgoing", caller, 1), ("incoming", second, 1), ("references", second, 1), ("definitions", caller, 1), ("definitions", second, 0)]:
+                rows = client.rpc("semantic.preview.relations", dict(key, entity_id=entity, direction=direction))["rows"]
+                assert len(rows) == count, (direction, rows)
+                assert all(r["freshness"] == "overlay" and r["revision"] == revision for r in rows)
+            assert not client.relations(second, "incoming"), "overlay must not leak into disk relations"
+            assert not client.relations(first, "incoming"), "dirty TU must suppress old disk edges"
+            assert client.rpc("semantic.status")["index"] == before, "preview must not publish persistent facts"
+            assert (root / "b.cpp").read_text() == source
+            results["read_during_preview_ms"] = {"p50": statistics.median(responsive), "max": max(responsive)}
+            print("PASS async launch, nonblocking source reads, exact overlay relations and disk isolation")
+
+            # A completed old revision and a running superseded request are both rejected.
+            edit = client.rpc("document.edit", {"path": "b.cpp", "base_revision": revision, "start_byte": offset, "old_end_byte": offset + 6, "new_text": "first"})
+            revision = edit["analysis"]["revision"]
+            assert client.rpc("semantic.preview.at", dict(key, byte_offset=offset), expect_error=True)["code"] == "stale_revision"
+            old_key = start(client, "b.cpp", revision)
+            edit = client.rpc("document.edit", {"path": "b.cpp", "base_revision": revision, "start_byte": offset, "old_end_byte": offset + 5, "new_text": "second"})
+            revision = edit["analysis"]["revision"]
+            key = start(client, "b.cpp", revision)
+            client.rpc("semantic.preview.cancel", {"job_id": old_key["job_id"]}, expect_error=True)
+            results["latest"] = wait(client, key)
+            assert client.rpc("semantic.preview.at", dict(key, byte_offset=offset))["entity_id"] == second
+            client.rpc("semantic.preview.at", dict(key, byte_offset=offset, revision=revision + 1), expect_error=True)
+            client.rpc("semantic.preview.at", dict(key, byte_offset=11), expect_error=True)  # split UTF-8 character
+            print("PASS newest revision wins, stale tickets/cancellation and invalid UTF-8 offsets rejected")
+
+            (root / "api.h").write_text(header + '// modified\n')
+            assert client.rpc("semantic.preview.progress", key)["state"] == "stale"
+            client.rpc("semantic.preview.relations", dict(key, entity_id=caller, direction="outgoing"), expect_error=True)
+            key = start(client, "b.cpp", revision)
+            wait(client, key)
+            client.rpc("document.close", {"path": "b.cpp"})
+            assert client.rpc("semantic.progress")["preview"]["charged_bytes"] == 0
+            client.rpc("semantic.preview.progress", key, expect_error=True)
+            print("PASS strict dependency validation and document close discard transient facts")
+
+            opened = client.rpc("document.open", {"path": "b.cpp"})
+            revision = opened["analysis"]["revision"]
+            key = start(client, "b.cpp", revision)
+            client.rpc("semantic.preview.cancel", {"job_id": key["job_id"]})
+            assert client.rpc("semantic.preview.progress", key)["state"] == "cancelled"
+            key = start(client, "b.cpp", revision)
+            wait(client, key)
+            client.rpc("cache.pressure", {"level": "critical", "now_ms": 1})
+            assert client.rpc("semantic.progress")["preview"]["charged_bytes"] == 0
+            client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": revision}, expect_error=True)
+            client.rpc("cache.pressure", {"level": "normal", "now_ms": 2})
+            key = start(client, "b.cpp", revision)
+            wait(client, key)
+            (root / "compile_commands.json").write_text(json.dumps(commands) + "\n")
+            assert client.rpc("semantic.preview.progress", key)["state"] == "stale"
+            client.rpc("semantic.preview.cancel", {"job_id": key["job_id"]})
+            client.configure()
+            new_key = start(client, "b.cpp", revision)
+            assert new_key["job_id"] != key["job_id"]
+            client.rpc("semantic.preview.cancel", {"job_id": key["job_id"]}, expect_error=True)
+            wait(client, new_key)
+            print("PASS cancellation, critical pressure eviction/resume and changed configuration")
+            client.rpc("semantic.watch", {"enabled": True, "auto_refresh": False, "metadata_cache": True})
+            key = start(client, "b.cpp", revision)
+            wait(client, key)
+            (root / "new-search-candidate.h").write_text("// include search structure changed\n")
+            deadline = time.monotonic() + 6
+            while time.monotonic() < deadline:
+                live = client.rpc("semantic.progress")
+                if live["preview"]["state"] == "stale" and live["watch"]["monitor"]["events"]:
+                    break
+                time.sleep(.02)
+            assert live["preview"]["state"] == "stale", live
+            assert live["watch"]["monitor"]["events"] > 0, live
+            assert live["preview"]["charged_bytes"] == 0
+            print("PASS real native structural event invalidates the retained preview")
+            invalid = client.rpc("document.edit", {"path": "b.cpp", "base_revision": revision,
+                "start_byte": 0, "old_end_byte": len(source.encode()), "new_text": "int broken( { }\n"})
+            revision = invalid["analysis"]["revision"]
+            key = start(client, "b.cpp", revision)
+            failed = wait(client, key, expected="failed")
+            assert failed["diagnostics"] and any(d["severity"] >= 3 for d in failed["diagnostics"]), failed
+            client.rpc("semantic.preview.at", dict(key, byte_offset=0), expect_error=True)
+            a_opened = client.rpc("document.open", {"path": "a.c"})
+            a_bytes = len((root / "a.c").read_bytes())
+            client.rpc("document.edit", {"path": "a.c", "base_revision": a_opened["analysis"]["revision"],
+                "start_byte": a_bytes, "old_end_byte": a_bytes, "new_text": "// unsaved\n"})
+            error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": revision}, expect_error=True)
+            assert error["code"] == "multiple_dirty_buffers", error
+            print("PASS compiler diagnostics without partial facts and explicit multiple-dirty-buffer boundary")
+        finally:
+            client.close()
+    (output / "semantic-preview.json").write_text(json.dumps(results, indent=2))
+    print("All asynchronous semantic preview checks passed.")
+
+
+if __name__ == "__main__":
+    main()

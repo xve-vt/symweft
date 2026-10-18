@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"error":"#ffb4ab","inverse-surface":"#dfe2ec","on-error":"#690005","tertiary-fixed-dim":"#bec7da","lang-cpp":"#F34B7D","background":"#0f131a","on-tertiary-fixed-variant":"#3e4757","surface-container":"#1c2027","surface-bright":"#353941","surface-container-highest":"#31353d","lang-rust":"#DEA584","status-error":"#F18F93","on-surface":"#dfe2ec","tertiary":"#cfd8ec","surface-container-high":"#262a32","status-success":"#7CCF9A","error-container":"#93000a","tertiary-container":"#b3bcd0","bg-canvas":"#10141B","inverse-primary":"#006b5f","outline":"#879390","on-secondary-fixed":"#001c3b","secondary-fixed-dim":"#a6c8ff","on-secondary-container":"#8eb7f7","lang-python":"#3572A5","on-primary-fixed":"#00201c","outline-variant":"#3d4947","accent-primary":"#63CDBD","border-subtle":"#303B4C","surface-container-lowest":"#0a0e15","on-error-container":"#ffdad6","on-tertiary-fixed":"#131c2a","secondary-fixed":"#d5e3ff","text-secondary":"#A8B5C8","status-info":"#8FB8F8","on-tertiary":"#283140","status-warning":"#F2C46D","surface-dim":"#0f131a","on-background":"#dfe2ec","on-primary-fixed-variant":"#005048","primary-fixed":"#8cf5e4","inverse-on-surface":"#2d3038","on-primary-container":"#00554c","surface-variant":"#31353d","surface":"#0f131a","primary-container":"#63cdbd","on-tertiary-container":"#434c5c","primary":"#80e9d9","secondary-container":"#154780","on-primary":"#003731","secondary":"#a6c8ff","primary-fixed-dim":"#6fd8c8","on-surface-variant":"#bcc9c6","text-primary":"#E7EDF6","surface-tint":"#6fd8c8","on-secondary":"#003060","bg-raised":"#202938","tertiary-fixed":"#dae3f7","bg-surface":"#171D27","lang-java":"#B07219","surface-container-low":"#181c23","on-secondary-fixed-variant":"#154780"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"margin-screen":"0rem","space-xs":"0.25rem","space-lg":"1rem","margin":"0.75rem","gutter":"0.5rem","gutter-panel":"0.0625rem","space-sm":"0.5rem","space-md":"0.75rem","space-xl":"1.5rem"},"fontFamily":{"code-sm":["JetBrains Mono"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"body-md":["Inter"],"body-sm":["Inter"],"body-lg":["Inter"],"code-lg":["JetBrains Mono"],"headline-md":["Inter"],"headline-sm":["Inter"],"label-md":["Inter"],"label-sm":["JetBrains Mono"]},"fontSize":{"code-sm":["0.6875rem",{"lineHeight":"0.9375rem","fontWeight":"400"}],"headline-lg":["1.25rem",{"lineHeight":"1.75rem","letterSpacing":"-0.015em","fontWeight":"600"}],"code-md":["0.8125rem",{"lineHeight":"1.1875rem","fontWeight":"400"}],"body-md":["0.8125rem",{"lineHeight":"1.125rem","fontWeight":"400"}],"body-sm":["0.75rem",{"lineHeight":"1rem","fontWeight":"400"}],"body-lg":["0.875rem",{"lineHeight":"1.25rem","fontWeight":"400"}],"code-lg":["0.875rem",{"lineHeight":"1.3125rem","fontWeight":"400"}],"headline-md":["1rem",{"lineHeight":"1.375rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-sm":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"-0.005em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.02em","fontWeight":"500"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.04em","fontWeight":"500"}]}}}};</script></head><body class="bg-bg-canvas font-body-md text-text-primary min-h-screen selection:bg-accent-primary selection:text-surface-container-lowest"><header class="fixed top-0 left-0 right-0 h-[46px] z-50 bg-bg-surface border-b border-border-subtle flex items-center justify-between px-space-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-space-xs"><div class="w-6 h-6 rounded bg-bg-raised flex items-center justify-center text-accent-primary font-headline-sm text-headline-sm"><span class="material-symbols-outlined text-[16px]">polyline</span></div><span class="font-headline-sm text-headline-sm text-text-primary tracking-tight font-semibold">Understood</span></div><div class="h-4 w-px bg-border-subtle"></div><button class="h-7 px-space-xs rounded bg-surface-container-low hover:bg-bg-raised hover:text-text-primary flex items-center gap-space-xs text-text-secondary transition-colors" type="button"><span class="font-code-sm text-code-sm text-text-primary truncate max-w-[210px]">Orion Commerce (5 repos)</span><div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-lang-python" title="Python"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-rust" title="Rust"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-java" title="Java"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-cpp" title="C++"></span></div><span class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="h-4 w-px bg-border-subtle"></div><nav class="flex items-center gap-0.5" data-active-classes="bg-bg-raised text-text-primary font-semibold"><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="reading-workbench" href="#">01 阅读工作台</a><a aria-current="page" class="h-7 px-space-xs rounded flex items-center transition-colors bg-bg-raised text-text-primary font-semibold" data-path="call-graph" href="#">02 调用图分屏</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="control-flow" href="#">03 控制流图</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="system-map" href="#">04 跨项目系统地图</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="relation-inspector" href="#">05 关系证据检查器</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="search-command" href="#">08 搜索与命令</a></nav></div><div class="flex items-center gap-space-xs flex-1 max-w-[480px] mx-space-md"><div class="w-full h-8 bg-surface-container-low border border-border-subtle rounded flex items-center px-space-xs gap-space-xs focus-within:border-accent-primary transition-colors"><span class="material-symbols-outlined text-text-secondary text-[16px]">search</span><span class="font-code-sm text-code-sm text-text-secondary flex-1 truncate">跳转至文件 / 符号 / 全文 / &gt; 命令...</span><kbd class="px-1 py-0.5 rounded bg-bg-raised border border-border-subtle font-code-sm text-code-sm text-text-secondary">Ctrl+K</kbd></div><div class="h-7 px-space-xs bg-surface-container-low border border-border-subtle rounded flex items-center gap-1 text-text-secondary hover:bg-bg-raised hover:text-text-primary cursor-pointer transition-colors"><span class="material-symbols-outlined text-[14px]">history_toggle_off</span><span class="font-code-sm text-code-sm truncate max-w-[120px]">local-dev</span></div></div><div class="flex items-center gap-space-sm"><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center gap-0.5 border border-border-subtle"><button class="px-space-xs h-full rounded bg-bg-raised text-accent-primary font-label-md text-label-md font-semibold" type="button">阅读</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">开发</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">深度分析</button></div><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center border border-border-subtle"><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="源码优先" type="button"><span class="material-symbols-outlined text-[15px]">code</span></button><button class="w-6 h-full rounded bg-bg-raised flex items-center justify-center text-accent-primary" title="分屏 55:45" type="button"><span class="material-symbols-outlined text-[15px]">vertical_split</span></button><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="全图谱" type="button"><span class="material-symbols-outlined text-[15px]">hub</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex items-center gap-1 pl-space-xs border-l border-border-subtle"><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-status-error/80 hover:bg-status-error flex items-center justify-center" type="button"></button></div></div></header><aside class="fixed left-0 top-[46px] bottom-[24px] w-[48px] bg-bg-canvas border-r border-border-subtle z-40 flex flex-col items-center justify-between py-space-xs"><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded bg-bg-raised text-accent-primary flex items-center justify-center hover:bg-surface-container-high transition-colors" title="项目资源树 (Projects)" type="button"><span class="material-symbols-outlined text-[18px]">folder_copy</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="符号大纲 (Symbols)" type="button"><span class="material-symbols-outlined text-[18px]">account_tree</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="阅读路径 (Reading Trails)" type="button"><span class="material-symbols-outlined text-[18px]">route</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="依赖与架构规则 (Architecture Rules)" type="button"><span class="material-symbols-outlined text-[18px]">schema</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="全文检索 (Search)" type="button"><span class="material-symbols-outlined text-[18px]">find_in_page</span></button></div><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="扩展 (Extensions)" type="button"><span class="material-symbols-outlined text-[18px]">extension</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="设置与系统偏好" type="button"><span class="material-symbols-outlined text-[18px]">settings</span></button></div></aside><div class="pl-[48px]"><main class="relative pt-[46px] pb-[24px] min-h-[calc(100vh-24px)] bg-bg-canvas w-full"><div class="flex flex-col w-full text-text-primary selection:bg-accent-primary selection:text-surface-container-lowest">
+<!-- TOP TOOLBAR: Graph & Workbench Operations Bar -->
+<div class="w-full bg-surface-container-low px-space-md py-space-xs flex flex-wrap items-center justify-between gap-space-sm shadow-sm select-none">
+<!-- Direction & Depth Segmented Controls -->
+<div class="flex items-center gap-space-md">
+<!-- Direction Segment -->
+<div class="flex items-center gap-1 bg-surface-container-lowest p-0.5 rounded">
+<button class="h-6 px-2 rounded font-label-md text-label-md text-text-secondary hover:text-text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[13px]">arrow_back</span>
+<span>调用方</span>
+</button>
+<button class="h-6 px-2 rounded font-label-md text-label-md text-text-secondary hover:text-text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[13px]">sync_alt</span>
+<span>双向</span>
+</button>
+<button class="h-6 px-2 rounded font-label-md text-label-md bg-bg-raised text-accent-primary font-semibold flex items-center gap-1 shadow-sm" type="button">
+<span>被调用方</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+<!-- Depth Adjuster -->
+<div class="flex items-center gap-2 bg-surface-container-lowest px-2 py-0.5 rounded h-7">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">深度 (Depth)</span>
+<button class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-high hover:bg-bg-raised text-text-secondary hover:text-text-primary text-[11px]" type="button">-</button>
+<span class="font-code-sm text-code-sm text-accent-primary font-semibold px-1">2 / 5</span>
+<button class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-high hover:bg-bg-raised text-text-secondary hover:text-text-primary text-[11px]" type="button">+</button>
+</div>
+<!-- Protocol Filters -->
+<div class="flex items-center gap-1.5 pl-2">
+<label class="flex items-center gap-1.5 h-6 px-2 rounded bg-surface-container-high text-accent-primary font-label-sm text-label-sm cursor-pointer select-none">
+<input checked="" class="w-3.5 h-3.5 accent-accent-primary rounded" type="checkbox"/>
+<span>Calls</span>
+</label>
+<label class="flex items-center gap-1.5 h-6 px-2 rounded bg-surface-container-high text-accent-primary font-label-sm text-label-sm cursor-pointer select-none">
+<input checked="" class="w-3.5 h-3.5 accent-accent-primary rounded" type="checkbox"/>
+<span>gRPC</span>
+</label>
+<label class="flex items-center gap-1.5 h-6 px-2 rounded bg-surface-container-high text-accent-primary font-label-sm text-label-sm cursor-pointer select-none">
+<input checked="" class="w-3.5 h-3.5 accent-accent-primary rounded" type="checkbox"/>
+<span>PyO3 / FFI</span>
+</label>
+<label class="flex items-center gap-1.5 h-6 px-2 rounded bg-surface-container-high text-status-warning font-label-sm text-label-sm cursor-pointer select-none">
+<input class="w-3.5 h-3.5 accent-status-warning rounded" type="checkbox"/>
+<span>动态候选 (4)</span>
+</label>
+</div>
+</div>
+<!-- Repository Scope & View Actions -->
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center gap-1.5 bg-surface-container-lowest px-2 h-7 rounded text-text-secondary hover:text-text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[15px] text-accent-primary">account_tree</span>
+<span class="font-label-sm text-label-sm text-text-primary">全部 5 个仓库</span>
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+</div>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<div class="flex items-center gap-1">
+<button class="h-7 px-2 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary hover:text-text-primary font-label-sm text-label-sm flex items-center gap-1 transition-colors" title="自适应居中视图" type="button">
+<span class="material-symbols-outlined text-[14px]">center_focus_strong</span>
+<span>居中</span>
+</button>
+<button class="h-7 px-2 rounded bg-bg-raised text-accent-primary font-label-sm text-label-sm flex items-center gap-1 transition-colors" title="锁定固定根节点" type="button">
+<span class="material-symbols-outlined text-[14px]">push_pin</span>
+<span class="font-code-sm text-code-sm">assess</span>
+</button>
+<button class="h-7 px-2 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary hover:text-text-primary font-label-sm text-label-sm flex items-center gap-1 transition-colors" title="重新执行拓扑布局算法" type="button">
+<span class="material-symbols-outlined text-[14px]">refresh</span>
+<span>重排</span>
+</button>
+<button class="h-7 px-2 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary hover:text-text-primary font-label-sm text-label-sm flex items-center gap-1 transition-colors" title="导出调用图为矢量 SVG" type="button">
+<span class="material-symbols-outlined text-[14px]">download</span>
+<span>导出 SVG</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MAIN SPLIT WORKSPACE: 55% Source Buffer / 45% High-Precision Graph Canvas -->
+<div class="grid grid-cols-12 w-full gap-0 min-h-[calc(100vh-106px)] bg-bg-canvas relative overflow-hidden">
+<!-- LEFT PANE: 55% Code Editor & Active Trace (col-span-12 xl:col-span-7) -->
+<section class="col-span-12 xl:col-span-7 flex flex-col bg-bg-surface overflow-hidden">
+<!-- Breadcrumb & Tab Header -->
+<div class="h-8 bg-surface-container-lowest px-space-sm flex items-center justify-between select-none">
+<div class="flex items-center gap-space-xs font-code-sm text-code-sm">
+<span class="px-2 py-0.5 rounded bg-bg-surface text-accent-primary flex items-center gap-1.5 font-medium shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-python"></span>
+<span>service.py</span>
+<span class="material-symbols-outlined text-[12px] text-text-secondary hover:text-text-primary cursor-pointer">close</span>
+</span>
+<span class="px-2 py-0.5 rounded text-text-secondary hover:text-text-primary cursor-pointer transition-colors flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-rust"></span>
+<span>risk_core/src/lib.rs</span>
+</span>
+</div>
+<div class="flex items-center gap-space-sm text-text-secondary font-label-sm text-label-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-accent-primary">visibility</span>
+<span>双向高亮激活</span>
+</div>
+<span class="text-surface-container-highest">/</span>
+<span class="font-code-sm text-code-sm">services/risk/service.py</span>
+</div>
+</div>
+<!-- Editor Subheader: Symbol Scope Indicator -->
+<div class="h-6 bg-surface-container-low px-space-md flex items-center gap-2 font-code-sm text-code-sm text-text-secondary">
+<span class="material-symbols-outlined text-[14px] text-accent-primary">function</span>
+<span class="text-text-primary">RiskService</span>
+<span class="text-surface-container-highest">&gt;</span>
+<span class="text-accent-primary font-semibold">assess(payload: AssessRequest) -&gt; RiskReport</span>
+<span class="ml-auto text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-surface-container-high text-accent-primary">AST L1-L34</span>
+</div>
+<!-- Code Buffer Container with Line Numbers, Gutters, Active Line Highlight & Minimap -->
+<div class="flex-1 flex overflow-x-auto overflow-y-hidden relative font-code-md text-code-md leading-[1.375rem] py-2">
+<!-- Line Numbers & Breakpoint Slots -->
+<div class="w-14 flex-shrink-0 select-none flex flex-col text-right pr-3 font-code-sm text-code-sm text-text-secondary/50 space-y-0">
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>1</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>2</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>3</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>4</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>5</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-status-error/40 hover:bg-status-error cursor-pointer" title="断点"></span>6</div>
+<!-- ACTIVE CALL LINE 7 -->
+<div class="h-[1.375rem] flex items-center justify-end gap-1 text-accent-primary font-bold bg-bg-raised/70 -mr-3 pr-3 rounded-l"><span class="w-2 h-2 rounded-full bg-accent-primary"></span>7</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>8</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>9</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>10</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>11</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>12</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>13</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>14</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>15</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>16</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>17</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>18</div>
+<div class="h-[1.375rem] flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>19</div>
+</div>
+<!-- Code Tokens Stream -->
+<div class="flex-1 pl-3 pr-20 overflow-x-auto space-y-0 text-text-primary whitespace-pre">
+<div><span class="text-secondary">import</span> <span class="text-tertiary">logging</span></div>
+<div><span class="text-secondary">from</span> <span class="text-tertiary">orion_protocol</span> <span class="text-secondary">import</span> <span class="text-primary-fixed">risk_pb2</span></div>
+<div><span class="text-secondary">from</span> <span class="text-tertiary">risk_bridge</span> <span class="text-secondary">import</span> <span class="text-accent-primary">risk_bridge</span> <span class="text-text-secondary/60"># PyO3 native extension</span></div>
+<div></div>
+<div><span class="text-secondary">def</span> <span class="text-accent-primary font-semibold">assess</span>(payload: <span class="text-primary-fixed">risk_pb2.AssessRequest</span>) -&gt; <span class="text-primary-fixed">risk_pb2.RiskReport</span>:</div>
+<div> <span class="text-tertiary">normalized</span> = <span class="text-status-info">normalize</span>(payload.context)</div>
+<!-- HIGHLIGHTED LINE 7 -->
+<div class="bg-bg-raised text-text-primary px-2 -mx-2 rounded flex items-center justify-between group shadow-sm">
+<span> <span class="text-text-primary">score</span> = <span class="text-accent-primary font-semibold underline decoration-accent-primary/60 decoration-2 underline-offset-4">risk_bridge.calculate</span>(<span class="text-tertiary">normalized</span>)</span>
+<span class="opacity-90 font-label-sm text-label-sm text-accent-primary bg-surface-container-high px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[12px]">link</span>
+<span>PyO3 关联调用</span>
+</span>
+</div>
+<div> <span class="text-secondary">if</span> <span class="text-text-primary">score.is_ambiguous</span>():</div>
+<div> <span class="text-text-secondary/60"># 启发式动态调度候选分支</span></div>
+<div> <span class="text-text-primary">decision</span> = <span class="text-status-warning">RiskPolicy.apply_fallback</span>(payload.user_id, score)</div>
+<div> <span class="text-secondary">else</span>:</div>
+<div> <span class="text-text-primary">decision</span> = <span class="text-text-primary">score.to_decision</span>()</div>
+<div></div>
+<div> <span class="text-secondary">if</span> <span class="text-text-primary">decision.requires_pricing_adjustment</span>:</div>
+<div> <span class="text-status-info">pricing_core_quote</span>(payload.transaction_id, decision.tier)</div>
+<div></div>
+<div> <span class="text-secondary">return</span> <span class="text-primary-fixed">risk_pb2.RiskReport</span>(</div>
+<div> <span class="text-tertiary">approved</span>=<span class="text-text-primary">decision.is_cleared</span>,</div>
+<div> <span class="text-tertiary">risk_score</span>=<span class="text-text-primary">score.value</span></div>
+<div>    )</div>
+</div>
+<!-- Minimap Simulation -->
+<div class="absolute right-2 top-2 bottom-2 w-14 bg-surface-container-lowest/60 rounded p-1 select-none pointer-events-none flex flex-col gap-0.5">
+<div class="w-8 h-1 bg-secondary/40 rounded"></div>
+<div class="w-10 h-1 bg-tertiary/40 rounded"></div>
+<div class="w-9 h-1 bg-accent-primary/40 rounded"></div>
+<div class="w-11 h-1 bg-secondary/40 rounded"></div>
+<div class="w-7 h-1 bg-status-info/40 rounded"></div>
+<!-- Line 7 marker in minimap -->
+<div class="w-12 h-1.5 bg-accent-primary rounded shadow-sm"></div>
+<div class="w-6 h-1 bg-status-warning/40 rounded"></div>
+<div class="w-8 h-1 bg-text-secondary/30 rounded"></div>
+<div class="w-10 h-1 bg-status-info/40 rounded"></div>
+<div class="w-9 h-1 bg-text-secondary/20 rounded"></div>
+<div class="w-7 h-1 bg-text-secondary/20 rounded"></div>
+</div>
+</div>
+<!-- Editor Bottom Meta Strip -->
+<div class="h-6 bg-surface-container-low px-space-sm flex items-center justify-between text-text-secondary font-label-sm text-label-sm select-none">
+<div class="flex items-center gap-space-sm">
+<span class="flex items-center gap-1 text-accent-primary"><span class="w-1.5 h-1.5 rounded-full bg-accent-primary"></span>已关联右侧边: risk_bridge.calculate</span>
+<span class="text-surface-container-highest">·</span>
+<span>引用计数: 14</span>
+</div>
+<div class="flex items-center gap-space-sm font-code-sm text-code-sm">
+<span>Python 3.12</span>
+<span>4 spaces</span>
+</div>
+</div>
+</section>
+<!-- RIGHT PANE: 45% High-Precision Call Graph Viewport (col-span-12 xl:col-span-5) -->
+<section class="col-span-12 xl:col-span-5 flex flex-col bg-bg-canvas relative overflow-hidden">
+<!-- Graph Canvas Header Tools -->
+<div class="h-8 bg-surface-container-low px-space-sm flex items-center justify-between select-none">
+<div class="flex items-center gap-space-xs font-label-md text-label-md">
+<span class="text-text-primary font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-accent-primary">hub</span>
+<span>拓扑调用图谱</span>
+</span>
+<span class="text-xs px-1.5 py-0.2 rounded bg-surface-container-high text-accent-primary font-code-sm text-code-sm">Focused: assess</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-6 h-6 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">zoom_in</span>
+</button>
+<button class="w-6 h-6 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">zoom_out</span>
+</button>
+<button class="w-6 h-6 rounded bg-surface-container-lowest hover:bg-surface-container-high text-text-secondary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">fit_screen</span>
+</button>
+</div>
+</div>
+<!-- GRAPH SVG CANVAS VIEWPORT -->
+<div class="flex-1 relative overflow-hidden bg-bg-canvas flex items-center justify-center p-space-md select-none">
+<!-- Grid matrix background pattern -->
+<svg class="absolute inset-0 w-full h-full opacity-15 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="24" id="call-grid" patternunits="userSpaceOnUse" width="24">
+<circle cx="2" cy="2" fill="#80e9d9" r="0.75"></circle>
+</pattern>
+</defs>
+<rect fill="url(#call-grid)" height="100%" width="100%"></rect>
+</svg>
+<!-- Dynamic Graph Topology SVG (Nodes & Edges) -->
+<div class="relative w-full max-w-[620px] h-[580px]">
+<!-- SVG CONNECTORS LAYER -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-10" fill="none" viewbox="0 0 620 580" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<!-- Arrowhead markers -->
+<marker id="arrow-solid" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="7" refy="4" viewbox="0 0 8 8">
+<path d="M 0 1 L 7 4 L 0 7 z" fill="#63CDBD"></path>
+</marker>
+<marker id="arrow-dashed" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="7" refy="4" viewbox="0 0 8 8">
+<path d="M 0 1 L 7 4 L 0 7 z" fill="#8FB8F8"></path>
+</marker>
+<marker id="arrow-warning" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="7" refy="4" viewbox="0 0 8 8">
+<path d="M 0 1 L 7 4 L 0 7 z" fill="#F2C46D"></path>
+</marker>
+<!-- Highlighted active PyO3 edge glow -->
+<filter height="120%" id="glow-edge" width="120%" x="-10%" y="-10%">
+<fedropshadow dx="0" dy="0" flood-color="#63CDBD" flood-opacity="0.8" stddeviation="3"></fedropshadow>
+</filter>
+</defs>
+<!-- 1. Upstream Edge: OrderService.create -> assess (gRPC) -->
+<path d="M 190 74 L 190 120 L 310 120 L 310 162" marker-end="url(#arrow-dashed)" stroke="#8FB8F8" stroke-dasharray="4 3" stroke-width="1.5"></path>
+<!-- 2. Downstream Edge: assess -> normalize (Direct Call) -->
+<path d="M 230 220 L 115 220 L 115 282" marker-end="url(#arrow-solid)" stroke="#63CDBD" stroke-width="1.5"></path>
+<!-- 3. Downstream Edge: assess -> risk_core::evaluate (PyO3) [CURRENT ACTIVE LINK TO LINE 7] -->
+<path d="M 310 220 L 310 282" filter="url(#glow-edge)" marker-end="url(#arrow-solid)" stroke="#63CDBD" stroke-width="2.5"></path>
+<!-- 4. Downstream Edge: assess -> pricing_core_quote (C ABI) -->
+<path d="M 390 220 L 495 220 L 495 282" marker-end="url(#arrow-solid)" stroke="#63CDBD" stroke-width="1.5"></path>
+<!-- 5. Fallback Edge: assess -> RiskPolicy.apply_fallback (Dynamic Heuristic) -->
+<path d="M 360 220 L 360 250 L 220 250 L 220 402" marker-end="url(#arrow-warning)" stroke="#F2C46D" stroke-dasharray="3 3" stroke-width="1.5"></path>
+<!-- 6. Upstream fold connector to badge -->
+<path d="M 450 74 L 450 120 L 360 120" stroke="#303B4C" stroke-dasharray="2 2" stroke-width="1.2"></path>
+</svg>
+<!-- SVG Protocol Edge Badges (Clickable Overlays) -->
+<!-- Upstream gRPC Badge -->
+<div class="absolute left-[200px] top-[108px] z-20 -translate-x-1/2 -translate-y-1/2 bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded font-label-sm text-label-sm shadow-sm flex items-center gap-1 select-none">
+<span class="material-symbols-outlined text-[10px]">cloud_sync</span>
+<span>gRPC: RiskService/Assess</span>
+</div>
+<!-- Direct Call Badge -->
+<div class="absolute left-[135px] top-[242px] z-20 -translate-x-1/2 -translate-y-1/2 bg-surface-container-high text-accent-primary px-1.5 py-0.5 rounded font-label-sm text-label-sm shadow-sm">
+<span>Direct Call</span>
+</div>
+<!-- ACTIVE PyO3 Call Badge (Anchored between assess and risk_core) -->
+<div class="absolute left-[310px] top-[245px] z-30 -translate-x-1/2 -translate-y-1/2 bg-accent-primary text-surface-container-lowest font-semibold px-2 py-0.5 rounded shadow-md flex items-center gap-1 cursor-pointer">
+<span class="material-symbols-outlined text-[11px]">bolt</span>
+<span>[PyO3 Native]</span>
+</div>
+<!-- C ABI Badge -->
+<div class="absolute left-[475px] top-[242px] z-20 -translate-x-1/2 -translate-y-1/2 bg-surface-container-high text-lang-cpp px-1.5 py-0.5 rounded font-label-sm text-label-sm shadow-sm">
+<span>[C ABI]</span>
+</div>
+<!-- GRAPH NODES -->
+<!-- 1. UPSTREAM CALLER NODE: order-service :: OrderService.create -->
+<div class="absolute left-[90px] top-[24px] w-[200px] bg-surface-container rounded p-2 shadow-md cursor-pointer hover:bg-surface-container-high transition-colors z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-text-secondary mb-1">
+<span class="flex items-center gap-1 text-lang-rust font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-rust"></span>order-service
+              </span>
+<span class="px-1 rounded bg-surface-container-lowest text-[10px]">Rust</span>
+</div>
+<div class="font-code-sm text-code-sm text-text-primary font-semibold truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-text-secondary">call_made</span>
+<span>OrderService.create</span>
+</div>
+</div>
+<!-- 2. COLLAPSED UPSTREAM FOLD BADGE (+38 callers) -->
+<div class="absolute left-[390px] top-[34px] bg-surface-container-high hover:bg-bg-raised text-text-secondary hover:text-text-primary px-2.5 py-1.5 rounded shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors z-20">
+<span class="material-symbols-outlined text-[14px] text-accent-primary">unfold_more</span>
+<span class="font-code-sm text-code-sm font-semibold">+38 个外部调用方...</span>
+</div>
+<!-- 3. ROOT NODE (PINNED & GLOW): risk-service :: assess -->
+<div class="absolute left-[200px] top-[162px] w-[220px] bg-bg-raised rounded p-2.5 shadow-xl ring-2 ring-accent-primary z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm mb-1.5">
+<span class="flex items-center gap-1 text-lang-python font-semibold">
+<span class="w-2 h-2 rounded-full bg-lang-python"></span>risk-service
+              </span>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-accent-primary animate-pulse"></span>
+<span class="text-[10px] uppercase font-bold text-accent-primary tracking-wider">ROOT</span>
+</div>
+</div>
+<div class="font-code-md text-code-md text-text-primary font-bold truncate flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-accent-primary">trip_origin</span>
+<span class="text-accent-primary">assess</span>
+</div>
+<div class="mt-1 pt-1 border-t border-surface-container-highest/60 flex items-center justify-between font-code-sm text-code-sm text-text-secondary">
+<span>service.py:5</span>
+<span class="text-accent-primary font-semibold">入度 39 · 出度 4</span>
+</div>
+</div>
+<!-- 4. DOWNSTREAM NODE A: risk-service :: normalize -->
+<div class="absolute left-[20px] top-[284px] w-[190px] bg-surface-container rounded p-2 shadow-md cursor-pointer hover:bg-surface-container-high transition-colors z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-text-secondary mb-1">
+<span class="flex items-center gap-1 text-lang-python font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-python"></span>risk-service
+              </span>
+<span class="text-[10px] text-status-success font-label-sm text-label-sm">Resolved</span>
+</div>
+<div class="font-code-sm text-code-sm text-text-primary font-semibold truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-accent-primary">subdirectory_arrow_right</span>
+<span>normalize</span>
+</div>
+</div>
+<!-- 5. DOWNSTREAM NODE B: risk_core :: evaluate (PyO3 Target - Active Target) -->
+<div class="absolute left-[220px] top-[284px] w-[180px] bg-surface-container-high rounded p-2 shadow-lg ring-1 ring-accent-primary/70 cursor-pointer z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-text-secondary mb-1">
+<span class="flex items-center gap-1 text-lang-rust font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-rust"></span>risk_core
+              </span>
+<span class="px-1 rounded bg-bg-canvas text-accent-primary text-[10px] font-code-sm text-code-sm">PyO3</span>
+</div>
+<div class="font-code-sm text-code-sm text-accent-primary font-bold truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">extension</span>
+<span>evaluate</span>
+</div>
+<div class="text-[10px] text-text-secondary font-code-sm text-code-sm truncate mt-0.5">lib.rs:42</div>
+</div>
+<!-- 6. DOWNSTREAM NODE C: pricing_core :: pricing_core_quote -->
+<div class="absolute left-[415px] top-[284px] w-[190px] bg-surface-container rounded p-2 shadow-md cursor-pointer hover:bg-surface-container-high transition-colors z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-text-secondary mb-1">
+<span class="flex items-center gap-1 text-lang-cpp font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-cpp"></span>pricing_core
+              </span>
+<span class="text-[10px] text-text-secondary font-label-sm text-label-sm">C ABI</span>
+</div>
+<div class="font-code-sm text-code-sm text-text-primary font-semibold truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-text-secondary">memory</span>
+<span>pricing_core_quote</span>
+</div>
+</div>
+<!-- 7. DOWNSTREAM DYNAMIC CANDIDATE NODE: RiskPolicy.apply_fallback -->
+<div class="absolute left-[120px] top-[404px] w-[210px] bg-surface-container-low rounded p-2 shadow-md hover:bg-surface-container transition-colors z-20">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-status-warning mb-1">
+<span class="flex items-center gap-1 font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-status-warning"></span>动态调度
+              </span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-high text-status-warning text-[10px] font-semibold">3 候选目标</span>
+</div>
+<div class="font-code-sm text-code-sm text-text-primary font-medium truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-status-warning">alt_route</span>
+<span>RiskPolicy.apply_fallback</span>
+</div>
+<div class="mt-1 flex items-center justify-between text-[10px] text-text-secondary font-code-sm text-code-sm">
+<span>Polymorphic Call</span>
+<span class="text-status-warning">启发式推断</span>
+</div>
+</div>
+<!-- INTERACTIVE HOVER TOOLTIP / POPOVER (Hovering the PyO3 edge) -->
+<div class="absolute left-[330px] top-[185px] w-[270px] bg-bg-raised rounded shadow-xl p-space-sm z-40 ring-1 ring-accent-primary pointer-events-auto">
+<div class="flex items-center justify-between mb-1 pb-1 border-b border-surface-container-highest">
+<span class="font-label-md text-label-md font-semibold text-accent-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">link</span>
+<span>关系证据检查 (PyO3)</span>
+</span>
+<span class="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-surface-container-high text-status-success font-semibold">已解析 (Resolved)</span>
+</div>
+<div class="space-y-1 font-body-sm text-body-sm text-text-secondary">
+<div class="flex items-start justify-between gap-1">
+<span class="text-text-secondary/70">调用来源:</span>
+<span class="font-code-sm text-code-sm text-text-primary truncate">service.py:7</span>
+</div>
+<div class="flex items-start justify-between gap-1">
+<span class="text-text-secondary/70">绑定目标:</span>
+<span class="font-code-sm text-code-sm text-lang-rust truncate">crates/risk-core/src/lib.rs:42</span>
+</div>
+<div class="flex items-start justify-between gap-1">
+<span class="text-text-secondary/70">跨语言类型:</span>
+<span class="font-code-sm text-code-sm text-text-primary">PyO3 #[pyfunction]</span>
+</div>
+</div>
+<div class="mt-2 pt-1.5 border-t border-surface-container-highest flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-text-secondary">确定度: 100% 静态符号绑定</span>
+<button class="font-label-sm text-label-sm text-accent-primary hover:underline flex items-center gap-0.5" type="button">
+<span>打开右侧检查器</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- FLOATING BOTTOM PILL STATUS BAR ON GRAPH VIEWPORT -->
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 bg-surface-container-lowest/95 backdrop-blur px-space-md py-1.5 rounded shadow-lg flex items-center gap-space-md select-none font-label-sm text-label-sm">
+<div class="flex items-center gap-1.5 text-text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span>当前视图: <strong class="text-accent-primary">12</strong> 节点</span>
+<span class="text-surface-container-highest">·</span>
+<span><strong class="text-accent-primary">17</strong> 条关系</span>
+<span class="text-surface-container-highest">·</span>
+<span><strong class="text-status-warning">2</strong> 个候选调用点</span>
+</div>
+<div class="h-3 w-px bg-surface-container-highest"></div>
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[13px] text-accent-primary">speed</span>
+<span>全库截断预算内 (<strong class="text-text-primary font-code-sm text-code-sm">300</strong> 节点预算)</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div></main></div><footer class="fixed bottom-0 left-0 right-0 h-[24px] bg-surface-container-lowest border-t border-border-subtle z-50 flex items-center justify-between px-space-sm font-label-sm text-label-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-1 text-accent-primary"><span class="material-symbols-outlined text-[13px]">fork_right</span><span>git:main</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1.5 text-text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-status-success"></span><span>语法分析可用</span><span class="text-border-subtle">·</span><span>语义分析已完成 7,830 点</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1"><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-warning border border-status-warning/30">候选 412</span><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-error border border-status-error/30">未解析 184</span></div></div><div class="flex items-center gap-space-sm text-text-secondary"><span class="text-text-primary font-code-sm text-code-sm">Ln 42, Col 18</span><span class="text-border-subtle">·</span><span>UTF-8</span><span class="text-border-subtle">·</span><span class="text-lang-python font-semibold">Python 3.12 (venv)</span><span class="text-border-subtle">·</span><span>4 空格缩进</span></div><div class="flex items-center gap-space-xs"><button class="h-4 px-1.5 rounded bg-bg-raised border border-border-subtle flex items-center gap-1 text-accent-primary hover:border-accent-primary transition-colors" type="button"><span class="w-1.5 h-1.5 rounded-full bg-accent-primary"></span><span>阅读模式</span><span class="text-border-subtle">|</span><span class="font-code-sm text-code-sm">428 MiB</span><span class="text-border-subtle">|</span><span class="text-text-secondary">后台已暂停</span></button><span class="material-symbols-outlined text-[14px] text-text-secondary">memory</span></div></footer></body></html>

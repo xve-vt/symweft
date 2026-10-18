@@ -1,0 +1,847 @@
+{
+  "schema": 1,
+  "task": "PERF-01",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "source_root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+  "commands": "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json",
+  "qemu_commit": "2df3db357e2d59b7e56c8fa9b97cd035e67d473b",
+  "scope": "2 configured TUs (system/main.c, system/vl.c); 1 unsaved TU; warm OS caches; no full QEMU A2",
+  "compiler_environment": {
+    "CPATH": "/usr/local/include",
+    "C_INCLUDE_PATH": "",
+    "CPLUS_INCLUDE_PATH": "",
+    "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+    "MACOSX_DEPLOYMENT_TARGET": "",
+    "LIBCLANG_PATH": ""
+  },
+  "instrumentation": {
+    "enabled": true,
+    "process_interval_ms": 50,
+    "profile_unit_cap": 64,
+    "serializer": "unchanged streaming JSON; timed forwarded writer; probe overhead included",
+    "gpu": "not measured; no GPU graph implementation yet",
+    "external_window_server": "not attributed"
+  },
+  "configuration": {
+    "configuration": "dd31041892249f811b7d662027526efcb2d78993bfbf4e5a9bd83791183236a0",
+    "configured_units": 2855,
+    "provider": "a2-clang-v3:2c8709ae0789a344cc2d605607749dd7516916ecf2b1e4101a0d61ba65cc53fd"
+  },
+  "index": {
+    "index_first": {
+      "wall_ms": 2242.066542,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "profile": {
+          "checkpoint_micros": 15251,
+          "recorded_units": 2,
+          "truncated": false,
+          "units": [
+            {
+              "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c",
+              "publish": {
+                "commit_micros": 14154,
+                "fact_compress_nanos": 38523968,
+                "fact_encode_nanos": 2620768,
+                "fact_hash_nanos": 3093307,
+                "new_facts": 8442,
+                "publish_wall_micros": 136610,
+                "reused_fact_verify_nanos": 2193544,
+                "reused_facts": 754,
+                "sqlite_and_other_micros": 76025
+              },
+              "result_validation_micros": 38737,
+              "reuse_validation_micros": 20,
+              "reused": false,
+              "run": {
+                "child_wait_micros": 316913,
+                "controller_wall_micros": 412039,
+                "reply_bytes": 3851675,
+                "reply_decode_micros": 94828,
+                "request_bytes": 2310,
+                "request_encode_micros": 6,
+                "spawn_micros": 258,
+                "stdin_write_micros": 2,
+                "worker": {
+                  "cpu_system_micros": 48656,
+                  "cpu_user_micros": 191534,
+                  "diagnostics_micros": 3,
+                  "fact_extract_micros": 60591,
+                  "input_validation_micros": 18639,
+                  "parse_micros": 141667,
+                  "pid": 29090,
+                  "prepare_micros": 9831,
+                  "provider_wall_micros": 230752,
+                  "reply_bytes": 3851675,
+                  "reply_encode_micros": 33606,
+                  "request_decode_micros": 56,
+                  "self_peak_rss_bytes": 75169792,
+                  "stdout_write_micros": 29637,
+                  "worker_wall_micros": 294869
+                }
+              }
+            },
+            {
+              "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+              "publish": {
+                "commit_micros": 50059,
+                "fact_compress_nanos": 184479278,
+                "fact_encode_nanos": 16295147,
+                "fact_hash_nanos": 18981859,
+                "new_facts": 40379,
+                "publish_wall_micros": 727889,
+                "reused_fact_verify_nanos": 40750548,
+                "reused_facts": 14253,
+                "sqlite_and_other_micros": 417324
+              },
+              "result_validation_micros": 16013,
+              "reuse_validation_micros": 32,
+              "reused": false,
+              "run": {
+                "child_wait_micros": 841082,
+                "controller_wall_micros": 873467,
+                "reply_bytes": 22596875,
+                "reply_decode_micros": 32012,
+                "request_bytes": 2204,
+                "request_encode_micros": 6,
+                "spawn_micros": 325,
+                "stdin_write_micros": 3,
+                "worker": {
+                  "cpu_system_micros": 87434,
+                  "cpu_user_micros": 666616,
+                  "diagnostics_micros": 4,
+                  "fact_extract_micros": 253108,
+                  "input_validation_micros": 23369,
+                  "parse_micros": 212871,
+                  "pid": 29123,
+                  "prepare_micros": 8333,
+                  "provider_wall_micros": 497709,
+                  "reply_bytes": 22596875,
+                  "reply_encode_micros": 166204,
+                  "request_decode_micros": 20,
+                  "self_peak_rss_bytes": 120864768,
+                  "stdout_write_micros": 151255,
+                  "worker_wall_micros": 816664
+                }
+              }
+            }
+          ]
+        },
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "manual",
+        "wall_ms": 2232
+      }
+    },
+    "index_reuse": {
+      "wall_ms": 65.277917,
+      "job": {
+        "analyzed": 0,
+        "failures": [],
+        "profile": {
+          "checkpoint_micros": 16416,
+          "recorded_units": 2,
+          "truncated": false,
+          "units": [
+            {
+              "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c",
+              "reuse_validation_micros": 15477,
+              "reused": true
+            },
+            {
+              "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+              "reuse_validation_micros": 15752,
+              "reused": true
+            }
+          ]
+        },
+        "reused": 2,
+        "state": "complete",
+        "total": 2,
+        "trigger": "manual",
+        "wall_ms": 56
+      }
+    }
+  },
+  "preview": {
+    "ack_ms": 0.606458,
+    "ready_wall_ms": 863.53,
+    "source_read_during_analysis": {
+      "samples": 36,
+      "p50_ms": 0.1861875,
+      "p95_ms": 0.536959,
+      "max_ms": 0.649125
+    },
+    "result": {
+      "charged_bytes": 24773396,
+      "clang_accounted_bytes": 25831733,
+      "completeness": "current overlay translation unit only; disk contributions are queried separately",
+      "diagnostics": [],
+      "extract_micros": 275314,
+      "memory_budget_bytes": 33554432,
+      "overlay": true,
+      "parse_micros": 148480,
+      "persisted": false,
+      "profile": {
+        "result_validation_micros": 17793,
+        "run": {
+          "child_wait_micros": 771390,
+          "controller_wall_micros": 808564,
+          "reply_bytes": 22596875,
+          "reply_decode_micros": 33255,
+          "request_bytes": 128284,
+          "request_encode_micros": 130,
+          "spawn_micros": 187,
+          "stdin_write_micros": 3574,
+          "worker": {
+            "cpu_system_micros": 79896,
+            "cpu_user_micros": 650327,
+            "diagnostics_micros": 3,
+            "fact_extract_micros": 252690,
+            "input_validation_micros": 22605,
+            "parse_micros": 148480,
+            "pid": 29164,
+            "prepare_micros": 8062,
+            "provider_wall_micros": 431860,
+            "reply_bytes": 22596875,
+            "reply_encode_micros": 168454,
+            "request_decode_micros": 181,
+            "self_peak_rss_bytes": 121651200,
+            "stdout_write_micros": 156689,
+            "worker_wall_micros": 758543
+          }
+        }
+      },
+      "queued": false,
+      "reason": null,
+      "state": "ready",
+      "ticket": {
+        "job_id": 1,
+        "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+        "revision": 2,
+        "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5"
+      },
+      "wall_ms": 826,
+      "worker_active": false
+    }
+  },
+  "queries": {
+    "overlay_at": {
+      "samples": 30,
+      "p50_ms": 1.3465625,
+      "p95_ms": 1.910666,
+      "max_ms": 2.02725,
+      "entity_found": true
+    },
+    "overlay_outgoing": {
+      "samples": 30,
+      "p50_ms": 3.5068545,
+      "p95_ms": 4.618917,
+      "max_ms": 5.019666,
+      "rows": 405
+    },
+    "disk_incoming": {
+      "samples": 30,
+      "p50_ms": 1.1965,
+      "p95_ms": 2.616041,
+      "max_ms": 4.50875,
+      "rows": 1
+    }
+  },
+  "core_idle": {
+    "seconds": 8,
+    "before": {
+      "input_hashes": 686,
+      "configuration_hashes": 2,
+      "auto_jobs": 0
+    },
+    "after": {
+      "input_hashes": 686,
+      "configuration_hashes": 2,
+      "auto_jobs": 0
+    },
+    "rpc_during_idle": 0
+  },
+  "core_sampler": {
+    "backend": "libproc proc_pid_rusage v2 / proc_listchildpids",
+    "interval_requested_ms": 50.0,
+    "cpu_tick_seconds": 4.166666666666666e-08,
+    "sampling_thread_cpu_seconds": 0.0765685,
+    "overwritten_samples": 0,
+    "harness_peak_rss_bytes": 59604992,
+    "summary": {
+      "samples": 218,
+      "tree_rss_sampled_max_bytes": 248823808,
+      "tree_footprint_sampled_max_bytes": 175457456,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 140607488,
+          "footprint_sampled_max_bytes": 101794416,
+          "cpu_observed_seconds": 1.3734910000000002
+        },
+        "compiler_worker": {
+          "pids": [
+            "29090:3057686299818",
+            "29123:3057700503357",
+            "29164:3057743487076"
+          ],
+          "rss_sampled_max_bytes": 121651200,
+          "footprint_sampled_max_bytes": 87081512,
+          "cpu_observed_seconds": 1.577473875
+        },
+        "helper": {
+          "pids": [
+            "29123:3057700503357"
+          ],
+          "rss_sampled_max_bytes": 108167168,
+          "footprint_sampled_max_bytes": 0,
+          "cpu_observed_seconds": 0.04031499999999999
+        }
+      },
+      "cpu_observed_seconds": 2.991279875000001,
+      "cpu_interval_max_one_core_percent": 115.65930226152948,
+      "incomplete_cpu_intervals": 12,
+      "collection_max_ms": 0.8662920000000001,
+      "truncated": false,
+      "observed_span_seconds": 11.671534875,
+      "cpu_average_one_core_percent": 25.628847508370235,
+      "interval_ms": {
+        "mean": 53.78587499999997,
+        "max": 67.755333
+      },
+      "available": true
+    }
+  },
+  "core_phases": {
+    "setup": {
+      "samples": 4,
+      "tree_rss_sampled_max_bytes": 54198272,
+      "tree_footprint_sampled_max_bytes": 29917592,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 54198272,
+          "footprint_sampled_max_bytes": 29917592,
+          "cpu_observed_seconds": 0.1609678333333333
+        }
+      },
+      "cpu_observed_seconds": 0.1609678333333333,
+      "cpu_interval_max_one_core_percent": 99.9027293517873,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.143709,
+      "truncated": false,
+      "observed_span_seconds": 0.16377475,
+      "cpu_average_one_core_percent": 98.28611146305111,
+      "interval_ms": {
+        "mean": 54.59158333333334,
+        "max": 55.031209
+      },
+      "available": true
+    },
+    "index_first": {
+      "samples": 41,
+      "tree_rss_sampled_max_bytes": 217481216,
+      "tree_footprint_sampled_max_bytes": 146490496,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 130072576,
+          "footprint_sampled_max_bytes": 93586008,
+          "cpu_observed_seconds": 0.9667424583333333
+        },
+        "compiler_worker": {
+          "pids": [
+            "29090:3057686299818",
+            "29123:3057700503357"
+          ],
+          "rss_sampled_max_bytes": 120864768,
+          "footprint_sampled_max_bytes": 86327848,
+          "cpu_observed_seconds": 0.9042787083333332
+        },
+        "helper": {
+          "pids": [
+            "29123:3057700503357"
+          ],
+          "rss_sampled_max_bytes": 108167168,
+          "footprint_sampled_max_bytes": 0,
+          "cpu_observed_seconds": 0.04031499999999999
+        }
+      },
+      "cpu_observed_seconds": 1.9113361666666662,
+      "cpu_interval_max_one_core_percent": 115.65930226152948,
+      "incomplete_cpu_intervals": 4,
+      "collection_max_ms": 0.28308300000000003,
+      "truncated": false,
+      "observed_span_seconds": 2.183328041,
+      "cpu_average_one_core_percent": 87.54232670374365,
+      "interval_ms": {
+        "mean": 54.58320102499998,
+        "max": 67.755333
+      },
+      "available": true
+    },
+    "index_reuse": {
+      "samples": 1,
+      "tree_rss_sampled_max_bytes": 108642304,
+      "tree_footprint_sampled_max_bytes": 70517336,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 108642304,
+          "footprint_sampled_max_bytes": 70517336,
+          "cpu_observed_seconds": 0
+        }
+      },
+      "cpu_observed_seconds": 0,
+      "cpu_interval_max_one_core_percent": 0,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.132041,
+      "truncated": false,
+      "available": true
+    },
+    "prepare_preview": {
+      "samples": 2,
+      "tree_rss_sampled_max_bytes": 109920256,
+      "tree_footprint_sampled_max_bytes": 71107160,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 109920256,
+          "footprint_sampled_max_bytes": 71107160,
+          "cpu_observed_seconds": 0.0033638333333334547
+        }
+      },
+      "cpu_observed_seconds": 0.0033638333333334547,
+      "cpu_interval_max_one_core_percent": 6.196440722449888,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.114125,
+      "truncated": false,
+      "observed_span_seconds": 0.054286541,
+      "cpu_average_one_core_percent": 6.196440722449888,
+      "interval_ms": {
+        "mean": 54.286541,
+        "max": 54.286541
+      },
+      "available": true
+    },
+    "preview": {
+      "samples": 16,
+      "tree_rss_sampled_max_bytes": 248823808,
+      "tree_footprint_sampled_max_bytes": 175457456,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 139296768,
+          "footprint_sampled_max_bytes": 100483696,
+          "cpu_observed_seconds": 0.11476704166666685
+        },
+        "compiler_worker": {
+          "pids": [
+            "29164:3057743487076"
+          ],
+          "rss_sampled_max_bytes": 121651200,
+          "footprint_sampled_max_bytes": 87081512,
+          "cpu_observed_seconds": 0.6731951666666667
+        }
+      },
+      "cpu_observed_seconds": 0.7879622083333335,
+      "cpu_interval_max_one_core_percent": 113.5489146111287,
+      "incomplete_cpu_intervals": 2,
+      "collection_max_ms": 0.355459,
+      "truncated": false,
+      "observed_span_seconds": 0.809,
+      "cpu_average_one_core_percent": 97.39953131437991,
+      "interval_ms": {
+        "mean": 53.93333333333333,
+        "max": 55.064541
+      },
+      "available": true
+    },
+    "queries": {
+      "samples": 4,
+      "tree_rss_sampled_max_bytes": 140607488,
+      "tree_footprint_sampled_max_bytes": 101794416,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 140607488,
+          "footprint_sampled_max_bytes": 101794416,
+          "cpu_observed_seconds": 0.12737166666666666
+        }
+      },
+      "cpu_observed_seconds": 0.12737166666666666,
+      "cpu_interval_max_one_core_percent": 86.76783625066754,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.197666,
+      "truncated": false,
+      "observed_span_seconds": 0.160120292,
+      "cpu_average_one_core_percent": 79.54748587809637,
+      "interval_ms": {
+        "mean": 53.37343066666667,
+        "max": 55.023125
+      },
+      "available": true
+    },
+    "core_idle": {
+      "samples": 149,
+      "tree_rss_sampled_max_bytes": 140607488,
+      "tree_footprint_sampled_max_bytes": 101794416,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 140607488,
+          "footprint_sampled_max_bytes": 101794416,
+          "cpu_observed_seconds": 0.00027816666666669043
+        }
+      },
+      "cpu_observed_seconds": 0.00027816666666669043,
+      "cpu_interval_max_one_core_percent": 0.05906351899199115,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.8662920000000001,
+      "truncated": false,
+      "observed_span_seconds": 7.920394375,
+      "cpu_average_one_core_percent": 0.0035120305062674414,
+      "interval_ms": {
+        "mean": 53.516178209459476,
+        "max": 55.134375
+      },
+      "available": true
+    },
+    "core_cleanup": {
+      "samples": 1,
+      "tree_rss_sampled_max_bytes": 103727104,
+      "tree_footprint_sampled_max_bytes": 54886976,
+      "roles": {
+        "core": {
+          "pids": [
+            "29058:3057642692609"
+          ],
+          "rss_sampled_max_bytes": 103727104,
+          "footprint_sampled_max_bytes": 54886976,
+          "cpu_observed_seconds": 0
+        }
+      },
+      "cpu_observed_seconds": 0,
+      "cpu_interval_max_one_core_percent": 0,
+      "incomplete_cpu_intervals": 1,
+      "collection_max_ms": 0.122667,
+      "truncated": false,
+      "available": true
+    }
+  },
+  "source_unchanged": true,
+  "database_bytes": 26808320,
+  "probe_controls": {
+    "samples": [
+      {
+        "repeat": 0,
+        "enabled": false,
+        "backend_wall_ms": 593,
+        "ready_wall_ms": 615.324125,
+        "profile_present": false
+      },
+      {
+        "repeat": 0,
+        "enabled": true,
+        "backend_wall_ms": 828,
+        "ready_wall_ms": 851.573375,
+        "profile_present": true
+      },
+      {
+        "repeat": 1,
+        "enabled": false,
+        "backend_wall_ms": 666,
+        "ready_wall_ms": 686.34925,
+        "profile_present": false
+      },
+      {
+        "repeat": 1,
+        "enabled": true,
+        "backend_wall_ms": 858,
+        "ready_wall_ms": 877.782459,
+        "profile_present": true
+      },
+      {
+        "repeat": 2,
+        "enabled": false,
+        "backend_wall_ms": 590,
+        "ready_wall_ms": 610.053833,
+        "profile_present": false
+      },
+      {
+        "repeat": 2,
+        "enabled": true,
+        "backend_wall_ms": 786,
+        "ready_wall_ms": 809.87575,
+        "profile_present": true
+      }
+    ],
+    "off": {
+      "samples": 3,
+      "p50_ms": 593,
+      "p95_ms": 666,
+      "max_ms": 666
+    },
+    "on": {
+      "samples": 3,
+      "p50_ms": 828,
+      "p95_ms": 858,
+      "max_ms": 858
+    },
+    "scope": "3 interleaved pairs, same disk inputs, no OS cache purge; preview only; not a stable tail-latency estimate"
+  },
+  "native_idle": {
+    "activity": {
+      "analyzed_units": 2,
+      "end_unix_ns": 1792337765604591872,
+      "job_wall_ms": 2018,
+      "scope": "refresh previously indexed units only",
+      "start_unix_ns": 1792337763520420096,
+      "total_units": 2
+    },
+    "after": {
+      "auto_jobs": 0,
+      "configuration_hashes": 2,
+      "input_bytes_read": 6575587,
+      "input_hashes": 689
+    },
+    "attention_recording": false,
+    "before": {
+      "auto_jobs": 0,
+      "configuration_hashes": 2,
+      "input_bytes_read": 6575587,
+      "input_hashes": 689
+    },
+    "current_function": "qemu_init",
+    "end_unix_ns": 1792337775145623040,
+    "idle_seconds": 8.492729209,
+    "normal_metrics_timer": true,
+    "semantic_configured": true,
+    "semantic_outgoing": 100,
+    "start_unix_ns": 1792337766652521984,
+    "status": "ok",
+    "ui_active": true,
+    "ui_pid": 29603,
+    "unoccluded_windows": 1,
+    "visible_windows": 1,
+    "watch_enabled": true
+  },
+  "native_sampler": {
+    "backend": "libproc proc_pid_rusage v2 / proc_listchildpids",
+    "interval_requested_ms": 50.0,
+    "cpu_tick_seconds": 4.166666666666666e-08,
+    "sampling_thread_cpu_seconds": 0.110951208,
+    "overwritten_samples": 0,
+    "harness_peak_rss_bytes": 63766528,
+    "summary": {
+      "samples": 242,
+      "tree_rss_sampled_max_bytes": 397918208,
+      "tree_footprint_sampled_max_bytes": 257738912,
+      "roles": {
+        "ui": {
+          "pids": [
+            "29603:3058114648136"
+          ],
+          "rss_sampled_max_bytes": 187957248,
+          "footprint_sampled_max_bytes": 118866976,
+          "cpu_observed_seconds": 1.8350267083333331
+        },
+        "helper": {
+          "pids": [
+            "29604:3058123968909",
+            "29669:3058158169839"
+          ],
+          "rss_sampled_max_bytes": 108003328,
+          "footprint_sampled_max_bytes": 32768,
+          "cpu_observed_seconds": 0.04937883333333326
+        },
+        "core": {
+          "pids": [
+            "29604:3058123968909"
+          ],
+          "rss_sampled_max_bytes": 133660672,
+          "footprint_sampled_max_bytes": 93749872,
+          "cpu_observed_seconds": 1.2980217916666665
+        },
+        "compiler_worker": {
+          "pids": [
+            "29636:3058146566273",
+            "29669:3058158169839"
+          ],
+          "rss_sampled_max_bytes": 120700928,
+          "footprint_sampled_max_bytes": 86164008,
+          "cpu_observed_seconds": 0.881506
+        }
+      },
+      "cpu_observed_seconds": 4.063933333333331,
+      "cpu_interval_max_one_core_percent": 189.5513974246628,
+      "incomplete_cpu_intervals": 7,
+      "collection_max_ms": 5.673832999999999,
+      "truncated": false,
+      "observed_span_seconds": 12.959342375,
+      "cpu_average_one_core_percent": 31.359101532598647,
+      "interval_ms": {
+        "mean": 53.77320487551869,
+        "max": 55.406333
+      },
+      "available": true
+    }
+  },
+  "native_idle_resources": {
+    "samples": 158,
+    "tree_rss_sampled_max_bytes": 321290240,
+    "tree_footprint_sampled_max_bytes": 191088272,
+    "roles": {
+      "ui": {
+        "pids": [
+          "29603:3058114648136"
+        ],
+        "rss_sampled_max_bytes": 187629568,
+        "footprint_sampled_max_bytes": 97338400,
+        "cpu_observed_seconds": 0.4961803333333332
+      },
+      "core": {
+        "pids": [
+          "29604:3058123968909"
+        ],
+        "rss_sampled_max_bytes": 133660672,
+        "footprint_sampled_max_bytes": 93749872,
+        "cpu_observed_seconds": 0.003138833333333313
+      }
+    },
+    "cpu_observed_seconds": 0.49931916666666654,
+    "cpu_interval_max_one_core_percent": 81.91656184676748,
+    "incomplete_cpu_intervals": 1,
+    "collection_max_ms": 5.673832999999999,
+    "truncated": false,
+    "observed_span_seconds": 8.402163208,
+    "cpu_average_one_core_percent": 5.942745389559286,
+    "interval_ms": {
+      "mean": 53.51696310828025,
+      "max": 55.406333
+    },
+    "available": true
+  },
+  "native_analysis_resources": {
+    "samples": 38,
+    "tree_rss_sampled_max_bytes": 397918208,
+    "tree_footprint_sampled_max_bytes": 257738912,
+    "roles": {
+      "ui": {
+        "pids": [
+          "29603:3058114648136"
+        ],
+        "rss_sampled_max_bytes": 179159040,
+        "footprint_sampled_max_bytes": 118866976,
+        "cpu_observed_seconds": 0.18637095833333328
+      },
+      "core": {
+        "pids": [
+          "29604:3058123968909"
+        ],
+        "rss_sampled_max_bytes": 133087232,
+        "footprint_sampled_max_bytes": 93176432,
+        "cpu_observed_seconds": 0.9238691666666666
+      },
+      "compiler_worker": {
+        "pids": [
+          "29636:3058146566273",
+          "29669:3058158169839"
+        ],
+        "rss_sampled_max_bytes": 120700928,
+        "footprint_sampled_max_bytes": 86164008,
+        "cpu_observed_seconds": 0.881506
+      },
+      "helper": {
+        "pids": [
+          "29669:3058158169839"
+        ],
+        "rss_sampled_max_bytes": 108003328,
+        "footprint_sampled_max_bytes": 0,
+        "cpu_observed_seconds": 0.04937883333333326
+      }
+    },
+    "cpu_observed_seconds": 2.0411249583333335,
+    "cpu_interval_max_one_core_percent": 187.78890129637423,
+    "incomplete_cpu_intervals": 4,
+    "collection_max_ms": 0.5585829999999999,
+    "truncated": false,
+    "observed_span_seconds": 1.9963175,
+    "cpu_average_one_core_percent": 102.24450561262593,
+    "interval_ms": {
+      "mean": 53.95452702702703,
+      "max": 55.099041
+    },
+    "available": true
+  },
+  "input_manifest": {
+    "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json": {
+      "bytes": 4881568,
+      "sha256": "6976336bf489d6891117624826c25dc3c221db37ba88c8d856c6680b5dc7e0a9"
+    },
+    "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c": {
+      "bytes": 120566,
+      "sha256": "a5fb2a78e45ec8edb256188eed44e8f06f7dba99c1dd029dd8a0d74cfab74266"
+    },
+    "/Users/liuweifeng/work/symweft/target/release/symweft-core": {
+      "bytes": 10944128,
+      "sha256": "575a7fa1a05a40b8097cedfa89e302fedba96f743c041654c79f82af2384ab41"
+    },
+    "/Users/liuweifeng/work/symweft/build/macos/Symweft.app/Contents/MacOS/Symweft": {
+      "bytes": 1844496,
+      "sha256": "1194c9108512a49e91780689b355ba970b834745ebbf7ec1981b921c2135d922"
+    },
+    "/Users/liuweifeng/work/symweft/build/macos/Symweft.app/Contents/MacOS/symweft-core": {
+      "bytes": 10898608,
+      "sha256": "1f3645119b45213bd0db3be5347e1ee8420c15286f9cf7d2b9060b3d02169659"
+    }
+  },
+  "archive_provenance": {
+    "original_report": "/Users/liuweifeng/work/symweft/build/performance/perf-01-accepted/pipeline.json",
+    "original_sha256": "41ef5aca029e121d88a016de02e5c7d4c26c9171651a0036324af50e7055d585",
+    "note": "All measurement fields preserved; archive adds provenance and regression verification."
+  },
+  "validation": {
+    "verified_on": "2026-10-19 Asia/Tokyo",
+    "rust_workspace": {
+      "command": "cargo test --offline",
+      "passed_tests": 32
+    },
+    "clippy": {
+      "command": "cargo clippy --offline --all-targets -- -D warnings",
+      "status": "passed"
+    },
+    "scripts": {
+      "python3 scripts/check-semantic.py": "passed",
+      "python3 scripts/check-semantic-realtime.py": "passed",
+      "python3 scripts/check-semantic-preview.py": "passed",
+      "python3 scripts/check-performance.py (4 tests)": "passed",
+      "bash scripts/check-macos.sh": "passed",
+      "python3 scripts/check-macos-realtime.py (light and dark)": "passed"
+    },
+    "release_build": "passed",
+    "full_pipeline": "passed with explicit --perf-refresh-indexed true",
+    "gpu": "not measured",
+    "other_platforms": "not measured"
+  }
+}

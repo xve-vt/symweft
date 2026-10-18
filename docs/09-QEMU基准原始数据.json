@@ -1,0 +1,1179 @@
+{
+  "date": "2026-10-18",
+  "machine": {
+    "platform": "macOS 26.6.2 arm64",
+    "cpu": "Apple M2",
+    "memory_bytes": 17179869184,
+    "rust": "1.99.0",
+    "swift": "6.3.3"
+  },
+  "corpus": {
+    "qemu_version": "11.1.1",
+    "commit": "2df3db357e2d59b7e56c8fa9b97cd035e67d473b",
+    "level": "A1 syntax only",
+    "os_page_cache": "not purged"
+  },
+  "phases": {
+    "backends": {
+      "result": {
+        "pack_bytes": 18667142,
+        "results": [
+          {
+            "backend": "sqlite-raw",
+            "bytes_before_checkpoint": 27423496,
+            "checkpoint_us": 1503,
+            "files": 6723,
+            "heat_export_top1000_us": 0,
+            "put_batch_us": 94344,
+            "spool_read_us": 13640,
+            "sqlite": "3.53.2",
+            "steady_bytes": 23736320,
+            "wall_ms": 113
+          },
+          {
+            "backend": "sqlite-indexed",
+            "bytes_before_checkpoint": 79525952,
+            "checkpoint_us": 7681,
+            "files": 6723,
+            "heat_export_top1000_us": 460604,
+            "put_batch_us": 3856621,
+            "spool_read_us": 9961,
+            "sqlite": "3.53.2",
+            "steady_bytes": 67244032,
+            "wall_ms": 4340
+          }
+        ]
+      },
+      "resource_text": "        5.18 real         1.15 user         1.73 sys\n            30949376  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                2062  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n               61721  voluntary context switches\n                4399  involuntary context switches\n         28892009435  instructions retired\n          9223212200  cycles elapsed\n            27459944  peak memory footprint\n",
+      "peak_rss_bytes": 30949376,
+      "process_time_seconds": {
+        "real": 5.18,
+        "user": 1.15,
+        "sys": 1.73
+      }
+    },
+    "baseline": {
+      "result": {
+        "analyzed_files": 6722,
+        "benchmark": "qemu-original-interactive-v1",
+        "end_cache": {
+          "cached_documents": 8,
+          "estimated_retained_bytes": 1597988,
+          "evictions": 6714,
+          "parses": 6722,
+          "source_bytes": 67913,
+          "unchanged_hits": 0
+        },
+        "explicit_call_sites": 367680,
+        "extract_us": 2498539,
+        "failure_codes": {
+          "analysis_budget": 1
+        },
+        "failures": [
+          {
+            "code": "analysis_budget",
+            "message": "Document exceeds the interactive syntax budget; text reading remains available.",
+            "path": "disas/nanomips.c"
+          }
+        ],
+        "file_max_us": 70305,
+        "file_p50_us": 414,
+        "file_p95_us": 5089,
+        "files_with_syntax_errors": 3043,
+        "level": "A1 syntax only",
+        "parse_us": 5628366,
+        "peak_accounted_hot_bytes": 21983937,
+        "peak_hot_documents": 8,
+        "peak_source_bytes": 763016,
+        "persistent_index_bytes": null,
+        "read_latency": null,
+        "root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+        "source_bytes": 65000505,
+        "source_lines": 2031648,
+        "supported_files": 6723,
+        "symbols": 80425,
+        "wall_ms": 9626
+      },
+      "resource_text": "baseline 1/6723\nbaseline 1001/6723\nbaseline 2001/6723\nbaseline 3001/6723\nbaseline 4001/6723\nbaseline 5001/6723\nbaseline 6001/6723\n       10.78 real         8.17 user         0.37 sys\n            37650432  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                2452  page reclaims\n                  13  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                7554  voluntary context switches\n               14959  involuntary context switches\n        105801528708  instructions retired\n         27460277672  cycles elapsed\n            27148624  peak memory footprint\n",
+      "peak_rss_bytes": 37650432,
+      "process_time_seconds": {
+        "real": 10.78,
+        "user": 8.17,
+        "sys": 0.37
+      }
+    },
+    "compare": {
+      "result": {
+        "durable_replacement": [
+          {
+            "backend": "sqlite-raw",
+            "batch_size": 10,
+            "file_growth_bytes": 0,
+            "replacements": 100,
+            "wall_us": 1939
+          },
+          {
+            "backend": "sqlite-indexed",
+            "batch_size": 10,
+            "file_growth_bytes": 8192,
+            "replacements": 100,
+            "wall_us": 284913
+          },
+          {
+            "backend": "hybrid-indexed",
+            "batch_size": 10,
+            "file_growth_bytes": 212444,
+            "replacements": 100,
+            "wall_us": 155262
+          },
+          {
+            "backend": "pack",
+            "batch_size": 10,
+            "file_growth_bytes": 196060,
+            "replacements": 100,
+            "wall_us": 167393
+          }
+        ],
+        "os_cache": "not purged; alternating backend order, application connections reopened each round",
+        "reads": [
+          {
+            "backend": "sqlite-indexed",
+            "open_us": 2213,
+            "round": 0,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 57,
+              "p95_us": 1166,
+              "p99_us": 1726
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 142,
+              "p95_us": 331,
+              "p99_us": 925
+            }
+          },
+          {
+            "backend": "hybrid-indexed",
+            "open_us": 463,
+            "round": 0,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 14,
+              "p95_us": 200,
+              "p99_us": 450
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 29,
+              "p95_us": 82,
+              "p99_us": 148
+            }
+          },
+          {
+            "backend": "pack",
+            "open_us": 4226,
+            "round": 0,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 3,
+              "p95_us": 44,
+              "p99_us": 134
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 23,
+              "p95_us": 81,
+              "p99_us": 137
+            }
+          },
+          {
+            "backend": "sqlite-raw",
+            "open_us": 771,
+            "round": 0,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 17,
+              "p95_us": 824,
+              "p99_us": 1295
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 30,
+              "p95_us": 90,
+              "p99_us": 153
+            }
+          },
+          {
+            "backend": "hybrid-indexed",
+            "open_us": 474,
+            "round": 1,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 10,
+              "p95_us": 52,
+              "p99_us": 129
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 28,
+              "p95_us": 81,
+              "p99_us": 142
+            }
+          },
+          {
+            "backend": "pack",
+            "open_us": 3470,
+            "round": 1,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 3,
+              "p95_us": 44,
+              "p99_us": 120
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 21,
+              "p95_us": 75,
+              "p99_us": 134
+            }
+          },
+          {
+            "backend": "sqlite-raw",
+            "open_us": 439,
+            "round": 1,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 12,
+              "p95_us": 59,
+              "p99_us": 136
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 34,
+              "p95_us": 103,
+              "p99_us": 205
+            }
+          },
+          {
+            "backend": "sqlite-indexed",
+            "open_us": 482,
+            "round": 1,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 14,
+              "p95_us": 67,
+              "p99_us": 159
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 31,
+              "p95_us": 93,
+              "p99_us": 151
+            }
+          },
+          {
+            "backend": "pack",
+            "open_us": 3385,
+            "round": 2,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 4,
+              "p95_us": 45,
+              "p99_us": 134
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 21,
+              "p95_us": 75,
+              "p99_us": 134
+            }
+          },
+          {
+            "backend": "sqlite-raw",
+            "open_us": 427,
+            "round": 2,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 12,
+              "p95_us": 59,
+              "p99_us": 134
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 29,
+              "p95_us": 88,
+              "p99_us": 159
+            }
+          },
+          {
+            "backend": "sqlite-indexed",
+            "open_us": 411,
+            "round": 2,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 13,
+              "p95_us": 59,
+              "p99_us": 135
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 36,
+              "p95_us": 110,
+              "p99_us": 190
+            }
+          },
+          {
+            "backend": "hybrid-indexed",
+            "open_us": 454,
+            "round": 2,
+            "snapshot_read_checksum_decode": {
+              "p50_us": 9,
+              "p95_us": 50,
+              "p99_us": 121
+            },
+            "source_hash_snapshot_decode": {
+              "p50_us": 28,
+              "p95_us": 83,
+              "p99_us": 142
+            }
+          }
+        ],
+        "replacement_semantics": "identical snapshot replacement; SQLite FULL, pack and hybrid sync data before metadata publication; not actual source edits"
+      },
+      "resource_text": "        1.91 real         0.45 user         0.32 sys\n            25985024  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                1783  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                8523  voluntary context switches\n                 982  involuntary context switches\n          7835028264  instructions retired\n          2441122766  cycles elapsed\n            21971280  peak memory footprint\n",
+      "peak_rss_bytes": 25985024,
+      "process_time_seconds": {
+        "real": 1.91,
+        "user": 0.45,
+        "sys": 0.32
+      }
+    },
+    "export": {
+      "result": {
+        "behavior": "actual index contains no user reading events; all zero, synthetic replays excluded",
+        "output": "build/benchmarks/qemu-v1",
+        "pack_directory_estimated_bytes": 2783097,
+        "rows": {
+          "file": 6723,
+          "symbol": 81174
+        }
+      },
+      "resource_text": "        1.24 real         0.75 user         0.30 sys\n            91701248  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                5767  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                1384  voluntary context switches\n                1485  involuntary context switches\n         10516440525  instructions retired\n          3388778606  cycles elapsed\n            89588096  peak memory footprint\n",
+      "peak_rss_bytes": 91701248,
+      "process_time_seconds": {
+        "real": 1.24,
+        "user": 0.75,
+        "sys": 0.3
+      }
+    },
+    "full-index": {
+      "result": {
+        "analyzed": 6723,
+        "bytes": 69865472,
+        "database": "/Users/liuweifeng/work/symweft/build/benchmarks/runtime-cache/07f0797deae2d085d2426b7f11b02e1c9a1ded2e1903d9887528076027a938c0/a1-v2/index.sqlite3",
+        "failures": [],
+        "level": "syntax",
+        "removed": 0,
+        "reused": 0,
+        "wall_ms": 14740
+      },
+      "resource_text": "       15.47 real         8.78 user         2.73 sys\n            37683200  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                2474  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n               71227  voluntary context switches\n               13738  involuntary context switches\n        131966002362  instructions retired\n         36897417351  cycles elapsed\n            22561128  peak memory footprint\n",
+      "peak_rss_bytes": 37683200,
+      "process_time_seconds": {
+        "real": 15.47,
+        "user": 8.78,
+        "sys": 2.73
+      }
+    },
+    "hybrid": {
+      "result": {
+        "backend": "hybrid-indexed",
+        "data_before_metadata_sync": true,
+        "files": 6723,
+        "put_and_checkpoint_us": 6227873,
+        "spool_read_us": 27539,
+        "steady_bytes": 61909092,
+        "wall_ms": 6260
+      },
+      "resource_text": "        7.39 real         0.81 user         1.41 sys\n            17432576  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                1234  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n               45215  voluntary context switches\n                3082  involuntary context switches\n         22993959848  instructions retired\n          7123103064  cycles elapsed\n            15139128  peak memory footprint\n",
+      "peak_rss_bytes": 17432576,
+      "process_time_seconds": {
+        "real": 7.39,
+        "user": 0.81,
+        "sys": 1.41
+      }
+    },
+    "optimized-analysis": {
+      "result": {
+        "analysis_latency": {
+          "p50_us": 382,
+          "p95_us": 4965,
+          "p99_us": 12648
+        },
+        "analyzed_files": 6723,
+        "encode_and_dependencies_us": 869239,
+        "explicit_call_sites": 371627,
+        "extract_us": 2025064,
+        "failures": [],
+        "files_with_syntax_errors": 3044,
+        "level": "A1 syntax only",
+        "pack_bytes": 18667142,
+        "pack_directory_estimated_bytes": 1367648,
+        "pack_write_commit_us": 118229,
+        "parse_us": 6303611,
+        "payload_bytes": 17234012,
+        "peak_accounted_syntax_bytes": 13063763,
+        "source_bytes": 65000505,
+        "source_lines": 2031648,
+        "supported_files": 6723,
+        "symbols": 81174,
+        "wall_ms": 10914
+      },
+      "resource_text": "analyze 1/6723\nanalyze 1001/6723\nanalyze 2001/6723\nanalyze 3001/6723\nanalyze 4001/6723\nanalyze 5001/6723\nanalyze 6001/6723\n       11.99 real         8.15 user         1.04 sys\n            34029568  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                2850  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                7555  voluntary context switches\n               39067  involuntary context switches\n        106347844237  instructions retired\n         28967967611  cycles elapsed\n            20562304  peak memory footprint\n",
+      "peak_rss_bytes": 34029568,
+      "process_time_seconds": {
+        "real": 11.99,
+        "user": 8.15,
+        "sys": 1.04
+      }
+    },
+    "reads": {
+      "result": {
+        "os_cache": "not purged; application caches initially empty; artifacts recently written",
+        "pack_directory_estimated_bytes": 1367648,
+        "pack_open_us": 4557,
+        "reads": [
+          {
+            "backend": "sqlite-raw",
+            "checksum_decode": {
+              "p50_us": 2,
+              "p95_us": 42,
+              "p99_us": 116
+            },
+            "payload_bytes_read": 4108671,
+            "raw_read": {
+              "p50_us": 11,
+              "p95_us": 705,
+              "p99_us": 1091
+            },
+            "read_source_hash_snapshot_decode": {
+              "p50_us": 143,
+              "p95_us": 322,
+              "p99_us": 544
+            },
+            "requests": 1500
+          },
+          {
+            "backend": "pack",
+            "checksum_decode": {
+              "p50_us": 2,
+              "p95_us": 40,
+              "p99_us": 111
+            },
+            "payload_bytes_read": 4108671,
+            "raw_read": {
+              "p50_us": 2,
+              "p95_us": 109,
+              "p99_us": 347
+            },
+            "read_source_hash_snapshot_decode": {
+              "p50_us": 22,
+              "p95_us": 77,
+              "p99_us": 141
+            },
+            "requests": 1500
+          },
+          {
+            "backend": "sqlite-indexed",
+            "checksum_decode": {
+              "p50_us": 2,
+              "p95_us": 41,
+              "p99_us": 112
+            },
+            "payload_bytes_read": 4108671,
+            "raw_read": {
+              "p50_us": 24,
+              "p95_us": 1064,
+              "p99_us": 1574
+            },
+            "read_source_hash_snapshot_decode": {
+              "p50_us": 30,
+              "p95_us": 89,
+              "p99_us": 151
+            },
+            "requests": 1500
+          }
+        ],
+        "snapshot_replacement": [
+          {
+            "backend": "sqlite-raw",
+            "bytes_after": 23736320,
+            "replacements": 100,
+            "wall_us": 2046
+          },
+          {
+            "backend": "sqlite-indexed",
+            "bytes_after": 67260416,
+            "replacements": 100,
+            "wall_us": 211805
+          },
+          {
+            "backend": "pack",
+            "bytes_after": 18863202,
+            "replacements": 100,
+            "wall_us": 49010
+          }
+        ]
+      },
+      "resource_text": "        1.06 real         0.11 user         0.14 sys\n            22020096  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                1521  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                6738  voluntary context switches\n                 772  involuntary context switches\n          2413867720  instructions retired\n           832742528  cycles elapsed\n            20037992  peak memory footprint\n",
+      "peak_rss_bytes": 22020096,
+      "process_time_seconds": {
+        "real": 1.06,
+        "user": 0.11,
+        "sys": 0.14
+      }
+    },
+    "reindex-unchanged": {
+      "result": {
+        "analyzed": 0,
+        "bytes": 69865472,
+        "database": "/Users/liuweifeng/work/symweft/build/benchmarks/runtime-cache/07f0797deae2d085d2426b7f11b02e1c9a1ded2e1903d9887528076027a938c0/a1-v2/index.sqlite3",
+        "failures": [],
+        "level": "syntax",
+        "removed": 0,
+        "reused": 6723,
+        "wall_ms": 1287
+      },
+      "resource_text": "        1.29 real         0.17 user         0.23 sys\n            12877824  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                 943  page reclaims\n                  14  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                5622  voluntary context switches\n                 328  involuntary context switches\n          3743054272  instructions retired\n          1269009033  cycles elapsed\n            10666296  peak memory footprint\n",
+      "peak_rss_bytes": 12877824,
+      "process_time_seconds": {
+        "real": 1.29,
+        "user": 0.17,
+        "sys": 0.23
+      }
+    },
+    "replay": {
+      "result": {
+        "cache_comparison": [
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 513,
+              "evictions": 5623,
+              "fact_limit_bytes": 1258291,
+              "hits": 3704,
+              "metadata_estimated_bytes": 185904,
+              "misses": 6136,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1231510
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 130,
+              "p99_us": 656
+            },
+            "policy": "lru",
+            "requests": 9840,
+            "round": 0,
+            "wall_ms": 342
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 845,
+              "evictions": 5155,
+              "fact_limit_bytes": 1258291,
+              "hits": 3840,
+              "metadata_estimated_bytes": 256880,
+              "misses": 6000,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1254863
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 54,
+              "p99_us": 122
+            },
+            "policy": "sampled-frequency-byte-aware",
+            "requests": 9840,
+            "round": 0,
+            "wall_ms": 142
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 845,
+              "evictions": 5155,
+              "fact_limit_bytes": 1258291,
+              "hits": 3840,
+              "metadata_estimated_bytes": 256880,
+              "misses": 6000,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1254863
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 53,
+              "p99_us": 132
+            },
+            "policy": "sampled-frequency-byte-aware",
+            "requests": 9840,
+            "round": 1,
+            "wall_ms": 142
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 513,
+              "evictions": 5623,
+              "fact_limit_bytes": 1258291,
+              "hits": 3704,
+              "metadata_estimated_bytes": 185904,
+              "misses": 6136,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1231510
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 49,
+              "p99_us": 106
+            },
+            "policy": "lru",
+            "requests": 9840,
+            "round": 1,
+            "wall_ms": 133
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 513,
+              "evictions": 5623,
+              "fact_limit_bytes": 1258291,
+              "hits": 3704,
+              "metadata_estimated_bytes": 185904,
+              "misses": 6136,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1231510
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 49,
+              "p99_us": 106
+            },
+            "policy": "lru",
+            "requests": 9840,
+            "round": 2,
+            "wall_ms": 132
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 2097152,
+              "entries": 845,
+              "evictions": 5155,
+              "fact_limit_bytes": 1258291,
+              "hits": 3840,
+              "metadata_estimated_bytes": 256880,
+              "misses": 6000,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 1254863
+            },
+            "latency": {
+              "p50_us": 6,
+              "p95_us": 54,
+              "p99_us": 123
+            },
+            "policy": "sampled-frequency-byte-aware",
+            "requests": 9840,
+            "round": 2,
+            "wall_ms": 141
+          }
+        ],
+        "controller_injected_pressure": [
+          {
+            "busy": false,
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 33554432,
+              "entries": 0,
+              "evictions": 0,
+              "fact_limit_bytes": 20132659,
+              "hits": 0,
+              "metadata_estimated_bytes": 0,
+              "misses": 0,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 0
+            },
+            "pressure": "normal"
+          },
+          {
+            "busy": false,
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 16777216,
+              "entries": 0,
+              "evictions": 0,
+              "fact_limit_bytes": 10066329,
+              "hits": 0,
+              "metadata_estimated_bytes": 0,
+              "misses": 0,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "warning",
+              "used_bytes": 0
+            },
+            "pressure": "warning"
+          },
+          {
+            "busy": true,
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 0,
+              "evictions": 0,
+              "fact_limit_bytes": 5033164,
+              "hits": 0,
+              "metadata_estimated_bytes": 0,
+              "misses": 0,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "critical",
+              "used_bytes": 0
+            },
+            "pressure": "critical"
+          },
+          {
+            "busy": false,
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 0,
+              "evictions": 0,
+              "fact_limit_bytes": 5033164,
+              "hits": 0,
+              "metadata_estimated_bytes": 0,
+              "misses": 0,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 0
+            },
+            "pressure": "normal"
+          }
+        ],
+        "include_following_replay": [
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 638,
+              "evictions": 59,
+              "fact_limit_bytes": 5033164,
+              "hits": 795,
+              "metadata_estimated_bytes": 203936,
+              "misses": 697,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 4744189
+            },
+            "extra_payload_bytes": 0,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 44,
+              "p99_us": 108
+            },
+            "prefetch": false,
+            "requests": 1492,
+            "round": 0,
+            "wall_ms": 17
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 649,
+              "evictions": 159,
+              "fact_limit_bytes": 5033164,
+              "hits": 1092,
+              "metadata_estimated_bytes": 210640,
+              "misses": 400,
+              "prefetch_admitted": 408,
+              "prefetch_useful": 297,
+              "prefetch_wasted_bytes": 166799,
+              "pressure": "normal",
+              "used_bytes": 4943123
+            },
+            "extra_payload_bytes": 216993,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 42,
+              "p99_us": 124
+            },
+            "prefetch": true,
+            "requests": 1492,
+            "round": 0,
+            "wall_ms": 47
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 649,
+              "evictions": 159,
+              "fact_limit_bytes": 5033164,
+              "hits": 1092,
+              "metadata_estimated_bytes": 210640,
+              "misses": 400,
+              "prefetch_admitted": 408,
+              "prefetch_useful": 297,
+              "prefetch_wasted_bytes": 166799,
+              "pressure": "normal",
+              "used_bytes": 4943123
+            },
+            "extra_payload_bytes": 216993,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 40,
+              "p99_us": 114
+            },
+            "prefetch": true,
+            "requests": 1492,
+            "round": 1,
+            "wall_ms": 42
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 638,
+              "evictions": 59,
+              "fact_limit_bytes": 5033164,
+              "hits": 795,
+              "metadata_estimated_bytes": 203936,
+              "misses": 697,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 4744189
+            },
+            "extra_payload_bytes": 0,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 51,
+              "p99_us": 135
+            },
+            "prefetch": false,
+            "requests": 1492,
+            "round": 1,
+            "wall_ms": 21
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 638,
+              "evictions": 59,
+              "fact_limit_bytes": 5033164,
+              "hits": 795,
+              "metadata_estimated_bytes": 203936,
+              "misses": 697,
+              "prefetch_admitted": 0,
+              "prefetch_useful": 0,
+              "prefetch_wasted_bytes": 0,
+              "pressure": "normal",
+              "used_bytes": 4744189
+            },
+            "extra_payload_bytes": 0,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 43,
+              "p99_us": 111
+            },
+            "prefetch": false,
+            "requests": 1492,
+            "round": 2,
+            "wall_ms": 18
+          },
+          {
+            "cache": {
+              "bypasses": 0,
+              "effective_bytes": 8388608,
+              "entries": 649,
+              "evictions": 159,
+              "fact_limit_bytes": 5033164,
+              "hits": 1092,
+              "metadata_estimated_bytes": 210640,
+              "misses": 400,
+              "prefetch_admitted": 408,
+              "prefetch_useful": 297,
+              "prefetch_wasted_bytes": 166799,
+              "pressure": "normal",
+              "used_bytes": 4943123
+            },
+            "extra_payload_bytes": 216993,
+            "foreground_latency_excludes_speculation": {
+              "p50_us": 0,
+              "p95_us": 39,
+              "p99_us": 106
+            },
+            "prefetch": true,
+            "requests": 1492,
+            "round": 2,
+            "wall_ms": 42
+          }
+        ],
+        "trace": "synthetic locality + scanning, not real user attention"
+      },
+      "resource_text": "        2.03 real         0.73 user         0.32 sys\n            25395200  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                1720  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                2526  voluntary context switches\n                1794  involuntary context switches\n         11459443355  instructions retired\n          3335560748  cycles elapsed\n            23200080  peak memory footprint\n",
+      "peak_rss_bytes": 25395200,
+      "process_time_seconds": {
+        "real": 2.03,
+        "user": 0.73,
+        "sys": 0.32
+      }
+    },
+    "service": {
+      "result": {
+        "cache": {
+          "cache": {
+            "bypasses": 0,
+            "effective_bytes": 16777216,
+            "entries": 1631,
+            "evictions": 0,
+            "fact_limit_bytes": 10066329,
+            "hits": 114,
+            "metadata_estimated_bytes": 506768,
+            "misses": 886,
+            "prefetch_admitted": 745,
+            "prefetch_useful": 114,
+            "prefetch_wasted_bytes": 0,
+            "pressure": "normal",
+            "used_bytes": 9452345
+          },
+          "last_write_error": null,
+          "pending_prefetch": 0,
+          "queued_payload_bytes": 0,
+          "settings": {
+            "max_bytes": 16777216,
+            "mode": "manual",
+            "prefetch": true
+          },
+          "sqlite_version": "3.53.2"
+        },
+        "engine": {
+          "cached_documents": 8,
+          "estimated_retained_bytes": 33701,
+          "evictions": 992,
+          "parses": 0,
+          "source_bytes": 16356,
+          "unchanged_hits": 0
+        },
+        "failures": [],
+        "latency": {
+          "p50_us": 258,
+          "p95_us": 1354,
+          "p99_us": 3370
+        },
+        "pipeline": "read source + hash + worker queue + SQLite or hot facts + engine restore; excludes UI/JSON stdio",
+        "requests": 1000
+      },
+      "resource_text": "        0.45 real         0.08 user         0.10 sys\n            28327936  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                1900  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                2339  voluntary context switches\n                2428  involuntary context switches\n          1428839072  instructions retired\n           597943736  cycles elapsed\n            26034536  peak memory footprint\n",
+      "peak_rss_bytes": 28327936,
+      "process_time_seconds": {
+        "real": 0.45,
+        "user": 0.08,
+        "sys": 0.1
+      }
+    },
+    "protocol": {
+      "result": {
+        "workspace_file_count": 10341,
+        "truncated": false,
+        "opens": [
+          {
+            "path": "system/vl.c",
+            "source_bytes": 120566,
+            "storage": {
+              "load_micros": 693,
+              "persistence": "reused",
+              "source": "sqlite"
+            },
+            "update": {
+              "changed_range_count": 0,
+              "extract_micros": 0,
+              "mode": "restored",
+              "parse_micros": 0,
+              "revision": 1,
+              "total_micros": 3
+            },
+            "python_roundtrip_decode_us": 4978.166
+          },
+          {
+            "path": "disas/nanomips.c",
+            "source_bytes": 713872,
+            "storage": {
+              "load_micros": 2386,
+              "persistence": "reused",
+              "source": "sqlite"
+            },
+            "update": {
+              "changed_range_count": 0,
+              "extract_micros": 0,
+              "mode": "restored",
+              "parse_micros": 0,
+              "revision": 2,
+              "total_micros": 5
+            },
+            "python_roundtrip_decode_us": 20194.041
+          },
+          {
+            "path": "hw/acpi/aml-build.c",
+            "source_bytes": 97163,
+            "storage": {
+              "load_micros": 649,
+              "persistence": "reused",
+              "source": "sqlite"
+            },
+            "update": {
+              "changed_range_count": 0,
+              "extract_micros": 0,
+              "mode": "restored",
+              "parse_micros": 0,
+              "revision": 3,
+              "total_micros": 3
+            },
+            "python_roundtrip_decode_us": 5012.416
+          }
+        ],
+        "analysis_stats": {
+          "cached_documents": 3,
+          "estimated_retained_bytes": 1710683,
+          "evictions": 0,
+          "parses": 0,
+          "source_bytes": 931601,
+          "unchanged_hits": 0
+        },
+        "critical_status": {
+          "cache": {
+            "bypasses": 0,
+            "effective_bytes": 2097152,
+            "entries": 3,
+            "evictions": 0,
+            "fact_limit_bytes": 1258291,
+            "hits": 0,
+            "metadata_estimated_bytes": 912,
+            "misses": 3,
+            "prefetch_admitted": 0,
+            "prefetch_useful": 0,
+            "prefetch_wasted_bytes": 0,
+            "pressure": "critical",
+            "used_bytes": 779368
+          },
+          "last_write_error": null,
+          "pending_prefetch": 0,
+          "queued_payload_bytes": 0,
+          "settings": {
+            "max_bytes": 16777216,
+            "mode": "manual",
+            "prefetch": false
+          },
+          "sqlite_version": "3.53.2"
+        },
+        "usage_rows_zero": true,
+        "measurement": "single diagnostic sample including Python JSON decode and stdio; not UI rendering"
+      }
+    },
+    "native-light": {
+      "result": {
+        "analysis_calls": 1107,
+        "analysis_level": "syntax",
+        "analysis_symbols": 102,
+        "appearance": "NSAppearanceNameAqua",
+        "core_version": "0.1.0",
+        "current_function": "qemu_init",
+        "current_scope_calls": 409,
+        "document": "system/vl.c",
+        "error": "",
+        "file_count": 10341,
+        "navigator_geometry": "frame=(0.0, 0.0, 260.0, 48448.0); rows=1794; hidden=false",
+        "reader_geometry": "origin=(324.0, 46383.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 56.0, 694.0)); clip-frame=Optional((56.0, -0.0, 615.0, 694.0)); clip-bounds=Optional((0.0, 45660.0, 615.0, 694.0))",
+        "status": "ok",
+        "storage_source": "sqlite",
+        "workspace": "qemu"
+      },
+      "resource_text": "        1.81 real         1.02 user         0.15 sys\n           233226240  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               19194  page reclaims\n                  35  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   1  messages sent\n                   0  messages received\n                   0  signals received\n                1016  voluntary context switches\n                6706  involuntary context switches\n          8947222477  instructions retired\n          3368298651  cycles elapsed\n           184386592  peak memory footprint\n",
+      "peak_rss_bytes": 233226240,
+      "scope": "diagnostic UI process including window layer PNG export; child core RSS separate; not steady-state memory"
+    },
+    "native-dark": {
+      "result": {
+        "analysis_calls": 1107,
+        "analysis_level": "syntax",
+        "analysis_symbols": 102,
+        "appearance": "NSAppearanceNameDarkAqua",
+        "core_version": "0.1.0",
+        "current_function": "qemu_init",
+        "current_scope_calls": 409,
+        "document": "system/vl.c",
+        "error": "",
+        "file_count": 10341,
+        "navigator_geometry": "frame=(0.0, 0.0, 260.0, 48448.0); rows=1794; hidden=false",
+        "reader_geometry": "origin=(324.0, 46383.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 56.0, 694.0)); clip-frame=Optional((56.0, -0.0, 615.0, 694.0)); clip-bounds=Optional((0.0, 45660.0, 615.0, 694.0))",
+        "status": "ok",
+        "storage_source": "sqlite",
+        "workspace": "qemu"
+      },
+      "resource_text": "        1.62 real         1.03 user         0.12 sys\n           218415104  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               16354  page reclaims\n                  27  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   1  messages sent\n                   0  messages received\n                   0  signals received\n                  73  voluntary context switches\n                3945  involuntary context switches\n         10312445169  instructions retired\n          3405345798  cycles elapsed\n           167724112  peak memory footprint\n",
+      "peak_rss_bytes": 218415104,
+      "scope": "diagnostic UI process including window layer PNG export; child core RSS separate; not steady-state memory"
+    }
+  },
+  "runtime_database": {
+    "integrity": "ok",
+    "counts": {
+      "snapshots": 6723,
+      "definitions": 81174,
+      "lexical_calls": 126411,
+      "dependencies": 29519,
+      "usage": 0
+    },
+    "plans": {
+      "snapshot": [
+        [
+          2,
+          0,
+          39,
+          "SEARCH snapshots USING PRIMARY KEY (path=?)"
+        ]
+      ],
+      "reverse_name_proxy": [
+        [
+          2,
+          0,
+          56,
+          "SEARCH lexical_calls USING COVERING INDEX calls_name (name=?)"
+        ]
+      ],
+      "local_definitions": [
+        [
+          3,
+          0,
+          62,
+          "SEARCH definitions USING INDEX def_path (path=?)"
+        ]
+      ]
+    }
+  },
+  "cargo_lock_sha256": "66a9fc5ae33a341ec6a77119eaead1e94dff3f681e409ef029dd9a5ea0a30dd5"
+}

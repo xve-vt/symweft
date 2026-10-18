@@ -1,0 +1,1355 @@
+{
+  "date": "2026-10-18",
+  "scope": "QEMU configured 30 TU subset, not the entire 2855 TU configuration",
+  "extractor": "a2-clang-v3",
+  "schema": "a2-store-v2",
+  "fact_format": "SMF2 + bincode2 standard + zstd level1 + BLAKE3",
+  "machine": {
+    "cpu": "Apple M2",
+    "memory_bytes": 17179869184,
+    "os": "macOS 26.6.2",
+    "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "rust": "1.99.0"
+  },
+  "qemu": {
+    "version": "11.1.1",
+    "commit": "2df3db357e2d59b7e56c8fa9b97cd035e67d473b",
+    "target": "aarch64-softmmu"
+  },
+  "benchmark": {
+    "selection": {
+      "source_root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+      "commands": "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json",
+      "configured_commands": 2855,
+      "selected_paths": [
+        "system/main.c",
+        "system/vl.c",
+        "system/runstate.c",
+        "system/memory.c",
+        "system/cpus.c",
+        "system/physmem.c",
+        "qom/object.c",
+        "qom/container.c",
+        "qom/object_interfaces.c",
+        "qom/qom-qobject.c",
+        "qapi/qobject-input-visitor.c",
+        "qapi/qobject-output-visitor.c",
+        "qapi/string-input-visitor.c",
+        "qapi/string-output-visitor.c",
+        "util/cutils.c",
+        "util/crc32c.c",
+        "util/error.c",
+        "util/error-report.c",
+        "util/async.c",
+        "util/log.c",
+        "util/module.c",
+        "util/osdep.c",
+        "util/path.c",
+        "util/qemu-thread-posix.c",
+        "util/qemu-timer.c",
+        "util/qht.c",
+        "util/rcu.c",
+        "hw/core/qdev.c",
+        "target/arm/cpu.c",
+        "target/arm/helper.c"
+      ],
+      "unavailable_requested": [
+        "qapi/visitor.c",
+        "util/qtree.c"
+      ],
+      "os_page_cache": "not purged"
+    },
+    "phases": {
+      "first": {
+        "exit_code": 1,
+        "result": {
+          "compile_commands": "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json",
+          "configuration": "dd31041892249f811b7d662027526efcb2d78993bfbf4e5a9bd83791183236a0",
+          "configuration_matches": true,
+          "configured": true,
+          "configured_units": 2855,
+          "index": {
+            "calls": 17530,
+            "compressed_fact_bytes": 33080456,
+            "references": 224359,
+            "status_freshness": "last_recorded; query rows validate contributing input hashes",
+            "symbols": 194192,
+            "unique_facts_all_configurations": 168967,
+            "units": [
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/hw/core/qdev.c",
+                "report": {
+                  "calls": 865,
+                  "clang_accounted_bytes": 17032270,
+                  "diagnostics": [],
+                  "extract_micros": 184589,
+                  "input_key": "6492ede79ed45e6f9984a093bac9873fa9b8e0ee6e9a62f93f64c73047da85a3",
+                  "parse_micros": 335166,
+                  "references": 11576,
+                  "symbols": 11253,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "b5789690834673c179afb87c322b0f1bc152dec3af1e41a5c4cee593d4b45bec"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/qobject-input-visitor.c",
+                "report": {
+                  "calls": 267,
+                  "clang_accounted_bytes": 9749227,
+                  "diagnostics": [],
+                  "extract_micros": 45151,
+                  "input_key": "1eac6476fbfb5f2138950b134620fc8544a89f1ec99646d42d7db54e9acc4442",
+                  "parse_micros": 62628,
+                  "references": 2376,
+                  "symbols": 1933,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "b017b0a3f8cbca0d84d23e22cbe179572da18d189561a00ccfa74a9b1eb25148"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/qobject-output-visitor.c",
+                "report": {
+                  "calls": 143,
+                  "clang_accounted_bytes": 9310991,
+                  "diagnostics": [],
+                  "extract_micros": 31272,
+                  "input_key": "49662d849bd95a5675695add3faead7bd869f6ebea5774e075b4de64ed551fa5",
+                  "parse_micros": 48396,
+                  "references": 1591,
+                  "symbols": 1622,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "00653f870d4a1fa5b2417e622d20e548aa73c2a2bd0e0e330af6e5e728a730e3"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/string-input-visitor.c",
+                "report": {
+                  "calls": 109,
+                  "clang_accounted_bytes": 9294607,
+                  "diagnostics": [],
+                  "extract_micros": 29397,
+                  "input_key": "102fa889ccfbfd4aafa7821e9eecda7a974c7097fba0fdb79013c13edf1d29c3",
+                  "parse_micros": 46796,
+                  "references": 1409,
+                  "symbols": 1597,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "f8756df666674d57f97dab05a1b58f8e15d0fcee22136d612514adbe81048071"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/string-output-visitor.c",
+                "report": {
+                  "calls": 235,
+                  "clang_accounted_bytes": 9655055,
+                  "diagnostics": [],
+                  "extract_micros": 36430,
+                  "input_key": "4cf05d36d7413d2dd52ff4edd34d304bb90b90eccd429c4b91f68e44ffe31da5",
+                  "parse_micros": 48365,
+                  "references": 2605,
+                  "symbols": 1744,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "a0cca9c5791184ef25b475b16616cb1042064f0f6416dde86a4bd2e030152e87"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/container.c",
+                "report": {
+                  "calls": 20,
+                  "clang_accounted_bytes": 9057470,
+                  "diagnostics": [],
+                  "extract_micros": 23486,
+                  "input_key": "66d8e3473e31953e1df18cdb34ccfd2bcec8ad058c946614bb98bd406dc4190d",
+                  "parse_micros": 44749,
+                  "references": 691,
+                  "symbols": 1211,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "231bfc84e60369f82e7718f9673d1301fd5a2627a615ee171c22bf083452242d"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/object.c",
+                "report": {
+                  "calls": 700,
+                  "clang_accounted_bytes": 13641023,
+                  "diagnostics": [],
+                  "extract_micros": 63699,
+                  "input_key": "ad16146121a2df24ea7a1032d26ffe7decc223b98f28afeecaa5eebbe8987ac4",
+                  "parse_micros": 81727,
+                  "references": 5956,
+                  "symbols": 3621,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "aa8069a71e9e166e637f48cfc938c67a25fb6276f85bf2800bb352cfe837b73c"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/object_interfaces.c",
+                "report": {
+                  "calls": 177,
+                  "clang_accounted_bytes": 13714952,
+                  "diagnostics": [],
+                  "extract_micros": 46271,
+                  "input_key": "a1e89d6c6727023d1c15cb97f373b4063dea9f1450aa4e3a57f560dfa7a8eb1d",
+                  "parse_micros": 93273,
+                  "references": 2012,
+                  "symbols": 2551,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "f7ae34cb7b410b3ead646b5201e979aa81045b91fe8921bb4e9be3249a5354aa"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/qom-qobject.c",
+                "report": {
+                  "calls": 30,
+                  "clang_accounted_bytes": 9159834,
+                  "diagnostics": [],
+                  "extract_micros": 31705,
+                  "input_key": "c55a588fe8de3778a81e375a8ab536bc3cef56bd39d77a1a7f96dd5f6c7b4608",
+                  "parse_micros": 54003,
+                  "references": 926,
+                  "symbols": 1520,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "0f786aff2163d502bcb37ba064b32537ef60238390670ca70df7faf8d01d744a"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/cpus.c",
+                "report": {
+                  "calls": 895,
+                  "clang_accounted_bytes": 20083899,
+                  "diagnostics": [],
+                  "extract_micros": 157490,
+                  "input_key": "11ffdce042e7a7ed8eed2c84b94455b82082e12408236c2d732082838fe62619",
+                  "parse_micros": 133559,
+                  "references": 13526,
+                  "symbols": 13933,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "68f79fe6295b3ee90c3d5e3ad13bf6e82a8b57364ef2d5318e3cf215dea36982"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c",
+                "report": {
+                  "calls": 277,
+                  "clang_accounted_bytes": 15348933,
+                  "diagnostics": [],
+                  "extract_micros": 69221,
+                  "input_key": "8b3456038fb76a1a29d79c8c77ff618c575a37cce1f3707002f01177ff626538",
+                  "parse_micros": 114963,
+                  "references": 4179,
+                  "symbols": 4740,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "54f72c108e5dacd49d6b471dfe48262dac7dbdaee0c643edb88b6d7008f023cb"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/memory.c",
+                "report": {
+                  "calls": 1488,
+                  "clang_accounted_bytes": 17157576,
+                  "diagnostics": [],
+                  "extract_micros": 163179,
+                  "input_key": "9c58a90cd5985d0328410cbe287515b8163d028c6fe131f0b2388e161940afbc",
+                  "parse_micros": 127069,
+                  "references": 17056,
+                  "symbols": 12128,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "f8897736be254929df832ef00fae30d81e8e53f71e401223495b149e99b37da5"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/physmem.c",
+                "report": {
+                  "calls": 1819,
+                  "clang_accounted_bytes": 21806401,
+                  "diagnostics": [],
+                  "extract_micros": 234097,
+                  "input_key": "5fcd1c4eba3b96f4d8e9e8d5ea05853cbf1c62e6f4660cb78bf40628251e4597",
+                  "parse_micros": 146882,
+                  "references": 24398,
+                  "symbols": 17215,
+                  "worker_peak_rss_bytes": 103727104
+                },
+                "state": "current",
+                "unit_id": "4852fe920fada799748b5052df40985fc3a70cf0ebacbf0edefdd06cfd69de44"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c",
+                "report": {
+                  "error": "compiler errors; no current semantic snapshot published: /Users/liuweifeng/work/symweft/test_code/qemu/block/cdp.h:81:17: error: use of undeclared identifier 'XATTR_NAME_MAX'",
+                  "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c"
+                },
+                "state": "failed",
+                "unit_id": "8999e134f2315b9c327b28df8166d01269e38af55a565c174e697e1e2d6fea82"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+                "report": {
+                  "calls": 2281,
+                  "clang_accounted_bytes": 25831725,
+                  "diagnostics": [],
+                  "extract_micros": 304049,
+                  "input_key": "9b2812858114e71597513bcadb3c243b96cf129dc6a12473f433a2cf5b0ef131",
+                  "parse_micros": 189726,
+                  "references": 24773,
+                  "symbols": 27578,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/target/arm/cpu.c",
+                "report": {
+                  "calls": 2187,
+                  "clang_accounted_bytes": 24097258,
+                  "diagnostics": [],
+                  "extract_micros": 336037,
+                  "input_key": "8ad8172a25cb65660a8c02d905d86554c789a06e01f3a039eb1be1ce6ac9d1a0",
+                  "parse_micros": 155723,
+                  "references": 31463,
+                  "symbols": 29503,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "b7a8595ec34531a38e7de25d01d35df70fec165b853d09f740623494d4226f51"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/target/arm/helper.c",
+                "report": {
+                  "calls": 2675,
+                  "clang_accounted_bytes": 22335052,
+                  "diagnostics": [],
+                  "extract_micros": 411378,
+                  "input_key": "cf241d1d1aeebe16991c7393e8816892a7e6a32b4172f6bd5641e6e0f6752aa7",
+                  "parse_micros": 137202,
+                  "references": 38884,
+                  "symbols": 24315,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "dc5d645237a0929399fc12d040f774fd2c6c4ef2c05e562949231eb373fe47d8"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/async.c",
+                "report": {
+                  "calls": 378,
+                  "clang_accounted_bytes": 13635516,
+                  "diagnostics": [],
+                  "extract_micros": 77987,
+                  "input_key": "5398359366bdb45ae8f34f61b766c39b273f6763e6f0580c6469a99c956704e7",
+                  "parse_micros": 86242,
+                  "references": 5734,
+                  "symbols": 4693,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "be7cf886dd0e61a64cb9e5deb09da8749647e503bc2e7d51fdb350bf0bb7d5e2"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/crc32c.c",
+                "report": {
+                  "calls": 10,
+                  "clang_accounted_bytes": 8724219,
+                  "diagnostics": [],
+                  "extract_micros": 20225,
+                  "input_key": "9d6f3b0700efc67b13b5081649037a72f1e462ed73ac4d75482d23bf43627d40",
+                  "parse_micros": 46589,
+                  "references": 284,
+                  "symbols": 510,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "8453a0f26fc744cffc1863d1232550b2774e1a71d16c4b7f89007c83f3ff7032"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/cutils.c",
+                "report": {
+                  "calls": 226,
+                  "clang_accounted_bytes": 10027121,
+                  "diagnostics": [],
+                  "extract_micros": 35168,
+                  "input_key": "634e9127e4b38cd490b9060c25b30673559f94359eb5631ca2bb781807810433",
+                  "parse_micros": 55076,
+                  "references": 2003,
+                  "symbols": 1273,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "65ad5f489139031506bd34b5d82509430ffda7ac0d7c4a608037e31a45ff3542"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/error-report.c",
+                "report": {
+                  "calls": 344,
+                  "clang_accounted_bytes": 13694188,
+                  "diagnostics": [],
+                  "extract_micros": 68958,
+                  "input_key": "e37846131a40840d23b3271ab831fd7e79a9bd62a9d5ae29b7001dde78e5fbe2",
+                  "parse_micros": 82320,
+                  "references": 5054,
+                  "symbols": 5323,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "ecc78ede791d112d42540b032f5943f0131c40bdd7ee8daffb61ddee2c5328d9"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/error.c",
+                "report": {
+                  "calls": 100,
+                  "clang_accounted_bytes": 8991539,
+                  "diagnostics": [],
+                  "extract_micros": 24025,
+                  "input_key": "8574e1ec55575bb24ca9d0e1e6cf6a7e9826eb9186a1c049e4c8432b0e412119",
+                  "parse_micros": 46283,
+                  "references": 806,
+                  "symbols": 833,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "faf0f793e8cd22b9515fae62f1bbfc1f4e24ae6176791204c5c3f93b1fe49acb"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/log.c",
+                "report": {
+                  "calls": 309,
+                  "clang_accounted_bytes": 9742251,
+                  "diagnostics": [],
+                  "extract_micros": 44232,
+                  "input_key": "730819fa6e668cbb9a593e140bede99c513a9350bd085108a22969fc30ba78c4",
+                  "parse_micros": 53914,
+                  "references": 3085,
+                  "symbols": 2380,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "2f21a51dd4a36fbf75b67c9e953b42c69c02abb61d1ffbc1bf8f0cec6db588be"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/module.c",
+                "report": {
+                  "calls": 39,
+                  "clang_accounted_bytes": 9402714,
+                  "diagnostics": [],
+                  "extract_micros": 25091,
+                  "input_key": "2a2aa5e6d5db01257cb4b1a9f19cd61cd4113d85c4174fed0bfcd446fbadcf1f",
+                  "parse_micros": 48885,
+                  "references": 670,
+                  "symbols": 1151,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "2b7c9d2b408018617c02db6459a2643c1e427737b939c4ab45ff71ce707ac9e2"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/osdep.c",
+                "report": {
+                  "calls": 362,
+                  "clang_accounted_bytes": 13841644,
+                  "diagnostics": [],
+                  "extract_micros": 73633,
+                  "input_key": "cea09d46166b59011fa0db8296f80447b854cdfb5bdfdc6286e50e1df2ed8c72",
+                  "parse_micros": 86079,
+                  "references": 5279,
+                  "symbols": 5742,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "8cdaa910c4d5a37ffe2347d64bbc415399ead517e3e516dfb60a8027e43fec76"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/path.c",
+                "report": {
+                  "calls": 52,
+                  "clang_accounted_bytes": 8852219,
+                  "diagnostics": [],
+                  "extract_micros": 25104,
+                  "input_key": "212c904530accc38d716f83d63f968458284cd82754731e84f4675f1db96ba8f",
+                  "parse_micros": 48492,
+                  "references": 593,
+                  "symbols": 951,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "1af03282edb38904894b8237fa0c1a15837d03b164878ed22b28fbc1a69d8d6f"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qemu-thread-posix.c",
+                "report": {
+                  "calls": 342,
+                  "clang_accounted_bytes": 10246849,
+                  "diagnostics": [],
+                  "extract_micros": 50175,
+                  "input_key": "2f9c438f04d3df57b6645175272fa187abf7e03ae8b19c26783b8d606272cfa0",
+                  "parse_micros": 57823,
+                  "references": 3670,
+                  "symbols": 3365,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "74dbe1e49a3abe56908b575b2c291acbec371cc52db9e1df55c86c680776476c"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qemu-timer.c",
+                "report": {
+                  "calls": 542,
+                  "clang_accounted_bytes": 13224422,
+                  "diagnostics": [],
+                  "extract_micros": 79168,
+                  "input_key": "44c51da2a28d367784cae35bae099a684cf05bdb5ae78058abda4a3ea1fe940d",
+                  "parse_micros": 77629,
+                  "references": 6541,
+                  "symbols": 6282,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "63f4e082dc931b207b410e749b6eac0711b557b0c54863aae0b580e39f344190"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qht.c",
+                "report": {
+                  "calls": 337,
+                  "clang_accounted_bytes": 9590714,
+                  "diagnostics": [],
+                  "extract_micros": 64215,
+                  "input_key": "6ed9bdff570acf941e1aed8f568b0a4d707c8b46646624f976cf84658b0664c9",
+                  "parse_micros": 53501,
+                  "references": 3640,
+                  "symbols": 2107,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "e72754a2aeed68dea892aa28ef181aeee032f960386001d367b88a63c2f6fc40"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/rcu.c",
+                "report": {
+                  "calls": 321,
+                  "clang_accounted_bytes": 9972022,
+                  "diagnostics": [],
+                  "extract_micros": 47936,
+                  "input_key": "f156a105a19aa0d69432ce0a32468de3c89b010556fa3ca8c90555555880bf76",
+                  "parse_micros": 51840,
+                  "references": 3579,
+                  "symbols": 3118,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "103a3b54b9c4a474dd653b86a03f83ef93c12813ebc8fde511bfc425f008be1b"
+              }
+            ]
+          },
+          "job": {
+            "analyzed": 29,
+            "failures": [
+              {
+                "error": "compiler errors; no current semantic snapshot published: /Users/liuweifeng/work/symweft/test_code/qemu/block/cdp.h:81:17: error: use of undeclared identifier 'XATTR_NAME_MAX'",
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c"
+              }
+            ],
+            "reused": 0,
+            "state": "complete_with_errors",
+            "total": 30,
+            "wall_ms": 15365
+          },
+          "limits": {
+            "timeout_seconds": 30,
+            "worker_memory_mib": 512
+          },
+          "provider": "a2-clang-v3:2c8709ae0789a344cc2d605607749dd7516916ecf2b1e4101a0d61ba65cc53fd",
+          "rejected": []
+        },
+        "resource_text": "semantic indexing did not complete without errors; inspect report\n       16.83 real        10.30 user         3.94 sys\n           156794880  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n              166366  page reclaims\n                2361  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n              164864  voluntary context switches\n               47929  involuntary context switches\n         73748950984  instructions retired\n         25340399861  cycles elapsed\n           135922240  peak memory footprint\n",
+        "parent_peak_rss_bytes": 156794880,
+        "process_real_seconds": 16.83
+      },
+      "warm": {
+        "exit_code": 1,
+        "result": {
+          "compile_commands": "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json",
+          "configuration": "dd31041892249f811b7d662027526efcb2d78993bfbf4e5a9bd83791183236a0",
+          "configuration_matches": true,
+          "configured": true,
+          "configured_units": 2855,
+          "index": {
+            "calls": 17530,
+            "compressed_fact_bytes": 33080456,
+            "references": 224359,
+            "status_freshness": "last_recorded; query rows validate contributing input hashes",
+            "symbols": 194192,
+            "unique_facts_all_configurations": 168967,
+            "units": [
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/hw/core/qdev.c",
+                "report": {
+                  "calls": 865,
+                  "clang_accounted_bytes": 17032270,
+                  "diagnostics": [],
+                  "extract_micros": 184589,
+                  "input_key": "6492ede79ed45e6f9984a093bac9873fa9b8e0ee6e9a62f93f64c73047da85a3",
+                  "parse_micros": 335166,
+                  "references": 11576,
+                  "symbols": 11253,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "b5789690834673c179afb87c322b0f1bc152dec3af1e41a5c4cee593d4b45bec"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/qobject-input-visitor.c",
+                "report": {
+                  "calls": 267,
+                  "clang_accounted_bytes": 9749227,
+                  "diagnostics": [],
+                  "extract_micros": 45151,
+                  "input_key": "1eac6476fbfb5f2138950b134620fc8544a89f1ec99646d42d7db54e9acc4442",
+                  "parse_micros": 62628,
+                  "references": 2376,
+                  "symbols": 1933,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "b017b0a3f8cbca0d84d23e22cbe179572da18d189561a00ccfa74a9b1eb25148"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/qobject-output-visitor.c",
+                "report": {
+                  "calls": 143,
+                  "clang_accounted_bytes": 9310991,
+                  "diagnostics": [],
+                  "extract_micros": 31272,
+                  "input_key": "49662d849bd95a5675695add3faead7bd869f6ebea5774e075b4de64ed551fa5",
+                  "parse_micros": 48396,
+                  "references": 1591,
+                  "symbols": 1622,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "00653f870d4a1fa5b2417e622d20e548aa73c2a2bd0e0e330af6e5e728a730e3"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/string-input-visitor.c",
+                "report": {
+                  "calls": 109,
+                  "clang_accounted_bytes": 9294607,
+                  "diagnostics": [],
+                  "extract_micros": 29397,
+                  "input_key": "102fa889ccfbfd4aafa7821e9eecda7a974c7097fba0fdb79013c13edf1d29c3",
+                  "parse_micros": 46796,
+                  "references": 1409,
+                  "symbols": 1597,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "f8756df666674d57f97dab05a1b58f8e15d0fcee22136d612514adbe81048071"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qapi/string-output-visitor.c",
+                "report": {
+                  "calls": 235,
+                  "clang_accounted_bytes": 9655055,
+                  "diagnostics": [],
+                  "extract_micros": 36430,
+                  "input_key": "4cf05d36d7413d2dd52ff4edd34d304bb90b90eccd429c4b91f68e44ffe31da5",
+                  "parse_micros": 48365,
+                  "references": 2605,
+                  "symbols": 1744,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "a0cca9c5791184ef25b475b16616cb1042064f0f6416dde86a4bd2e030152e87"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/container.c",
+                "report": {
+                  "calls": 20,
+                  "clang_accounted_bytes": 9057470,
+                  "diagnostics": [],
+                  "extract_micros": 23486,
+                  "input_key": "66d8e3473e31953e1df18cdb34ccfd2bcec8ad058c946614bb98bd406dc4190d",
+                  "parse_micros": 44749,
+                  "references": 691,
+                  "symbols": 1211,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "231bfc84e60369f82e7718f9673d1301fd5a2627a615ee171c22bf083452242d"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/object.c",
+                "report": {
+                  "calls": 700,
+                  "clang_accounted_bytes": 13641023,
+                  "diagnostics": [],
+                  "extract_micros": 63699,
+                  "input_key": "ad16146121a2df24ea7a1032d26ffe7decc223b98f28afeecaa5eebbe8987ac4",
+                  "parse_micros": 81727,
+                  "references": 5956,
+                  "symbols": 3621,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "aa8069a71e9e166e637f48cfc938c67a25fb6276f85bf2800bb352cfe837b73c"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/object_interfaces.c",
+                "report": {
+                  "calls": 177,
+                  "clang_accounted_bytes": 13714952,
+                  "diagnostics": [],
+                  "extract_micros": 46271,
+                  "input_key": "a1e89d6c6727023d1c15cb97f373b4063dea9f1450aa4e3a57f560dfa7a8eb1d",
+                  "parse_micros": 93273,
+                  "references": 2012,
+                  "symbols": 2551,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "f7ae34cb7b410b3ead646b5201e979aa81045b91fe8921bb4e9be3249a5354aa"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/qom/qom-qobject.c",
+                "report": {
+                  "calls": 30,
+                  "clang_accounted_bytes": 9159834,
+                  "diagnostics": [],
+                  "extract_micros": 31705,
+                  "input_key": "c55a588fe8de3778a81e375a8ab536bc3cef56bd39d77a1a7f96dd5f6c7b4608",
+                  "parse_micros": 54003,
+                  "references": 926,
+                  "symbols": 1520,
+                  "worker_peak_rss_bytes": 84934656
+                },
+                "state": "current",
+                "unit_id": "0f786aff2163d502bcb37ba064b32537ef60238390670ca70df7faf8d01d744a"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/cpus.c",
+                "report": {
+                  "calls": 895,
+                  "clang_accounted_bytes": 20083899,
+                  "diagnostics": [],
+                  "extract_micros": 157490,
+                  "input_key": "11ffdce042e7a7ed8eed2c84b94455b82082e12408236c2d732082838fe62619",
+                  "parse_micros": 133559,
+                  "references": 13526,
+                  "symbols": 13933,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "68f79fe6295b3ee90c3d5e3ad13bf6e82a8b57364ef2d5318e3cf215dea36982"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c",
+                "report": {
+                  "calls": 277,
+                  "clang_accounted_bytes": 15348933,
+                  "diagnostics": [],
+                  "extract_micros": 69221,
+                  "input_key": "8b3456038fb76a1a29d79c8c77ff618c575a37cce1f3707002f01177ff626538",
+                  "parse_micros": 114963,
+                  "references": 4179,
+                  "symbols": 4740,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "54f72c108e5dacd49d6b471dfe48262dac7dbdaee0c643edb88b6d7008f023cb"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/memory.c",
+                "report": {
+                  "calls": 1488,
+                  "clang_accounted_bytes": 17157576,
+                  "diagnostics": [],
+                  "extract_micros": 163179,
+                  "input_key": "9c58a90cd5985d0328410cbe287515b8163d028c6fe131f0b2388e161940afbc",
+                  "parse_micros": 127069,
+                  "references": 17056,
+                  "symbols": 12128,
+                  "worker_peak_rss_bytes": 90619904
+                },
+                "state": "current",
+                "unit_id": "f8897736be254929df832ef00fae30d81e8e53f71e401223495b149e99b37da5"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/physmem.c",
+                "report": {
+                  "calls": 1819,
+                  "clang_accounted_bytes": 21806401,
+                  "diagnostics": [],
+                  "extract_micros": 234097,
+                  "input_key": "5fcd1c4eba3b96f4d8e9e8d5ea05853cbf1c62e6f4660cb78bf40628251e4597",
+                  "parse_micros": 146882,
+                  "references": 24398,
+                  "symbols": 17215,
+                  "worker_peak_rss_bytes": 103727104
+                },
+                "state": "current",
+                "unit_id": "4852fe920fada799748b5052df40985fc3a70cf0ebacbf0edefdd06cfd69de44"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c",
+                "report": {
+                  "error": "compiler errors; no current semantic snapshot published: /Users/liuweifeng/work/symweft/test_code/qemu/block/cdp.h:81:17: error: use of undeclared identifier 'XATTR_NAME_MAX'",
+                  "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c"
+                },
+                "state": "failed",
+                "unit_id": "8999e134f2315b9c327b28df8166d01269e38af55a565c174e697e1e2d6fea82"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+                "report": {
+                  "calls": 2281,
+                  "clang_accounted_bytes": 25831725,
+                  "diagnostics": [],
+                  "extract_micros": 304049,
+                  "input_key": "9b2812858114e71597513bcadb3c243b96cf129dc6a12473f433a2cf5b0ef131",
+                  "parse_micros": 189726,
+                  "references": 24773,
+                  "symbols": 27578,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/target/arm/cpu.c",
+                "report": {
+                  "calls": 2187,
+                  "clang_accounted_bytes": 24097258,
+                  "diagnostics": [],
+                  "extract_micros": 336037,
+                  "input_key": "8ad8172a25cb65660a8c02d905d86554c789a06e01f3a039eb1be1ce6ac9d1a0",
+                  "parse_micros": 155723,
+                  "references": 31463,
+                  "symbols": 29503,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "b7a8595ec34531a38e7de25d01d35df70fec165b853d09f740623494d4226f51"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/target/arm/helper.c",
+                "report": {
+                  "calls": 2675,
+                  "clang_accounted_bytes": 22335052,
+                  "diagnostics": [],
+                  "extract_micros": 411378,
+                  "input_key": "cf241d1d1aeebe16991c7393e8816892a7e6a32b4172f6bd5641e6e0f6752aa7",
+                  "parse_micros": 137202,
+                  "references": 38884,
+                  "symbols": 24315,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "dc5d645237a0929399fc12d040f774fd2c6c4ef2c05e562949231eb373fe47d8"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/async.c",
+                "report": {
+                  "calls": 378,
+                  "clang_accounted_bytes": 13635516,
+                  "diagnostics": [],
+                  "extract_micros": 77987,
+                  "input_key": "5398359366bdb45ae8f34f61b766c39b273f6763e6f0580c6469a99c956704e7",
+                  "parse_micros": 86242,
+                  "references": 5734,
+                  "symbols": 4693,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "be7cf886dd0e61a64cb9e5deb09da8749647e503bc2e7d51fdb350bf0bb7d5e2"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/crc32c.c",
+                "report": {
+                  "calls": 10,
+                  "clang_accounted_bytes": 8724219,
+                  "diagnostics": [],
+                  "extract_micros": 20225,
+                  "input_key": "9d6f3b0700efc67b13b5081649037a72f1e462ed73ac4d75482d23bf43627d40",
+                  "parse_micros": 46589,
+                  "references": 284,
+                  "symbols": 510,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "8453a0f26fc744cffc1863d1232550b2774e1a71d16c4b7f89007c83f3ff7032"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/cutils.c",
+                "report": {
+                  "calls": 226,
+                  "clang_accounted_bytes": 10027121,
+                  "diagnostics": [],
+                  "extract_micros": 35168,
+                  "input_key": "634e9127e4b38cd490b9060c25b30673559f94359eb5631ca2bb781807810433",
+                  "parse_micros": 55076,
+                  "references": 2003,
+                  "symbols": 1273,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "65ad5f489139031506bd34b5d82509430ffda7ac0d7c4a608037e31a45ff3542"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/error-report.c",
+                "report": {
+                  "calls": 344,
+                  "clang_accounted_bytes": 13694188,
+                  "diagnostics": [],
+                  "extract_micros": 68958,
+                  "input_key": "e37846131a40840d23b3271ab831fd7e79a9bd62a9d5ae29b7001dde78e5fbe2",
+                  "parse_micros": 82320,
+                  "references": 5054,
+                  "symbols": 5323,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "ecc78ede791d112d42540b032f5943f0131c40bdd7ee8daffb61ddee2c5328d9"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/error.c",
+                "report": {
+                  "calls": 100,
+                  "clang_accounted_bytes": 8991539,
+                  "diagnostics": [],
+                  "extract_micros": 24025,
+                  "input_key": "8574e1ec55575bb24ca9d0e1e6cf6a7e9826eb9186a1c049e4c8432b0e412119",
+                  "parse_micros": 46283,
+                  "references": 806,
+                  "symbols": 833,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "faf0f793e8cd22b9515fae62f1bbfc1f4e24ae6176791204c5c3f93b1fe49acb"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/log.c",
+                "report": {
+                  "calls": 309,
+                  "clang_accounted_bytes": 9742251,
+                  "diagnostics": [],
+                  "extract_micros": 44232,
+                  "input_key": "730819fa6e668cbb9a593e140bede99c513a9350bd085108a22969fc30ba78c4",
+                  "parse_micros": 53914,
+                  "references": 3085,
+                  "symbols": 2380,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "2f21a51dd4a36fbf75b67c9e953b42c69c02abb61d1ffbc1bf8f0cec6db588be"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/module.c",
+                "report": {
+                  "calls": 39,
+                  "clang_accounted_bytes": 9402714,
+                  "diagnostics": [],
+                  "extract_micros": 25091,
+                  "input_key": "2a2aa5e6d5db01257cb4b1a9f19cd61cd4113d85c4174fed0bfcd446fbadcf1f",
+                  "parse_micros": 48885,
+                  "references": 670,
+                  "symbols": 1151,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "2b7c9d2b408018617c02db6459a2643c1e427737b939c4ab45ff71ce707ac9e2"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/osdep.c",
+                "report": {
+                  "calls": 362,
+                  "clang_accounted_bytes": 13841644,
+                  "diagnostics": [],
+                  "extract_micros": 73633,
+                  "input_key": "cea09d46166b59011fa0db8296f80447b854cdfb5bdfdc6286e50e1df2ed8c72",
+                  "parse_micros": 86079,
+                  "references": 5279,
+                  "symbols": 5742,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "8cdaa910c4d5a37ffe2347d64bbc415399ead517e3e516dfb60a8027e43fec76"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/path.c",
+                "report": {
+                  "calls": 52,
+                  "clang_accounted_bytes": 8852219,
+                  "diagnostics": [],
+                  "extract_micros": 25104,
+                  "input_key": "212c904530accc38d716f83d63f968458284cd82754731e84f4675f1db96ba8f",
+                  "parse_micros": 48492,
+                  "references": 593,
+                  "symbols": 951,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "1af03282edb38904894b8237fa0c1a15837d03b164878ed22b28fbc1a69d8d6f"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qemu-thread-posix.c",
+                "report": {
+                  "calls": 342,
+                  "clang_accounted_bytes": 10246849,
+                  "diagnostics": [],
+                  "extract_micros": 50175,
+                  "input_key": "2f9c438f04d3df57b6645175272fa187abf7e03ae8b19c26783b8d606272cfa0",
+                  "parse_micros": 57823,
+                  "references": 3670,
+                  "symbols": 3365,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "74dbe1e49a3abe56908b575b2c291acbec371cc52db9e1df55c86c680776476c"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qemu-timer.c",
+                "report": {
+                  "calls": 542,
+                  "clang_accounted_bytes": 13224422,
+                  "diagnostics": [],
+                  "extract_micros": 79168,
+                  "input_key": "44c51da2a28d367784cae35bae099a684cf05bdb5ae78058abda4a3ea1fe940d",
+                  "parse_micros": 77629,
+                  "references": 6541,
+                  "symbols": 6282,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "63f4e082dc931b207b410e749b6eac0711b557b0c54863aae0b580e39f344190"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/qht.c",
+                "report": {
+                  "calls": 337,
+                  "clang_accounted_bytes": 9590714,
+                  "diagnostics": [],
+                  "extract_micros": 64215,
+                  "input_key": "6ed9bdff570acf941e1aed8f568b0a4d707c8b46646624f976cf84658b0664c9",
+                  "parse_micros": 53501,
+                  "references": 3640,
+                  "symbols": 2107,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "e72754a2aeed68dea892aa28ef181aeee032f960386001d367b88a63c2f6fc40"
+              },
+              {
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/util/rcu.c",
+                "report": {
+                  "calls": 321,
+                  "clang_accounted_bytes": 9972022,
+                  "diagnostics": [],
+                  "extract_micros": 47936,
+                  "input_key": "f156a105a19aa0d69432ce0a32468de3c89b010556fa3ca8c90555555880bf76",
+                  "parse_micros": 51840,
+                  "references": 3579,
+                  "symbols": 3118,
+                  "worker_peak_rss_bytes": 116424704
+                },
+                "state": "current",
+                "unit_id": "103a3b54b9c4a474dd653b86a03f83ef93c12813ebc8fde511bfc425f008be1b"
+              }
+            ]
+          },
+          "job": {
+            "analyzed": 0,
+            "failures": [
+              {
+                "error": "compiler errors; no current semantic snapshot published: /Users/liuweifeng/work/symweft/test_code/qemu/block/cdp.h:81:17: error: use of undeclared identifier 'XATTR_NAME_MAX'",
+                "file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/runstate.c"
+              }
+            ],
+            "reused": 29,
+            "state": "complete_with_errors",
+            "total": 30,
+            "wall_ms": 565
+          },
+          "limits": {
+            "timeout_seconds": 30,
+            "worker_memory_mib": 512
+          },
+          "provider": "a2-clang-v3:2c8709ae0789a344cc2d605607749dd7516916ecf2b1e4101a0d61ba65cc53fd",
+          "rejected": []
+        },
+        "resource_text": "semantic indexing did not complete without errors; inspect report\n        0.78 real         0.44 user         0.31 sys\n            74891264  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                8963  page reclaims\n                   2  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                  12  voluntary context switches\n                 685  involuntary context switches\n          6518227301  instructions retired\n          1928655713  cycles elapsed\n            35144160  peak memory footprint\n",
+        "parent_peak_rss_bytes": 74891264,
+        "process_real_seconds": 0.78
+      }
+    },
+    "database_bytes": 114995200,
+    "compiler_environment": {
+      "CPATH": "/usr/local/include",
+      "C_INCLUDE_PATH": "",
+      "CPLUS_INCLUDE_PATH": "",
+      "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "MACOSX_DEPLOYMENT_TARGET": "",
+      "LIBCLANG_PATH": ""
+    },
+    "environment_provenance": "Reconstructed from the same Apple Python launcher and confirmed by actual provider identity tracing for CLI and native app."
+  },
+  "prototype": {
+    "database_bytes": 510263296,
+    "index_wall_ms": 22122,
+    "process_wall_seconds": 24.69,
+    "parent_peak_rss_bytes": 116473856,
+    "note": "Earlier JSON/string-key prototype; multiple optimizations and extractor revisions differ; not an isolated compression experiment."
+  },
+  "verification": {
+    "rust_tests": 27,
+    "clippy": "passed --workspace --all-targets -D warnings",
+    "semantic_protocol": {
+      "initial": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "wall_ms": 46
+      },
+      "single_file_update": {
+        "analyzed": 1,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 1,
+        "wall_ms": 18
+      },
+      "header_update": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "wall_ms": 44
+      },
+      "compile_failure": {
+        "analyzed": 0,
+        "failures": [
+          {
+            "error": "compiler errors; no current semantic snapshot published: /Users/liuweifeng/work/symweft/build/checks/semantic-protocol-3uy284g_/b.cpp:1:10: fatal error: 'missing-header.h' file not found",
+            "file": "/Users/liuweifeng/work/symweft/build/checks/semantic-protocol-3uy284g_/b.cpp"
+          }
+        ],
+        "reused": 0,
+        "state": "complete_with_errors",
+        "total": 1,
+        "wall_ms": 23
+      },
+      "restart": {
+        "analyzed": 0,
+        "failures": [],
+        "reused": 2,
+        "state": "complete",
+        "total": 2,
+        "wall_ms": 0
+      },
+      "configuration_update": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "wall_ms": 46
+      },
+      "cancel": {
+        "analyzed": 0,
+        "failures": [],
+        "reused": 0,
+        "state": "cancelled",
+        "total": 1,
+        "wall_ms": 0
+      }
+    },
+    "native_ui": {
+      "light": {
+        "analysis_calls": 1107,
+        "analysis_level": "syntax",
+        "analysis_symbols": 102,
+        "appearance": "NSAppearanceNameAqua",
+        "caret_byte": 82061,
+        "core_version": "0.1.0",
+        "current_function": "qemu_init",
+        "current_scope_calls": 409,
+        "document": "system/vl.c",
+        "error": "",
+        "file_count": 11335,
+        "navigator_geometry": "frame=(0.0, 0.0, 260.0, 48610.0); rows=1800; hidden=false",
+        "reader_geometry": "origin=(324.0, 46044.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 56.0, 694.0)); clip-frame=Optional((56.0, -0.0, 615.0, 694.0)); clip-bounds=Optional((0.0, 45321.0, 615.0, 694.0))",
+        "semantic_configured": true,
+        "semantic_context_functions": 1,
+        "semantic_incoming": 1,
+        "semantic_notice": "已导入 2855 个编译单元；按需分析。",
+        "semantic_outgoing": 100,
+        "status": "ok",
+        "storage_source": "sqlite",
+        "workspace": "qemu"
+      },
+      "dark": {
+        "analysis_calls": 1107,
+        "analysis_level": "syntax",
+        "analysis_symbols": 102,
+        "appearance": "NSAppearanceNameDarkAqua",
+        "caret_byte": 82061,
+        "core_version": "0.1.0",
+        "current_function": "qemu_init",
+        "current_scope_calls": 409,
+        "document": "system/vl.c",
+        "error": "",
+        "file_count": 11335,
+        "navigator_geometry": "frame=(0.0, 0.0, 260.0, 48610.0); rows=1800; hidden=false",
+        "reader_geometry": "origin=(324.0, 46044.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 56.0, 694.0)); clip-frame=Optional((56.0, -0.0, 615.0, 694.0)); clip-bounds=Optional((0.0, 45321.0, 615.0, 694.0))",
+        "semantic_configured": true,
+        "semantic_context_functions": 1,
+        "semantic_incoming": 1,
+        "semantic_notice": "已导入 2855 个编译单元；按需分析。",
+        "semantic_outgoing": 100,
+        "status": "ok",
+        "storage_source": "sqlite",
+        "workspace": "qemu"
+      },
+      "mismatch": {
+        "analysis_calls": 1107,
+        "analysis_level": "syntax",
+        "analysis_symbols": 102,
+        "appearance": "NSAppearanceNameAqua",
+        "caret_byte": 82061,
+        "core_version": "0.1.0",
+        "current_function": "qemu_init",
+        "current_scope_calls": 409,
+        "document": "system/vl.c",
+        "error": "",
+        "file_count": 11335,
+        "navigator_geometry": "frame=(0.0, 0.0, 260.0, 48610.0); rows=1800; hidden=false",
+        "reader_geometry": "origin=(324.0, 46044.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 56.0, 694.0)); clip-frame=Optional((56.0, -0.0, 615.0, 694.0)); clip-bounds=Optional((0.0, 45321.0, 615.0, 694.0))",
+        "semantic_configured": true,
+        "semantic_context_functions": 0,
+        "semantic_incoming": 0,
+        "semantic_notice": "已导入 2855 个编译单元；29 个已有快照与当前编译器或环境不兼容，请重新分析。",
+        "semantic_outgoing": 0,
+        "status": "ok",
+        "storage_source": "sqlite",
+        "workspace": "qemu"
+      }
+    }
+  },
+  "query_benchmark": {
+    "source_root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+    "configured_units": 2855,
+    "scope": "Already indexed subset; IPC + input hashing + SQLite + fact decoding; OS page cache not purged; excludes AST and UI rendering.",
+    "entity_name": "qemu_init",
+    "entity_id": "6b7f372dc9e6c6f1de5fb96994a864a3ec47e4b427eb0e0e0d4ba8a2d45cdce9",
+    "counts": {
+      "definitions": 1,
+      "incoming": 1,
+      "outgoing": 405
+    },
+    "outgoing_resolution": {
+      "direct": 403,
+      "unresolved": 2
+    },
+    "compiler_environment": {
+      "CPATH": "/usr/local/include",
+      "C_INCLUDE_PATH": "",
+      "CPLUS_INCLUDE_PATH": "",
+      "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "MACOSX_DEPLOYMENT_TARGET": "",
+      "LIBCLANG_PATH": ""
+    },
+    "timing_ms": {
+      "at": {
+        "first": 29.694542,
+        "p50": 31.310688,
+        "p95": 34.4245,
+        "max": 34.505333,
+        "samples": 30
+      },
+      "definitions": {
+        "first": 17.195875,
+        "p50": 19.258146,
+        "p95": 22.537666,
+        "max": 23.333417,
+        "samples": 30
+      },
+      "incoming": {
+        "first": 40.125666,
+        "p50": 17.176458500000003,
+        "p95": 23.83,
+        "max": 24.162167,
+        "samples": 30
+      },
+      "outgoing": {
+        "first": 30.984875,
+        "p50": 22.735188,
+        "p95": 26.084292,
+        "max": 26.485084,
+        "samples": 30
+      }
+    },
+    "incoming": [
+      {
+        "caller": "fb5b90ba9d058c0977b4878862ad606279adf1cf1670d6f427710b2325c6933d",
+        "caller_name": "main",
+        "freshness": "included_inputs_validated",
+        "input_key": "8b3456038fb76a1a29d79c8c77ff618c575a37cce1f3707002f01177ff626538",
+        "location": {
+          "column": 5,
+          "end_offset": 2126,
+          "line": 71,
+          "offset": 2105,
+          "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c"
+        },
+        "main_file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/main.c",
+        "name": "qemu_init",
+        "resolution": "direct",
+        "spelling": null,
+        "target": "6b7f372dc9e6c6f1de5fb96994a864a3ec47e4b427eb0e0e0d4ba8a2d45cdce9",
+        "unit_id": "54f72c108e5dacd49d6b471dfe48262dac7dbdaee0c643edb88b6d7008f023cb"
+      }
+    ],
+    "definition": [
+      {
+        "callable": true,
+        "definition": true,
+        "extent": {
+          "column": 1,
+          "end_offset": 120565,
+          "line": 2854,
+          "offset": 82056,
+          "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c"
+        },
+        "freshness": "included_inputs_validated",
+        "id": "6b7f372dc9e6c6f1de5fb96994a864a3ec47e4b427eb0e0e0d4ba8a2d45cdce9",
+        "input_key": "9b2812858114e71597513bcadb3c243b96cf129dc6a12473f433a2cf5b0ef131",
+        "kind": "FunctionDecl",
+        "location": {
+          "column": 6,
+          "end_offset": 82070,
+          "line": 2854,
+          "offset": 82061,
+          "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c"
+        },
+        "main_file": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+        "name": "qemu_init",
+        "signature": "void (int, char **)",
+        "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5",
+        "usr": "c:@F@qemu_init"
+      }
+    ]
+  },
+  "memory_measurement_note": "Benchmark parent_peak_rss_bytes is the original field name for /usr/bin/time -l command rusage. It is not a simultaneous process-tree memory measurement. Worker peaks come from rusage and can be running maxima. Future script outputs use command_peak_rss_bytes."
+}

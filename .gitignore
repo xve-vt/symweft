@@ -1,0 +1,11 @@
+.DS_Store
+/target/
+/build/
+/test_code/
+**/.build/
+**/.swiftpm/
+*.xcuserstate
+xcuserdata/
+__pycache__/
+*.py[cod]
+

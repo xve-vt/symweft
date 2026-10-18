@@ -1,0 +1,15 @@
+[package]
+name = "symweft-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+symweft-analysis = { path = "../symweft-analysis" }
+symweft-index = { path = "../symweft-index" }
+symweft-semantic = { path = "../symweft-semantic" }
+serde.workspace = true
+serde_json.workspace = true
+walkdir.workspace = true
+

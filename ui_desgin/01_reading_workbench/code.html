@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"error":"#ffb4ab","inverse-surface":"#dfe2ec","on-error":"#690005","tertiary-fixed-dim":"#bec7da","lang-cpp":"#F34B7D","background":"#0f131a","on-tertiary-fixed-variant":"#3e4757","surface-container":"#1c2027","surface-bright":"#353941","surface-container-highest":"#31353d","lang-rust":"#DEA584","status-error":"#F18F93","on-surface":"#dfe2ec","tertiary":"#cfd8ec","surface-container-high":"#262a32","status-success":"#7CCF9A","error-container":"#93000a","tertiary-container":"#b3bcd0","bg-canvas":"#10141B","inverse-primary":"#006b5f","outline":"#879390","on-secondary-fixed":"#001c3b","secondary-fixed-dim":"#a6c8ff","on-secondary-container":"#8eb7f7","lang-python":"#3572A5","on-primary-fixed":"#00201c","outline-variant":"#3d4947","accent-primary":"#63CDBD","border-subtle":"#303B4C","surface-container-lowest":"#0a0e15","on-error-container":"#ffdad6","on-tertiary-fixed":"#131c2a","secondary-fixed":"#d5e3ff","text-secondary":"#A8B5C8","status-info":"#8FB8F8","on-tertiary":"#283140","status-warning":"#F2C46D","surface-dim":"#0f131a","on-background":"#dfe2ec","on-primary-fixed-variant":"#005048","primary-fixed":"#8cf5e4","inverse-on-surface":"#2d3038","on-primary-container":"#00554c","surface-variant":"#31353d","surface":"#0f131a","primary-container":"#63cdbd","on-tertiary-container":"#434c5c","primary":"#80e9d9","secondary-container":"#154780","on-primary":"#003731","secondary":"#a6c8ff","primary-fixed-dim":"#6fd8c8","on-surface-variant":"#bcc9c6","text-primary":"#E7EDF6","surface-tint":"#6fd8c8","on-secondary":"#003060","bg-raised":"#202938","tertiary-fixed":"#dae3f7","bg-surface":"#171D27","lang-java":"#B07219","surface-container-low":"#181c23","on-secondary-fixed-variant":"#154780"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"margin-screen":"0rem","space-xs":"0.25rem","space-lg":"1rem","margin":"0.75rem","gutter":"0.5rem","gutter-panel":"0.0625rem","space-sm":"0.5rem","space-md":"0.75rem","space-xl":"1.5rem"},"fontFamily":{"code-sm":["JetBrains Mono"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"body-md":["Inter"],"body-sm":["Inter"],"body-lg":["Inter"],"code-lg":["JetBrains Mono"],"headline-md":["Inter"],"headline-sm":["Inter"],"label-md":["Inter"],"label-sm":["JetBrains Mono"]},"fontSize":{"code-sm":["0.6875rem",{"lineHeight":"0.9375rem","fontWeight":"400"}],"headline-lg":["1.25rem",{"lineHeight":"1.75rem","letterSpacing":"-0.015em","fontWeight":"600"}],"code-md":["0.8125rem",{"lineHeight":"1.1875rem","fontWeight":"400"}],"body-md":["0.8125rem",{"lineHeight":"1.125rem","fontWeight":"400"}],"body-sm":["0.75rem",{"lineHeight":"1rem","fontWeight":"400"}],"body-lg":["0.875rem",{"lineHeight":"1.25rem","fontWeight":"400"}],"code-lg":["0.875rem",{"lineHeight":"1.3125rem","fontWeight":"400"}],"headline-md":["1rem",{"lineHeight":"1.375rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-sm":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"-0.005em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.02em","fontWeight":"500"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.04em","fontWeight":"500"}]}}}};</script></head><body class="bg-bg-canvas font-body-md text-text-primary min-h-screen selection:bg-accent-primary selection:text-surface-container-lowest"><header class="fixed top-0 left-0 right-0 h-[46px] z-50 bg-bg-surface border-b border-border-subtle flex items-center justify-between px-space-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-space-xs"><div class="w-6 h-6 rounded bg-bg-raised flex items-center justify-center text-accent-primary font-headline-sm text-headline-sm"><span class="material-symbols-outlined text-[16px]">polyline</span></div><span class="font-headline-sm text-headline-sm text-text-primary tracking-tight font-semibold">Understood</span></div><div class="h-4 w-px bg-border-subtle"></div><button class="h-7 px-space-xs rounded bg-surface-container-low hover:bg-bg-raised hover:text-text-primary flex items-center gap-space-xs text-text-secondary transition-colors" type="button"><span class="font-code-sm text-code-sm text-text-primary truncate max-w-[210px]">Orion Commerce (5 repos)</span><div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-lang-python" title="Python"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-rust" title="Rust"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-java" title="Java"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-cpp" title="C++"></span></div><span class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="h-4 w-px bg-border-subtle"></div><nav class="flex items-center gap-0.5" data-active-classes="bg-bg-raised text-text-primary font-semibold"><a aria-current="page" class="h-7 px-space-xs rounded flex items-center transition-colors bg-bg-raised text-text-primary font-semibold" data-path="reading-workbench" href="#">01 阅读工作台</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="call-graph" href="#">02 调用图分屏</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="control-flow" href="#">03 控制流图</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="system-map" href="#">04 跨项目系统地图</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="relation-inspector" href="#">05 关系证据检查器</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="search-command" href="#">08 搜索与命令</a></nav></div><div class="flex items-center gap-space-xs flex-1 max-w-[480px] mx-space-md"><div class="w-full h-8 bg-surface-container-low border border-border-subtle rounded flex items-center px-space-xs gap-space-xs focus-within:border-accent-primary transition-colors"><span class="material-symbols-outlined text-text-secondary text-[16px]">search</span><span class="font-code-sm text-code-sm text-text-secondary flex-1 truncate">跳转至文件 / 符号 / 全文 / &gt; 命令...</span><kbd class="px-1 py-0.5 rounded bg-bg-raised border border-border-subtle font-code-sm text-code-sm text-text-secondary">Ctrl+K</kbd></div><div class="h-7 px-space-xs bg-surface-container-low border border-border-subtle rounded flex items-center gap-1 text-text-secondary hover:bg-bg-raised hover:text-text-primary cursor-pointer transition-colors"><span class="material-symbols-outlined text-[14px]">history_toggle_off</span><span class="font-code-sm text-code-sm truncate max-w-[120px]">local-dev</span></div></div><div class="flex items-center gap-space-sm"><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center gap-0.5 border border-border-subtle"><button class="px-space-xs h-full rounded bg-bg-raised text-accent-primary font-label-md text-label-md font-semibold" type="button">阅读</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">开发</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">深度分析</button></div><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center border border-border-subtle"><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="源码优先" type="button"><span class="material-symbols-outlined text-[15px]">code</span></button><button class="w-6 h-full rounded bg-bg-raised flex items-center justify-center text-accent-primary" title="分屏 55:45" type="button"><span class="material-symbols-outlined text-[15px]">vertical_split</span></button><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="全图谱" type="button"><span class="material-symbols-outlined text-[15px]">hub</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex items-center gap-1 pl-space-xs border-l border-border-subtle"><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-status-error/80 hover:bg-status-error flex items-center justify-center" type="button"></button></div></div></header><aside class="fixed left-0 top-[46px] bottom-[24px] w-[48px] bg-bg-canvas border-r border-border-subtle z-40 flex flex-col items-center justify-between py-space-xs"><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded bg-bg-raised text-accent-primary flex items-center justify-center hover:bg-surface-container-high transition-colors" title="项目资源树 (Projects)" type="button"><span class="material-symbols-outlined text-[18px]">folder_copy</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="符号大纲 (Symbols)" type="button"><span class="material-symbols-outlined text-[18px]">account_tree</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="阅读路径 (Reading Trails)" type="button"><span class="material-symbols-outlined text-[18px]">route</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="依赖与架构规则 (Architecture Rules)" type="button"><span class="material-symbols-outlined text-[18px]">schema</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="全文检索 (Search)" type="button"><span class="material-symbols-outlined text-[18px]">find_in_page</span></button></div><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="扩展 (Extensions)" type="button"><span class="material-symbols-outlined text-[18px]">extension</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="设置与系统偏好" type="button"><span class="material-symbols-outlined text-[18px]">settings</span></button></div></aside><div class="pl-[48px]"><main class="relative pt-[46px] pb-[24px] min-h-[calc(100vh-24px)] bg-bg-canvas w-full"><div class="flex flex-col w-full h-[calc(100vh-70px)] select-none overflow-hidden">
+<!-- Workbench Header Sub-strip / Quick Context -->
+<div class="h-8 bg-surface-container-low px-space-md flex items-center justify-between text-text-secondary">
+<div class="flex items-center gap-space-xs font-code-sm text-code-sm">
+<span class="text-text-secondary">WORKSPACE:</span>
+<span class="text-text-primary font-semibold">Orion Commerce</span>
+<span class="text-outline">/</span>
+<span class="text-accent-primary">AST Multi-Language Engine v2.4</span>
+<span class="ml-2 px-1.5 py-0.5 rounded bg-surface-container text-status-success font-label-sm text-label-sm">SYNCHRONIZED</span>
+</div>
+<div class="flex items-center gap-space-md font-label-sm text-label-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span class="text-text-primary">PyO3 FFI Connected</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-status-warning"></span>
+<span class="text-status-warning">1 Clang Target Heuristic</span>
+</div>
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+<span>Resolution: Strict Epistemic</span>
+</div>
+</div>
+</div>
+<!-- Primary 3-Column Layout -->
+<div class="flex flex-1 min-h-0 w-full">
+<!-- LEFT SIDEBAR: Projects Tree & Symbols Outline (240px) -->
+<aside class="w-[240px] flex-shrink-0 bg-bg-surface flex flex-col justify-between overflow-hidden">
+<!-- Upper Section: Repository Hierarchy -->
+<div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+<div class="h-7 px-space-sm bg-surface-container-low flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-text-secondary font-semibold">Projects (5)</span>
+<div class="flex items-center gap-1">
+<button class="w-5 h-5 rounded hover:bg-bg-raised text-text-secondary hover:text-text-primary flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[14px]">unfold_less</span>
+</button>
+<button class="w-5 h-5 rounded hover:bg-bg-raised text-text-secondary hover:text-text-primary flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[14px]">filter_list</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto py-1 font-body-sm text-body-sm">
+<!-- Repo 1: api-gateway -->
+<div class="h-7 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[16px] text-text-secondary">chevron_right</span>
+<span class="material-symbols-outlined text-[16px] text-lang-java">folder</span>
+<span class="text-text-primary truncate flex-1">api-gateway</span>
+<span class="w-1.5 h-1.5 rounded-full bg-status-success" title="Fully Indexed"></span>
+<span class="font-code-sm text-code-sm text-outline">Java</span>
+</div>
+<!-- Repo 2: order-service -->
+<div class="h-7 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[16px] text-text-secondary">chevron_right</span>
+<span class="material-symbols-outlined text-[16px] text-lang-java">folder</span>
+<span class="text-text-primary truncate flex-1">order-service</span>
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span class="font-code-sm text-code-sm text-outline">Java</span>
+</div>
+<!-- Repo 3: risk-service [Expanded] -->
+<div class="bg-surface-container/50">
+<div class="h-7 px-2 flex items-center gap-1.5 text-text-primary bg-bg-raised cursor-pointer">
+<span class="material-symbols-outlined text-[16px] text-text-primary">expand_more</span>
+<span class="material-symbols-outlined text-[16px] text-accent-primary">folder_open</span>
+<span class="font-semibold text-text-primary truncate flex-1">risk-service</span>
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span class="font-code-sm text-code-sm text-lang-python font-semibold">Py</span>
+</div>
+<div class="pl-4">
+<div class="h-6 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer">
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="material-symbols-outlined text-[14px] text-text-secondary">folder</span>
+<span class="truncate">tests</span>
+</div>
+<div class="h-6 px-2 flex items-center gap-1.5 text-text-primary bg-surface-container">
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+<span class="material-symbols-outlined text-[14px] text-accent-primary">folder_open</span>
+<span class="truncate font-medium">risk_service</span>
+</div>
+<div class="pl-4">
+<div class="h-6 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-lang-python">draft</span>
+<span class="truncate">__init__.py</span>
+</div>
+<!-- Active file -->
+<div class="h-6 px-2 flex items-center gap-1.5 text-text-primary bg-bg-raised relative cursor-pointer">
+<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-accent-primary"></div>
+<span class="material-symbols-outlined text-[14px] text-accent-primary">description</span>
+<span class="truncate font-medium text-text-primary">service.py</span>
+<span class="ml-auto font-code-sm text-code-sm text-accent-primary">42L</span>
+</div>
+<div class="h-6 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-lang-python">draft</span>
+<span class="truncate">models.py</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Repo 4: risk-core [Rust] -->
+<div class="h-7 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[16px] text-text-secondary">chevron_right</span>
+<span class="material-symbols-outlined text-[16px] text-lang-rust">folder</span>
+<span class="text-text-primary truncate flex-1">risk-core</span>
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span class="font-code-sm text-code-sm text-lang-rust font-semibold">Rust</span>
+</div>
+<!-- Repo 5: pricing-core [C++] with warning -->
+<div class="h-7 px-2 flex items-center gap-1.5 text-text-secondary hover:bg-surface-container cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-[16px] text-text-secondary">chevron_right</span>
+<span class="material-symbols-outlined text-[16px] text-lang-cpp">folder</span>
+<span class="text-text-primary truncate flex-1">pricing-core</span>
+<span class="material-symbols-outlined text-[15px] text-status-warning" title="缺少 compile_commands.json 数据库，部分符号仅基于启发式解析">warning</span>
+<span class="font-code-sm text-code-sm text-lang-cpp font-semibold">C++</span>
+</div>
+</div>
+</div>
+<!-- Lower Section: File Symbols Outline -->
+<div class="h-[210px] flex-shrink-0 bg-surface-container-low/70 flex flex-col overflow-hidden">
+<div class="h-7 px-space-sm bg-surface-container-high flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-accent-primary">format_list_bulleted</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-text-secondary font-semibold">Outline · service.py</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">3 funcs</span>
+</div>
+<div class="flex-1 overflow-y-auto py-1 font-body-sm text-body-sm">
+<!-- Symbol 1 (Active) -->
+<div class="h-7 px-3 flex items-center gap-2 bg-bg-raised text-text-primary relative cursor-pointer">
+<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-accent-primary"></div>
+<span class="w-4 h-4 rounded bg-primary-container/20 text-accent-primary flex items-center justify-center font-code-sm text-code-sm font-semibold">ƒ</span>
+<span class="font-code-sm text-code-sm font-semibold text-text-primary truncate flex-1">assess(order)</span>
+<span class="font-code-sm text-code-sm text-status-success">L1-10</span>
+</div>
+<!-- Symbol 2 -->
+<div class="h-7 px-3 flex items-center gap-2 text-text-secondary hover:bg-surface-container hover:text-text-primary cursor-pointer transition-colors">
+<span class="w-4 h-4 rounded bg-surface-container-highest text-text-secondary flex items-center justify-center font-code-sm text-code-sm">ƒ</span>
+<span class="font-code-sm text-code-sm truncate flex-1">normalize(order)</span>
+<span class="font-code-sm text-code-sm text-outline">L13-22</span>
+</div>
+<!-- Symbol 3 -->
+<div class="h-7 px-3 flex items-center gap-2 text-text-secondary hover:bg-surface-container hover:text-text-primary cursor-pointer transition-colors">
+<span class="w-4 h-4 rounded bg-surface-container-highest text-text-secondary flex items-center justify-center font-code-sm text-code-sm">ƒ</span>
+<span class="font-code-sm text-code-sm truncate flex-1">evaluate(score)</span>
+<span class="font-code-sm text-code-sm text-outline">L25-38</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- CENTER CODE EDITOR PANE (~780px) -->
+<main class="flex-1 min-w-[500px] bg-bg-canvas flex flex-col overflow-hidden relative">
+<!-- Breadcrumb Bar -->
+<div class="h-7 bg-bg-surface px-space-md flex items-center justify-between text-text-secondary font-code-sm text-code-sm">
+<div class="flex items-center gap-1.5 overflow-hidden">
+<span class="text-text-secondary hover:text-text-primary cursor-pointer">Orion Commerce</span>
+<span class="text-outline">/</span>
+<span class="text-text-secondary hover:text-text-primary cursor-pointer">risk-service</span>
+<span class="text-outline">/</span>
+<span class="text-text-secondary hover:text-text-primary cursor-pointer">src/risk_service/service.py</span>
+<span class="text-outline">/</span>
+<span class="text-accent-primary font-semibold truncate flex items-center gap-1">
+<span class="text-text-secondary">ƒ</span> assess(order: Order)
+          </span>
+</div>
+<div class="flex items-center gap-2">
+<button class="h-5 px-1.5 rounded bg-surface-container hover:bg-bg-raised text-text-secondary hover:text-text-primary text-[11px] flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[13px]">pin</span>
+<span>固定符号</span>
+</button>
+<button class="h-5 w-5 rounded hover:bg-bg-raised text-text-secondary hover:text-text-primary flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[14px]">more_horiz</span>
+</button>
+</div>
+</div>
+<!-- Active Symbol Fact / Insight Strip -->
+<div class="bg-surface-container-high px-space-md py-1.5 flex items-center justify-between font-body-sm text-body-sm">
+<div class="flex items-center gap-3 overflow-hidden">
+<div class="font-code-md text-code-md font-semibold text-text-primary flex items-center gap-1">
+<span class="text-lang-python">async def</span>
+<span class="text-accent-primary">assess</span><span class="text-text-secondary">(order: Order) -&gt;</span>
+<span class="text-primary-fixed">Decision</span>
+</div>
+<span class="text-outline">|</span>
+<div class="flex items-center gap-1 text-text-secondary font-code-sm text-code-sm">
+<span>Repo:</span>
+<span class="text-text-primary font-medium">risk-service</span>
+</div>
+<span class="text-outline">|</span>
+<div class="flex items-center gap-2 font-code-sm text-code-sm">
+<span class="text-text-secondary">调用方:</span>
+<span class="px-1 rounded bg-bg-surface text-accent-primary font-semibold">4</span>
+<span class="text-text-secondary">被调用方:</span>
+<span class="px-1 rounded bg-bg-surface text-primary-fixed font-semibold">3</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-lowest text-status-success font-label-sm text-label-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+            语义已精确解析
+          </span>
+</div>
+</div>
+<!-- Real High-Density Code Buffer Canvas -->
+<div class="flex-1 overflow-auto bg-bg-canvas font-code-md text-code-md flex leading-relaxed select-text relative" id="codeEditorArea">
+<!-- Line Numbers Column -->
+<div class="w-12 py-3 bg-surface-container-lowest text-outline select-none text-right pr-3 font-code-sm text-code-sm flex flex-col gap-0.5">
+<span>1</span>
+<span>2</span>
+<span>3</span>
+<span>4</span>
+<span class="text-accent-primary font-bold">5</span>
+<span class="text-accent-primary font-bold">6</span>
+<span class="text-accent-primary font-bold">7</span>
+<span>8</span>
+<span>9</span>
+<span>10</span>
+<span>11</span>
+<span>12</span>
+<span>13</span>
+<span>14</span>
+</div>
+<!-- Syntax Body -->
+<div class="flex-1 py-3 px-4 flex flex-col gap-0.5 whitespace-pre overflow-x-auto text-text-primary">
+<!-- Line 1 -->
+<div><span class="text-lang-python font-semibold">async def</span> <span class="text-accent-primary font-semibold">assess</span>(order: <span class="text-primary-fixed">Order</span>) -&gt; <span class="text-primary-fixed">Decision</span>:</div>
+<!-- Line 2 -->
+<div> <span class="text-lang-python font-semibold">if not</span> order.items:</div>
+<!-- Line 3 -->
+<div> <span class="text-lang-python font-semibold">return</span> <span class="text-primary-fixed">Decision</span>.reject(<span class="text-status-warning">"empty order"</span>)</div>
+<!-- Line 4 -->
+<div>    normalized = <span class="text-text-primary hover:underline cursor-pointer">normalize</span>(order)</div>
+<!-- Line 5: Inside Try block with Native FFI call and CodeLens Hint -->
+<div class="relative">
+<!-- Inline CodeLens Reference Chip -->
+<div class="inline-flex items-center gap-1.5 px-2 py-0.5 my-0.5 rounded bg-surface-container-high text-accent-primary font-label-sm text-label-sm select-none">
+<span class="material-symbols-outlined text-[12px]">hub</span>
+<span class="font-medium">2 跨语言引用</span>
+<span class="text-outline">·</span>
+<span class="text-lang-rust font-semibold">PyO3 Native Crate: risk_core</span>
+<span class="text-outline">·</span>
+<span class="text-text-secondary underline cursor-pointer hover:text-text-primary" onclick="toggleContextMenu(event)">查看定义 (F12)</span>
+</div>
+</div>
+<!-- Line 6: Cursor is positioned right on calculate -->
+<div> <span class="text-lang-python font-semibold">try</span>:</div>
+<div class="bg-surface-container/60 -mx-4 px-4 py-0.5 flex items-center">
+<span>        score = </span>
+<span class="text-text-primary">risk_bridge</span>
+<span>.</span>
+<!-- Highlighted symbol under cursor -->
+<span class="bg-primary/20 text-accent-primary font-semibold px-1 rounded ring-1 ring-accent-primary cursor-pointer" id="symbolTarget" onclick="toggleContextMenu(event)">calculate</span>
+<span>(normalized)</span>
+<span class="w-1.5 h-4 bg-accent-primary animate-pulse ml-0.5 inline-block align-middle"></span>
+</div>
+<!-- Line 7 -->
+<div> <span class="text-lang-python font-semibold">return</span> <span class="text-primary-fixed">Decision</span>.approve() <span class="text-lang-python font-semibold">if</span> score &lt; <span class="text-status-warning">0.7</span> <span class="text-lang-python font-semibold">else</span> <span class="text-primary-fixed">Decision</span>.review()</div>
+<!-- Line 8 -->
+<div> <span class="text-lang-python font-semibold">except</span> <span class="text-status-error font-medium">PricingUnavailable</span>:</div>
+<!-- Line 9 -->
+<div> <span class="text-lang-python font-semibold">return</span> <span class="text-primary-fixed">Decision</span>.review(reason=<span class="text-status-warning">"pricing unavailable"</span>)</div>
+<!-- Line 10 -->
+<div class="text-outline"></div>
+<!-- Line 11-14 (Trailing placeholder) -->
+<div class="text-outline/70"># 基础规范评估管道已接入 risk_core 动态共享库</div>
+<div><span class="text-lang-python font-semibold">def</span> <span class="text-text-primary hover:underline cursor-pointer">normalize</span>(order: <span class="text-primary-fixed">Order</span>) -&gt; <span class="text-primary-fixed">NormalizedOrder</span>:</div>
+<div class="text-outline">    ...</div>
+</div>
+<!-- Floating Context Menu Mock (Right Click / Triggered) -->
+<div class="absolute left-64 top-28 z-30 w-72 bg-bg-raised rounded shadow-2xl p-1 font-body-sm text-body-sm transition-all duration-150" id="editorContextMenu">
+<div class="px-2 py-1 text-outline font-label-sm text-label-sm uppercase tracking-wider flex items-center justify-between">
+<span>符号动作: calculate</span>
+<span class="px-1 rounded bg-surface-container text-lang-rust font-semibold">PyO3</span>
+</div>
+<div class="my-1 h-px bg-surface-container-highest"></div>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-primary flex items-center justify-between group" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-accent-primary">launch</span>
+<span>转到定义 (Go to Definition)</span>
+</div>
+<kbd class="font-code-sm text-code-sm text-outline">F12</kbd>
+</button>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-primary flex items-center justify-between" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-text-secondary">search_insights</span>
+<span>查找所有引用 (Find References)</span>
+</div>
+<kbd class="font-code-sm text-code-sm text-outline">⇧F12</kbd>
+</button>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-primary flex items-center justify-between" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-text-secondary">schema</span>
+<span>查看调用图 (Call Graph)</span>
+</div>
+<kbd class="font-code-sm text-code-sm text-outline">⌥G</kbd>
+</button>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-primary flex items-center justify-between" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-text-secondary">alt_route</span>
+<span>查看控制流 (Control Flow)</span>
+</div>
+<kbd class="font-code-sm text-code-sm text-outline">⌥C</kbd>
+</button>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-primary flex items-center justify-between" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-accent-primary">verified</span>
+<span>检查跨语言关系证据</span>
+</div>
+<kbd class="font-code-sm text-code-sm text-outline">⌥E</kbd>
+</button>
+<div class="my-1 h-px bg-surface-container-highest"></div>
+<button class="w-full h-7 px-2 rounded hover:bg-surface-container text-text-secondary hover:text-text-primary flex items-center justify-between" type="button">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+<span>复制全限定符号名 (FQSN)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">risk_core::bridge</span>
+</button>
+</div>
+</div>
+<!-- Editor Bottom Meta Shelf -->
+<div class="h-6 bg-surface-container-lowest px-space-md flex items-center justify-between font-label-sm text-label-sm text-text-secondary">
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1 text-accent-primary">
+<span class="material-symbols-outlined text-[13px]">dataset</span>
+<span>Symbol ID: #sym-py-772910</span>
+</span>
+<span class="text-outline">·</span>
+<span>Complexity (CCN): 3</span>
+<span class="text-outline">·</span>
+<span>Deterministic Bindings: 100%</span>
+</div>
+<div class="flex items-center gap-2">
+<span>Tree-Sitter: Python 0.20.8</span>
+<span class="text-status-success font-semibold">● ACTIVE</span>
+</div>
+</div>
+</main>
+<!-- RIGHT SIDEBAR: Source Insight Style Context & Relations Inspector (340px) -->
+<aside class="w-[340px] flex-shrink-0 bg-bg-surface flex flex-col justify-between overflow-hidden">
+<!-- Tabs Bar -->
+<div class="h-8 bg-surface-container-low px-1 flex items-center gap-1 select-none">
+<button class="h-6 px-2.5 rounded bg-bg-raised text-accent-primary font-semibold font-label-md text-label-md flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[14px]">preview</span>
+<span>上下文 (Context)</span>
+</button>
+<button class="h-6 px-2.5 rounded hover:bg-surface-container text-text-secondary hover:text-text-primary font-label-md text-label-md flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[14px]">share</span>
+<span>关系 (Relations)</span>
+</button>
+<button class="h-6 px-2.5 rounded hover:bg-surface-container text-text-secondary hover:text-text-primary font-label-md text-label-md flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[14px]">history</span>
+<span>历史 (Trails)</span>
+</button>
+</div>
+<!-- Scrollable Inspector Content -->
+<div class="flex-1 overflow-y-auto p-space-sm flex flex-col gap-space-md">
+<!-- Context Card: Active Symbol Definition Fast Preview -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="px-1.5 py-0.5 rounded bg-lang-rust/20 text-lang-rust font-code-sm text-code-sm font-semibold">Rust Crate</span>
+<span class="font-code-sm text-code-sm text-text-primary font-semibold">risk_core::bridge</span>
+</div>
+<button class="h-5 px-1.5 rounded bg-bg-raised hover:bg-surface-bright text-accent-primary font-label-sm text-label-sm flex items-center gap-0.5" type="button">
+<span>打开定义</span>
+<span class="material-symbols-outlined text-[12px]">open_in_new</span>
+</button>
+</div>
+<!-- Mini Code Preview -->
+<div class="bg-surface-container-lowest p-2 rounded font-code-sm text-code-sm text-text-primary overflow-x-auto leading-tight">
+<span class="text-lang-rust font-medium">#[pyfunction]</span><br/>
+<span class="text-lang-rust font-medium">pub fn</span> <span class="text-accent-primary font-semibold">calculate</span>(py: <span class="text-primary-fixed">Python</span>, order: &amp;<span class="text-primary-fixed">PyDict</span>) -&gt; <span class="text-primary-fixed">PyResult&lt;f64&gt;</span> {<br/>
+              <span class="text-outline">// PyO3 native bridging entry</span><br/>
+              <span class="text-lang-rust">let</span> ctx = <span class="text-text-primary">RustRiskEngine</span>::from_py(order)?;<br/>
+              <span class="text-lang-rust font-semibold">Ok</span>(ctx.evaluate_rules())<br/>
+            }
+          </div>
+<div class="flex items-center justify-between text-text-secondary font-label-sm text-label-sm">
+<span>Defined in: <span class="text-text-primary">risk-core/src/ffi.rs:44</span></span>
+<span class="text-status-success font-medium">● 静态绑定 (Deterministic)</span>
+</div>
+</div>
+<!-- Relations Overview: Callers (4) -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 font-label-md text-label-md font-semibold text-text-primary">
+<span class="material-symbols-outlined text-[16px] text-accent-primary">login</span>
+<span>调用方 (Callers)</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-container-high text-accent-primary font-code-sm text-code-sm">4</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-secondary">3 静态 · 1 启发式</span>
+</div>
+<div class="bg-surface-container-low rounded p-1 flex flex-col gap-0.5">
+<!-- Caller 1: Cross-repo gRPC -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-java"></span>
+<span class="font-code-sm text-code-sm text-text-primary truncate font-medium">OrderController.createOrder</span>
+</div>
+<span class="px-1 rounded bg-surface-container-high text-[10px] text-status-info font-label-sm">gRPC 跨项目</span>
+</div>
+<!-- Caller 2: Internal Python -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-python"></span>
+<span class="font-code-sm text-code-sm text-text-primary truncate">BatchRiskAudit.run</span>
+</div>
+<span class="px-1 rounded bg-surface-container-high text-[10px] text-outline font-label-sm">内部任务</span>
+</div>
+<!-- Caller 3: Mock Simulator -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-python"></span>
+<span class="font-code-sm text-code-sm text-text-primary truncate">MockSimulator.test_high_risk</span>
+</div>
+<span class="px-1 rounded bg-surface-container-high text-[10px] text-outline font-label-sm">单元测试</span>
+</div>
+<!-- Caller 4: Candidate / Heuristic -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-status-warning"></span>
+<span class="font-code-sm text-code-sm text-text-secondary truncate">pricing_worker.dispatch</span>
+</div>
+<span class="px-1 rounded bg-status-warning/10 text-status-warning text-[10px] font-label-sm font-semibold">候选推断</span>
+</div>
+</div>
+</div>
+<!-- Relations Overview: Callees (3) -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 font-label-md text-label-md font-semibold text-text-primary">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed">logout</span>
+<span>被调用方 (Callees)</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-container-high text-primary-fixed font-code-sm text-code-sm">3</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-secondary">AST 明确解析</span>
+</div>
+<div class="bg-surface-container-low rounded p-1 flex flex-col gap-0.5">
+<!-- Callee 1: Python normalize -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-python"></span>
+<span class="font-code-sm text-code-sm text-text-primary truncate">normalize(order)</span>
+</div>
+<span class="px-1 rounded bg-surface-container-high text-[10px] text-outline font-label-sm">本地模块</span>
+</div>
+<!-- Callee 2: PyO3 bridge rust_core -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-rust"></span>
+<span class="font-code-sm text-code-sm text-accent-primary font-medium truncate">risk_core::evaluate</span>
+</div>
+<span class="px-1 rounded bg-primary-container/20 text-accent-primary text-[10px] font-label-sm font-semibold">PyO3 桥接</span>
+</div>
+<!-- Callee 3: pricing_core quote via C ABI -->
+<div class="h-7 px-2 rounded hover:bg-surface-container flex items-center justify-between cursor-pointer group">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-lang-cpp"></span>
+<span class="font-code-sm text-code-sm text-lang-cpp truncate">pricing_core_quote</span>
+</div>
+<span class="px-1 rounded bg-lang-cpp/10 text-lang-cpp text-[10px] font-label-sm font-semibold">C ABI 跨项目</span>
+</div>
+</div>
+</div>
+<!-- Quick Visual Mini-Map / Flow Badge -->
+<div class="bg-surface-container-lowest rounded p-2.5 flex flex-col gap-2">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-text-secondary">
+<span>调用层深拓扑</span>
+<span class="text-accent-primary font-code-sm text-code-sm">Depth: -1 &lt;= 0 =&gt; +1</span>
+</div>
+<!-- Inline Mini Topology SVG Graph -->
+<div class="w-full h-16 flex items-center justify-center">
+<svg class="w-full h-full text-outline" fill="none" viewbox="0 0 300 64">
+<!-- Caller Nodes -->
+<rect fill="#1c2027" height="20" rx="3" stroke="#303B4C" width="68" x="10" y="8"></rect>
+<text fill="#dfe2ec" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="44" y="22">OrderCtrl</text>
+<rect fill="#1c2027" height="20" rx="3" stroke="#303B4C" width="68" x="10" y="36"></rect>
+<text fill="#dfe2ec" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="44" y="50">BatchAudit</text>
+<!-- Central Node (Assess) -->
+<rect fill="#202938" height="24" rx="3" stroke="#63CDBD" stroke-width="1.5" width="80" x="110" y="20"></rect>
+<text fill="#63CDBD" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle" x="150" y="36">assess()</text>
+<!-- Callee Nodes -->
+<rect fill="#1c2027" height="20" rx="3" stroke="#303B4C" width="68" x="222" y="8"></rect>
+<text fill="#DEA584" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="256" y="22">risk_core</text>
+<rect fill="#1c2027" height="20" rx="3" stroke="#303B4C" width="68" x="222" y="36"></rect>
+<text fill="#F34B7D" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="256" y="50">pricing_c</text>
+<!-- Connectors -->
+<path d="M 78 18 C 94 18, 94 32, 110 32" stroke="#879390" stroke-width="1"></path>
+<path d="M 78 46 C 94 46, 94 32, 110 32" stroke="#879390" stroke-width="1"></path>
+<path d="M 190 32 C 206 32, 206 18, 222 18" stroke="#63CDBD" stroke-width="1.2"></path>
+<path d="M 190 32 C 206 32, 206 46, 222 46" stroke="#879390" stroke-dasharray="2 2" stroke-width="1"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Action Footer Buttons (Workbench Navigation Triggers) -->
+<div class="p-space-sm bg-surface-container-low flex flex-col gap-2">
+<button class="w-full h-8 rounded bg-bg-raised hover:bg-surface-bright text-text-primary font-label-md text-label-md flex items-center justify-center gap-2 transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px] text-accent-primary">account_tree</span>
+<span>查看交互式调用图 (Call Graph)</span>
+</button>
+<button class="w-full h-8 rounded bg-primary-container text-on-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" type="button">
+<span class="material-symbols-outlined text-[16px]">policy</span>
+<span>打开关系证据检查器 (Inspector)</span>
+</button>
+</div>
+</aside>
+</div>
+</div>
+<script>
+  function toggleContextMenu(event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    const menu = document.getElementById('editorContextMenu');
+    if (menu) {
+      menu.classList.toggle('hidden');
+    }
+  }
+
+  // Dismiss context menu on canvas click
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('editorContextMenu');
+    const target = document.getElementById('symbolTarget');
+    if (menu && !menu.contains(e.target) && e.target !== target) {
+      menu.classList.add('hidden');
+    }
+  });
+</script></main></div><footer class="fixed bottom-0 left-0 right-0 h-[24px] bg-surface-container-lowest border-t border-border-subtle z-50 flex items-center justify-between px-space-sm font-label-sm text-label-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-1 text-accent-primary"><span class="material-symbols-outlined text-[13px]">fork_right</span><span>git:main</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1.5 text-text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-status-success"></span><span>语法分析可用</span><span class="text-border-subtle">·</span><span>语义分析已完成 7,830 点</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1"><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-warning border border-status-warning/30">候选 412</span><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-error border border-status-error/30">未解析 184</span></div></div><div class="flex items-center gap-space-sm text-text-secondary"><span class="text-text-primary font-code-sm text-code-sm">Ln 42, Col 18</span><span class="text-border-subtle">·</span><span>UTF-8</span><span class="text-border-subtle">·</span><span class="text-lang-python font-semibold">Python 3.12 (venv)</span><span class="text-border-subtle">·</span><span>4 空格缩进</span></div><div class="flex items-center gap-space-xs"><button class="h-4 px-1.5 rounded bg-bg-raised border border-border-subtle flex items-center gap-1 text-accent-primary hover:border-accent-primary transition-colors" type="button"><span class="w-1.5 h-1.5 rounded-full bg-accent-primary"></span><span>阅读模式</span><span class="text-border-subtle">|</span><span class="font-code-sm text-code-sm">428 MiB</span><span class="text-border-subtle">|</span><span class="text-text-secondary">后台已暂停</span></button><span class="material-symbols-outlined text-[14px] text-text-secondary">memory</span></div></footer></body></html>

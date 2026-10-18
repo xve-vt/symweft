@@ -1,0 +1,110 @@
+{
+  "benchmark": "synthetic-current-file-syntax-v1",
+  "results": [
+    {
+      "bytes": 16290,
+      "cache": {
+        "cached_documents": 1,
+        "estimated_retained_bytes": 1065092,
+        "evictions": 0,
+        "parses": 101,
+        "source_bytes": 16290,
+        "unchanged_hits": 100
+      },
+      "calls": 800,
+      "cold_p50_us": 3314,
+      "cold_p95_us": 8581,
+      "context_p50_ns": 1208,
+      "context_p95_ns": 1500,
+      "edit_p50_us": 1558,
+      "edit_p95_us": 2726,
+      "path": "bench.py",
+      "symbols": 400,
+      "unchanged_p50_us": 0
+    },
+    {
+      "bytes": 14690,
+      "cache": {
+        "cached_documents": 1,
+        "estimated_retained_bytes": 918852,
+        "evictions": 0,
+        "parses": 101,
+        "source_bytes": 14690,
+        "unchanged_hits": 100
+      },
+      "calls": 400,
+      "cold_p50_us": 3151,
+      "cold_p95_us": 3372,
+      "context_p50_ns": 542,
+      "context_p95_ns": 750,
+      "edit_p50_us": 1451,
+      "edit_p95_us": 1682,
+      "path": "bench.c",
+      "symbols": 400,
+      "unchanged_p50_us": 0
+    },
+    {
+      "bytes": 17090,
+      "cache": {
+        "cached_documents": 1,
+        "estimated_retained_bytes": 1217892,
+        "evictions": 0,
+        "parses": 101,
+        "source_bytes": 17090,
+        "unchanged_hits": 100
+      },
+      "calls": 800,
+      "cold_p50_us": 4176,
+      "cold_p95_us": 5073,
+      "context_p50_ns": 1041,
+      "context_p95_ns": 1833,
+      "edit_p50_us": 2297,
+      "edit_p95_us": 2585,
+      "path": "bench.cpp",
+      "symbols": 400,
+      "unchanged_p50_us": 0
+    },
+    {
+      "bytes": 15490,
+      "cache": {
+        "cached_documents": 1,
+        "estimated_retained_bytes": 1141092,
+        "evictions": 0,
+        "parses": 101,
+        "source_bytes": 15490,
+        "unchanged_hits": 100
+      },
+      "calls": 800,
+      "cold_p50_us": 3572,
+      "cold_p95_us": 4185,
+      "context_p50_ns": 1208,
+      "context_p95_ns": 1541,
+      "edit_p50_us": 1827,
+      "edit_p95_us": 2198,
+      "path": "bench.rs",
+      "symbols": 400,
+      "unchanged_p50_us": 0
+    },
+    {
+      "bytes": 16306,
+      "cache": {
+        "cached_documents": 1,
+        "estimated_retained_bytes": 1103294,
+        "evictions": 0,
+        "parses": 101,
+        "source_bytes": 16306,
+        "unchanged_hits": 100
+      },
+      "calls": 800,
+      "cold_p50_us": 3307,
+      "cold_p95_us": 3902,
+      "context_p50_ns": 1167,
+      "context_p95_ns": 1542,
+      "edit_p50_us": 1792,
+      "edit_p95_us": 2328,
+      "path": "Bench.java",
+      "symbols": 401,
+      "unchanged_p50_us": 0
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+[package]
+name = "symweft-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+symweft-analysis = { path = "../symweft-analysis" }
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+bincode = { version = "=2.0.1", default-features = false, features = ["std", "serde"] }
+blake3 = "=1.8.2"
+
+[dev-dependencies]
+walkdir.workspace = true

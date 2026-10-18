@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"error":"#ffb4ab","inverse-surface":"#dfe2ec","on-error":"#690005","tertiary-fixed-dim":"#bec7da","lang-cpp":"#F34B7D","background":"#0f131a","on-tertiary-fixed-variant":"#3e4757","surface-container":"#1c2027","surface-bright":"#353941","surface-container-highest":"#31353d","lang-rust":"#DEA584","status-error":"#F18F93","on-surface":"#dfe2ec","tertiary":"#cfd8ec","surface-container-high":"#262a32","status-success":"#7CCF9A","error-container":"#93000a","tertiary-container":"#b3bcd0","bg-canvas":"#10141B","inverse-primary":"#006b5f","outline":"#879390","on-secondary-fixed":"#001c3b","secondary-fixed-dim":"#a6c8ff","on-secondary-container":"#8eb7f7","lang-python":"#3572A5","on-primary-fixed":"#00201c","outline-variant":"#3d4947","accent-primary":"#63CDBD","border-subtle":"#303B4C","surface-container-lowest":"#0a0e15","on-error-container":"#ffdad6","on-tertiary-fixed":"#131c2a","secondary-fixed":"#d5e3ff","text-secondary":"#A8B5C8","status-info":"#8FB8F8","on-tertiary":"#283140","status-warning":"#F2C46D","surface-dim":"#0f131a","on-background":"#dfe2ec","on-primary-fixed-variant":"#005048","primary-fixed":"#8cf5e4","inverse-on-surface":"#2d3038","on-primary-container":"#00554c","surface-variant":"#31353d","surface":"#0f131a","primary-container":"#63cdbd","on-tertiary-container":"#434c5c","primary":"#80e9d9","secondary-container":"#154780","on-primary":"#003731","secondary":"#a6c8ff","primary-fixed-dim":"#6fd8c8","on-surface-variant":"#bcc9c6","text-primary":"#E7EDF6","surface-tint":"#6fd8c8","on-secondary":"#003060","bg-raised":"#202938","tertiary-fixed":"#dae3f7","bg-surface":"#171D27","lang-java":"#B07219","surface-container-low":"#181c23","on-secondary-fixed-variant":"#154780"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"margin-screen":"0rem","space-xs":"0.25rem","space-lg":"1rem","margin":"0.75rem","gutter":"0.5rem","gutter-panel":"0.0625rem","space-sm":"0.5rem","space-md":"0.75rem","space-xl":"1.5rem"},"fontFamily":{"code-sm":["JetBrains Mono"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"body-md":["Inter"],"body-sm":["Inter"],"body-lg":["Inter"],"code-lg":["JetBrains Mono"],"headline-md":["Inter"],"headline-sm":["Inter"],"label-md":["Inter"],"label-sm":["JetBrains Mono"]},"fontSize":{"code-sm":["0.6875rem",{"lineHeight":"0.9375rem","fontWeight":"400"}],"headline-lg":["1.25rem",{"lineHeight":"1.75rem","letterSpacing":"-0.015em","fontWeight":"600"}],"code-md":["0.8125rem",{"lineHeight":"1.1875rem","fontWeight":"400"}],"body-md":["0.8125rem",{"lineHeight":"1.125rem","fontWeight":"400"}],"body-sm":["0.75rem",{"lineHeight":"1rem","fontWeight":"400"}],"body-lg":["0.875rem",{"lineHeight":"1.25rem","fontWeight":"400"}],"code-lg":["0.875rem",{"lineHeight":"1.3125rem","fontWeight":"400"}],"headline-md":["1rem",{"lineHeight":"1.375rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-sm":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"-0.005em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.02em","fontWeight":"500"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.04em","fontWeight":"500"}]}}}};</script></head><body class="bg-bg-canvas font-body-md text-text-primary min-h-screen selection:bg-accent-primary selection:text-surface-container-lowest"><header class="fixed top-0 left-0 right-0 h-[46px] z-50 bg-bg-surface border-b border-border-subtle flex items-center justify-between px-space-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-space-xs"><div class="w-6 h-6 rounded bg-bg-raised flex items-center justify-center text-accent-primary font-headline-sm text-headline-sm"><span class="material-symbols-outlined text-[16px]">polyline</span></div><span class="font-headline-sm text-headline-sm text-text-primary tracking-tight font-semibold">Understood</span></div><div class="h-4 w-px bg-border-subtle"></div><button class="h-7 px-space-xs rounded bg-surface-container-low hover:bg-bg-raised hover:text-text-primary flex items-center gap-space-xs text-text-secondary transition-colors" type="button"><span class="font-code-sm text-code-sm text-text-primary truncate max-w-[210px]">Orion Commerce (5 repos)</span><div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-lang-python" title="Python"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-rust" title="Rust"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-java" title="Java"></span><span class="w-1.5 h-1.5 rounded-full bg-lang-cpp" title="C++"></span></div><span class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="h-4 w-px bg-border-subtle"></div><nav class="flex items-center gap-0.5" data-active-classes="bg-bg-raised text-text-primary font-semibold"><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="reading-workbench" href="#">01 阅读工作台</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="call-graph" href="#">02 调用图分屏</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="control-flow" href="#">03 控制流图</a><a aria-current="page" class="h-7 px-space-xs rounded flex items-center transition-colors bg-bg-raised text-text-primary font-semibold" data-path="system-map" href="#">04 跨项目系统地图</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="relation-inspector" href="#">05 关系证据检查器</a><a class="h-7 px-space-xs rounded flex items-center font-label-md text-label-md text-text-secondary hover:bg-bg-raised hover:text-text-primary transition-colors" data-path="search-command" href="#">08 搜索与命令</a></nav></div><div class="flex items-center gap-space-xs flex-1 max-w-[480px] mx-space-md"><div class="w-full h-8 bg-surface-container-low border border-border-subtle rounded flex items-center px-space-xs gap-space-xs focus-within:border-accent-primary transition-colors"><span class="material-symbols-outlined text-text-secondary text-[16px]">search</span><span class="font-code-sm text-code-sm text-text-secondary flex-1 truncate">跳转至文件 / 符号 / 全文 / &gt; 命令...</span><kbd class="px-1 py-0.5 rounded bg-bg-raised border border-border-subtle font-code-sm text-code-sm text-text-secondary">Ctrl+K</kbd></div><div class="h-7 px-space-xs bg-surface-container-low border border-border-subtle rounded flex items-center gap-1 text-text-secondary hover:bg-bg-raised hover:text-text-primary cursor-pointer transition-colors"><span class="material-symbols-outlined text-[14px]">history_toggle_off</span><span class="font-code-sm text-code-sm truncate max-w-[120px]">local-dev</span></div></div><div class="flex items-center gap-space-sm"><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center gap-0.5 border border-border-subtle"><button class="px-space-xs h-full rounded bg-bg-raised text-accent-primary font-label-md text-label-md font-semibold" type="button">阅读</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">开发</button><button class="px-space-xs h-full rounded text-text-secondary hover:text-text-primary font-label-md text-label-md" type="button">深度分析</button></div><div class="h-7 bg-surface-container-lowest p-0.5 rounded flex items-center border border-border-subtle"><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="源码优先" type="button"><span class="material-symbols-outlined text-[15px]">code</span></button><button class="w-6 h-full rounded bg-bg-raised flex items-center justify-center text-accent-primary" title="分屏 55:45" type="button"><span class="material-symbols-outlined text-[15px]">vertical_split</span></button><button class="w-6 h-full rounded flex items-center justify-center text-text-secondary hover:bg-bg-raised hover:text-text-primary" title="全图谱" type="button"><span class="material-symbols-outlined text-[15px]">hub</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex items-center gap-1 pl-space-xs border-l border-border-subtle"><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-surface-bright hover:bg-border-subtle flex items-center justify-center" type="button"></button><button class="w-4 h-4 rounded-full bg-status-error/80 hover:bg-status-error flex items-center justify-center" type="button"></button></div></div></header><aside class="fixed left-0 top-[46px] bottom-[24px] w-[48px] bg-bg-canvas border-r border-border-subtle z-40 flex flex-col items-center justify-between py-space-xs"><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded bg-bg-raised text-accent-primary flex items-center justify-center hover:bg-surface-container-high transition-colors" title="项目资源树 (Projects)" type="button"><span class="material-symbols-outlined text-[18px]">folder_copy</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="符号大纲 (Symbols)" type="button"><span class="material-symbols-outlined text-[18px]">account_tree</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="阅读路径 (Reading Trails)" type="button"><span class="material-symbols-outlined text-[18px]">route</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="依赖与架构规则 (Architecture Rules)" type="button"><span class="material-symbols-outlined text-[18px]">schema</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="全文检索 (Search)" type="button"><span class="material-symbols-outlined text-[18px]">find_in_page</span></button></div><div class="flex flex-col items-center gap-space-xs"><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="扩展 (Extensions)" type="button"><span class="material-symbols-outlined text-[18px]">extension</span></button><button class="w-8 h-8 rounded text-text-secondary flex items-center justify-center hover:bg-bg-raised hover:text-text-primary transition-colors" title="设置与系统偏好" type="button"><span class="material-symbols-outlined text-[18px]">settings</span></button></div></aside><div class="pl-[48px]"><main class="relative pt-[46px] pb-[24px] min-h-[calc(100vh-24px)] bg-bg-canvas w-full"><div class="flex flex-col w-full h-[calc(100vh-70px)] overflow-hidden select-none">
+<!-- Top System Map Controller Bar -->
+<div class="h-10 bg-bg-surface flex items-center justify-between px-space-md shadow-sm z-30 shrink-0">
+<!-- Breadcrumb Drilldown -->
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="flex items-center gap-1.5 px-space-xs py-1 rounded bg-bg-raised text-accent-primary font-headline-sm text-headline-sm font-semibold">
+<span class="material-symbols-outlined text-[16px]">domain</span>
+<span>Orion Commerce</span>
+</div>
+<span class="material-symbols-outlined text-text-secondary text-[14px]">chevron_right</span>
+<button class="px-space-xs py-0.5 rounded bg-surface-container-high hover:bg-bg-raised text-text-primary font-label-md text-label-md transition-colors flex items-center gap-1">
+<span>服务与项目 (5 Repos)</span>
+<span class="material-symbols-outlined text-[14px] text-text-secondary">expand_more</span>
+</button>
+<span class="material-symbols-outlined text-text-secondary text-[14px]">chevron_right</span>
+<button class="px-space-xs py-0.5 rounded text-text-secondary hover:text-text-primary hover:bg-bg-raised font-label-md text-label-md transition-colors">
+        包/模块
+      </button>
+<span class="material-symbols-outlined text-text-secondary text-[14px]">chevron_right</span>
+<button class="px-space-xs py-0.5 rounded text-text-secondary hover:text-text-primary hover:bg-bg-raised font-label-md text-label-md transition-colors opacity-50 cursor-not-allowed">
+        符号级
+      </button>
+</div>
+<!-- Snapshot & Baseline Comparison Switcher -->
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center bg-surface-container-lowest p-0.5 rounded">
+<button class="h-6 px-2 rounded bg-surface-container-high text-text-primary font-code-sm text-code-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+<span>生产基线 release-2026-10-18</span>
+<span class="material-symbols-outlined text-[13px] text-text-secondary">expand_more</span>
+</button>
+<div class="px-1.5 text-text-secondary font-code-sm text-code-sm">VS</div>
+<button class="h-6 px-2 rounded bg-accent-primary text-surface-container-lowest font-code-sm text-code-sm font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
+<span>local-dev (工作区)</span>
+</button>
+</div>
+<!-- Filters Toolbar -->
+<div class="flex items-center gap-1 bg-surface-container-lowest p-0.5 rounded">
+<div class="flex items-center px-2 py-0.5 gap-1.5 rounded bg-bg-raised text-text-primary font-label-sm text-label-sm">
+<span class="text-text-secondary">语言:</span>
+<span class="font-semibold">ALL</span>
+</div>
+<div class="flex items-center px-2 py-0.5 gap-1.5 rounded bg-surface-container hover:bg-bg-raised text-text-primary font-label-sm text-label-sm cursor-pointer">
+<span class="text-text-secondary">协议:</span>
+<span class="text-accent-primary">gRPC, PyO3, C-ABI</span>
+</div>
+<button class="flex items-center px-2 py-0.5 gap-1 rounded bg-status-error/15 text-status-error font-label-sm text-label-sm hover:bg-status-error/25 transition-colors" id="toggle-unresolved">
+<span class="material-symbols-outlined text-[13px]">warning</span>
+<span>未解析边界 (1)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Main Canvas + Inspector Split View -->
+<div class="flex-1 flex overflow-hidden relative">
+<!-- Central Pan/Zoom Architecture Canvas -->
+<div class="flex-1 relative bg-bg-canvas overflow-hidden flex flex-col cursor-grab active:cursor-grabbing" id="canvas-viewport">
+<!-- Spatial Grid Pattern (Engineering Cartesian coordinates) -->
+<div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(#63CDBD 1px, transparent 1px); background-size: 28px 28px;"></div>
+<!-- Epistemic Certainty Legend overlay -->
+<div class="absolute top-space-md left-space-md z-20 flex items-center gap-space-sm bg-surface-container/90 backdrop-blur px-space-sm py-1.5 rounded shadow-md pointer-events-auto">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">确定性凭证:</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-accent-primary"></span>
+<span class="font-code-sm text-code-sm text-text-primary">AST 静态确定 (3)</span>
+</div>
+<span class="text-text-secondary/40">|</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-status-warning"></span>
+<span class="font-code-sm text-code-sm text-text-primary">ABI/FFI 导出契约 (2)</span>
+</div>
+<span class="text-text-secondary/40">|</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-status-error"></span>
+<span class="font-code-sm text-code-sm text-status-error">未解析运行时端点 (1)</span>
+</div>
+</div>
+<!-- Graph Stage: Topological Architecture Map -->
+<div class="w-full h-full relative overflow-auto p-12 flex items-center justify-start space-x-10 min-w-[1360px]">
+<!-- ================= CONTAINER 1: api-gateway (Java) ================= -->
+<div class="w-64 bg-bg-surface rounded shadow-md flex flex-col shrink-0 transition-transform hover:-translate-y-0.5">
+<div class="px-space-sm py-2 bg-surface-container-high rounded-t flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="w-2 h-2 rounded-full bg-lang-java"></span>
+<span class="font-code-md text-code-md font-semibold text-text-primary truncate">api-gateway</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-bg-canvas text-lang-java font-code-sm text-code-sm">Java 17 · Gradle</span>
+</div>
+<div class="p-space-sm flex flex-col gap-2">
+<div class="text-text-secondary font-label-sm text-label-sm">ENTRYPOINTS</div>
+<div class="p-2 rounded bg-bg-canvas hover:bg-bg-raised transition-colors flex flex-col gap-1 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-code-sm text-code-sm text-accent-primary font-semibold truncate">OrderController</span>
+<span class="font-label-sm text-label-sm text-status-success bg-status-success/10 px-1 rounded">REST</span>
+</div>
+<div class="font-code-sm text-code-sm text-text-secondary truncate pl-2">
+                POST /api/v1/orders
+              </div>
+<div class="flex items-center gap-1 text-text-secondary font-code-sm text-code-sm mt-1 pt-1 bg-surface-container/40 rounded px-1">
+<span class="material-symbols-outlined text-[12px] text-accent-primary">call_made</span>
+<span class="text-text-primary truncate">createOrder()</span>
+</div>
+</div>
+<div class="text-text-secondary font-label-sm text-label-sm flex items-center justify-between mt-1">
+<span>OUTBOUND CLIENTS</span>
+<span class="text-accent-primary font-code-sm text-code-sm">gRPC Stub</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-lowest text-text-secondary font-code-sm text-code-sm truncate flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-accent-primary">link</span>
+<span>OrderServiceBlockingStub</span>
+</div>
+</div>
+</div>
+<!-- Flow Connector 1 -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<svg class="w-16 h-8 text-accent-primary" viewbox="0 0 64 32">
+<path d="M0 16 L56 16" fill="none" stroke="currentColor" stroke-dasharray="4 2" stroke-width="2"></path>
+<polygon fill="currentColor" points="56,12 64,16 56,20"></polygon>
+</svg>
+<span class="font-code-sm text-code-sm text-accent-primary">mTLS</span>
+</div>
+<!-- ================= CONTRACT BOUNDARY 1 (HEXAGON) ================= -->
+<div class="w-44 bg-surface-container-high rounded p-2.5 shadow-md flex flex-col items-center text-center shrink-0 relative group">
+<div class="w-6 h-6 rounded bg-primary-container/20 text-accent-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[14px]">hexagon</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-secondary">gRPC PROTO CONTRACT</span>
+<span class="font-code-sm text-code-sm font-semibold text-text-primary mt-0.5 truncate w-full" title="commerce.order.v1.OrderService">
+            OrderService
+          </span>
+<div class="text-text-secondary font-code-sm text-code-sm mt-1 px-1.5 py-0.5 bg-bg-canvas rounded">v1.4.2 · sync</div>
+</div>
+<!-- Flow Connector 2 -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<svg class="w-16 h-8 text-accent-primary" viewbox="0 0 64 32">
+<path d="M0 16 L56 16" fill="none" stroke="currentColor" stroke-width="2"></path>
+<polygon fill="currentColor" points="56,12 64,16 56,20"></polygon>
+</svg>
+<span class="font-code-sm text-code-sm text-text-secondary">RPC Bind</span>
+</div>
+<!-- ================= CONTAINER 2: order-service (Java) ================= -->
+<div class="w-64 bg-bg-surface rounded shadow-md flex flex-col shrink-0 transition-transform hover:-translate-y-0.5">
+<div class="px-space-sm py-2 bg-surface-container-high rounded-t flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="w-2 h-2 rounded-full bg-lang-java"></span>
+<span class="font-code-md text-code-md font-semibold text-text-primary truncate">order-service</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-bg-canvas text-lang-java font-code-sm text-code-sm">Java 21 · Maven</span>
+</div>
+<div class="p-space-sm flex flex-col gap-2">
+<div class="text-text-secondary font-label-sm text-label-sm">IMPLEMENTATION</div>
+<div class="p-2 rounded bg-bg-canvas flex flex-col gap-1">
+<span class="font-code-sm text-code-sm text-text-primary font-semibold">OrderServiceImpl</span>
+<div class="flex items-center gap-1 text-accent-primary font-code-sm text-code-sm pl-2">
+<span class="material-symbols-outlined text-[12px]">functions</span>
+<span>create(OrderRequest)</span>
+</div>
+</div>
+<div class="text-text-secondary font-label-sm text-label-sm mt-1">CROSS-SERVICE RPC DEPS</div>
+<div class="p-2 rounded bg-bg-canvas flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-code-sm text-code-sm text-text-primary truncate">RiskClient.assess()</span>
+<span class="w-1.5 h-1.5 rounded-full bg-status-success" title="Static Bind OK"></span>
+</div>
+<span class="font-code-sm text-code-sm text-text-secondary pl-2">timeout: 250ms</span>
+</div>
+</div>
+</div>
+<!-- Flow Connector 3 -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<svg class="w-16 h-8 text-accent-primary" viewbox="0 0 64 32">
+<path d="M0 16 L56 16" fill="none" stroke="currentColor" stroke-dasharray="4 2" stroke-width="2"></path>
+<polygon fill="currentColor" points="56,12 64,16 56,20"></polygon>
+</svg>
+<span class="font-code-sm text-code-sm text-accent-primary">gRPC</span>
+</div>
+<!-- ================= CONTRACT BOUNDARY 2: SELECTED CONTRACT ================= -->
+<div class="w-48 bg-bg-raised ring-2 ring-accent-primary rounded p-2.5 shadow-xl flex flex-col items-center text-center shrink-0 cursor-pointer transition-transform scale-105" id="contract-node-risk">
+<div class="w-6 h-6 rounded bg-accent-primary text-surface-container-lowest flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[14px]">hexagon</span>
+</div>
+<span class="font-label-sm text-label-sm text-accent-primary font-semibold">SELECTED CONTRACT</span>
+<span class="font-code-sm text-code-sm font-semibold text-text-primary mt-0.5 truncate w-full" title="commerce.risk.v1.RiskService">
+            RiskService
+          </span>
+<span class="font-code-sm text-code-sm text-text-secondary">Method: Assess()</span>
+<div class="mt-1 px-1.5 py-0.2 rounded bg-surface-container text-text-primary font-code-sm text-code-sm">
+            Protobuf v3
+          </div>
+</div>
+<!-- Flow Connector 4 -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<svg class="w-16 h-8 text-accent-primary" viewbox="0 0 64 32">
+<path d="M0 16 L56 16" fill="none" stroke="currentColor" stroke-width="2"></path>
+<polygon fill="currentColor" points="56,12 64,16 56,20"></polygon>
+</svg>
+<span class="font-code-sm text-code-sm text-text-secondary">Dispatch</span>
+</div>
+<!-- ================= CONTAINER 3: risk-service (Python) ================= -->
+<div class="w-64 bg-bg-surface rounded shadow-md flex flex-col shrink-0 transition-transform hover:-translate-y-0.5">
+<div class="px-space-sm py-2 bg-surface-container-high rounded-t flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="w-2 h-2 rounded-full bg-lang-python"></span>
+<span class="font-code-md text-code-md font-semibold text-text-primary truncate">risk-service</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-bg-canvas text-lang-python font-code-sm text-code-sm">Py 3.12 · venv</span>
+</div>
+<div class="p-space-sm flex flex-col gap-2">
+<div class="p-2 rounded bg-bg-canvas flex flex-col gap-1">
+<span class="font-code-sm text-code-sm text-text-primary font-semibold">RiskHandler.assess()</span>
+<span class="font-code-sm text-code-sm text-text-secondary">Async event triage pipeline</span>
+</div>
+<div class="text-text-secondary font-label-sm text-label-sm">FFI EXTENSION MODULE</div>
+<div class="p-2 rounded bg-surface-container-lowest flex items-center justify-between">
+<span class="font-code-sm text-code-sm text-status-warning font-semibold">risk_bridge.so</span>
+<span class="font-code-sm text-code-sm text-text-secondary">PyO3 bind</span>
+</div>
+</div>
+</div>
+<!-- Flow Connector 5: PyO3 FFI -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<div class="px-2 py-1 rounded bg-status-warning/15 text-status-warning font-code-sm text-code-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">cable</span>
+<span>PyO3 Export</span>
+</div>
+<svg class="w-12 h-6 text-status-warning" viewbox="0 0 48 24">
+<path d="M0 12 L40 12" fill="none" stroke="currentColor" stroke-width="2"></path>
+<polygon fill="currentColor" points="40,8 48,12 40,16"></polygon>
+</svg>
+</div>
+<!-- ================= CONTAINER 4: risk-core (Rust) ================= -->
+<div class="w-64 bg-bg-surface rounded shadow-md flex flex-col shrink-0 transition-transform hover:-translate-y-0.5">
+<div class="px-space-sm py-2 bg-surface-container-high rounded-t flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="w-2 h-2 rounded-full bg-lang-rust"></span>
+<span class="font-code-md text-code-md font-semibold text-text-primary truncate">risk-core</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-bg-canvas text-lang-rust font-code-sm text-code-sm">Rust 2024 · Cargo</span>
+</div>
+<div class="p-space-sm flex flex-col gap-2">
+<div class="p-2 rounded bg-bg-canvas flex flex-col gap-1">
+<span class="font-code-sm text-code-sm text-accent-primary font-semibold">risk_core::evaluate()</span>
+<span class="font-code-sm text-code-sm text-text-secondary">SIMD batch score checker</span>
+</div>
+<div class="text-text-secondary font-label-sm text-label-sm">LOW-LEVEL EXTERN CALL</div>
+<div class="p-2 rounded bg-surface-container-lowest flex items-center justify-between">
+<span class="font-code-sm text-code-sm text-text-primary">extern "C" quote()</span>
+<span class="font-code-sm text-code-sm text-status-warning">unsafe ABI</span>
+</div>
+</div>
+</div>
+<!-- Flow Connector 6: C ABI -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<div class="px-2 py-1 rounded bg-status-warning/15 text-status-warning font-code-sm text-code-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">terminal</span>
+<span>extern "C" ABI</span>
+</div>
+<svg class="w-12 h-6 text-status-warning" viewbox="0 0 48 24">
+<path d="M0 12 L40 12" fill="none" stroke="currentColor" stroke-width="2"></path>
+<polygon fill="currentColor" points="40,8 48,12 40,16"></polygon>
+</svg>
+</div>
+<!-- ================= CONTAINER 5: pricing-core (C++) ================= -->
+<div class="w-64 bg-bg-surface rounded shadow-md flex flex-col shrink-0 relative transition-transform hover:-translate-y-0.5">
+<!-- Warning Badge for missing compile_commands.json -->
+<div class="absolute -top-3 right-2 bg-status-warning text-surface-container-lowest px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold flex items-center gap-1 shadow">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+<span>缺少 compile_commands.json</span>
+</div>
+<div class="px-space-sm py-2 bg-surface-container-high rounded-t flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="w-2 h-2 rounded-full bg-lang-cpp"></span>
+<span class="font-code-md text-code-md font-semibold text-text-primary truncate">pricing-core</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-bg-canvas text-lang-cpp font-code-sm text-code-sm">C++20 · CMake</span>
+</div>
+<div class="p-space-sm flex flex-col gap-2">
+<div class="p-2 rounded bg-bg-canvas flex flex-col gap-1">
+<span class="font-code-sm text-code-sm text-accent-primary font-semibold">pricing_core_quote</span>
+<span class="font-code-sm text-code-sm text-text-secondary">Deterministic bond curve</span>
+</div>
+<div class="p-2 rounded bg-surface-container-lowest flex flex-col gap-1">
+<div class="flex items-center justify-between text-text-secondary font-label-sm text-label-sm">
+<span>AST 精度状态</span>
+<span class="text-status-warning font-semibold">近似展开 (Heuristic)</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded overflow-hidden">
+<div class="bg-status-warning h-full w-2/3"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Flow Connector 7: Unresolved boundary branch -->
+<div class="flex flex-col items-center justify-center shrink-0">
+<svg class="w-16 h-8 text-status-error" viewbox="0 0 64 32">
+<path d="M0 16 L56 16" fill="none" stroke="currentColor" stroke-dasharray="3 3" stroke-width="2"></path>
+<polygon fill="currentColor" points="56,12 64,16 56,20"></polygon>
+</svg>
+<span class="font-code-sm text-code-sm text-status-error">动态注入</span>
+</div>
+<!-- ================= UNRESOLVED ENDPOINT ================= -->
+<div class="w-56 bg-bg-surface/80 rounded p-space-sm shadow flex flex-col gap-2 shrink-0 border border-status-error/40 relative">
+<div class="flex items-center gap-2 text-status-error font-code-sm text-code-sm font-semibold">
+<div class="w-5 h-5 rounded-full bg-status-error/20 flex items-center justify-center">?</div>
+<span class="truncate">unknown_telemetry_sink</span>
+</div>
+<div class="text-text-secondary font-body-sm text-body-sm">
+            静态 AST 无法解析目标，环境变量 <code class="text-text-primary bg-bg-canvas px-1 rounded">$OTEL_EXPORTER</code> 在 staging 环境中缺失部署映射
+          </div>
+<button class="w-full py-1 bg-surface-container hover:bg-bg-raised text-accent-primary rounded font-label-sm text-label-sm flex items-center justify-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[13px]">add_link</span>
+<span>添加拓扑绑定规则</span>
+</button>
+</div>
+</div>
+<!-- Canvas Floating Toolstrip (Bottom Left) -->
+<div class="absolute bottom-space-md left-space-md z-30 flex items-center gap-1 bg-bg-surface p-1 rounded shadow-lg">
+<button class="w-7 h-7 rounded flex items-center justify-center hover:bg-bg-raised text-text-secondary hover:text-text-primary" id="zoom-in" title="放大">
+<span class="material-symbols-outlined text-[16px]">zoom_in</span>
+</button>
+<button class="w-7 h-7 rounded flex items-center justify-center hover:bg-bg-raised text-text-secondary hover:text-text-primary" id="zoom-out" title="缩小">
+<span class="material-symbols-outlined text-[16px]">zoom_out</span>
+</button>
+<button class="w-7 h-7 rounded flex items-center justify-center hover:bg-bg-raised text-text-secondary hover:text-text-primary" title="自适应画布大小">
+<span class="material-symbols-outlined text-[16px]">fit_screen</span>
+</button>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<button class="w-7 h-7 rounded bg-bg-raised text-accent-primary flex items-center justify-center" title="网格吸附: 开">
+<span class="material-symbols-outlined text-[16px]">grid_4x4</span>
+</button>
+<button class="w-7 h-7 rounded flex items-center justify-center hover:bg-bg-raised text-text-secondary hover:text-text-primary" title="全屏查看">
+<span class="material-symbols-outlined text-[16px]">fullscreen</span>
+</button>
+</div>
+<!-- Minimap Preview HUD (Bottom Right) -->
+<div class="absolute bottom-space-md right-space-md z-30 w-44 h-28 bg-surface-container-lowest/90 backdrop-blur rounded p-1.5 shadow-lg flex flex-col justify-between pointer-events-auto">
+<div class="flex items-center justify-between text-text-secondary font-label-sm text-label-sm">
+<span>MINIMAP</span>
+<span class="font-code-sm text-code-sm">100%</span>
+</div>
+<div class="w-full h-20 bg-bg-surface rounded relative overflow-hidden flex items-center px-1">
+<!-- Scaled representations -->
+<div class="flex items-center gap-1 w-full opacity-60">
+<div class="w-5 h-8 bg-lang-java rounded-sm"></div>
+<div class="w-3 h-3 rotate-45 bg-accent-primary"></div>
+<div class="w-5 h-8 bg-lang-java rounded-sm"></div>
+<div class="w-3 h-3 rotate-45 bg-accent-primary"></div>
+<div class="w-5 h-8 bg-lang-python rounded-sm"></div>
+<div class="w-5 h-8 bg-lang-rust rounded-sm"></div>
+<div class="w-5 h-8 bg-lang-cpp rounded-sm"></div>
+<div class="w-4 h-6 border border-status-error rounded-sm"></div>
+</div>
+<!-- Viewport rectangle -->
+<div class="absolute inset-x-2 inset-y-1 bg-accent-primary/10 rounded"></div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar Inspector Panel (320px) -->
+<aside class="w-[320px] bg-bg-surface flex flex-col shrink-0 shadow-lg z-30 overflow-y-auto">
+<!-- Panel Header -->
+<div class="h-10 px-space-md bg-surface-container-high flex items-center justify-between shrink-0">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-accent-primary text-[18px]">hub</span>
+<span class="font-label-md text-label-md font-semibold text-text-primary uppercase tracking-wider">边界与契约检查器</span>
+</div>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-bg-raised text-text-secondary hover:text-text-primary">
+<span class="material-symbols-outlined text-[16px]">dock_to_right</span>
+</button>
+</div>
+<!-- Inspector Body Content -->
+<div class="p-space-md flex flex-col gap-space-md flex-1">
+<!-- Active Target Meta Card -->
+<div class="p-space-sm bg-bg-canvas rounded flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">当前选中节点</span>
+<span class="px-1.5 py-0.2 rounded bg-accent-primary/20 text-accent-primary font-code-sm text-code-sm font-semibold">gRPC 契约</span>
+</div>
+<div class="font-code-md text-code-md text-text-primary font-bold break-all">
+            RiskService/Assess
+          </div>
+<div class="font-code-sm text-code-sm text-text-secondary">
+            package: commerce.risk.v1
+          </div>
+</div>
+<!-- Detailed Properties List -->
+<div class="flex flex-col gap-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">契约拓扑属性</span>
+<div class="space-y-1 font-body-sm text-body-sm">
+<div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded">
+<span class="text-text-secondary">协议规范</span>
+<span class="font-code-sm text-code-sm text-text-primary font-semibold">Protobuf v3 (gRPC)</span>
+</div>
+<div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded">
+<span class="text-text-secondary">服务提供方</span>
+<span class="font-code-sm text-code-sm text-lang-python font-semibold truncate max-w-[150px]">risk-service:50051</span>
+</div>
+<div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded">
+<span class="text-text-secondary">调用方总数</span>
+<span class="font-code-sm text-code-sm text-text-primary">2 (order-service, billing-job)</span>
+</div>
+<div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded">
+<span class="text-text-secondary">端点方法数</span>
+<span class="font-code-sm text-code-sm text-accent-primary font-semibold">3 rpcs</span>
+</div>
+<div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded">
+<span class="text-text-secondary">契约确定性</span>
+<span class="font-code-sm text-code-sm text-status-success font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+                静态 AST 验证
+              </span>
+</div>
+</div>
+</div>
+<!-- Deployment Mapping State & Gap Analysis -->
+<div class="flex flex-col gap-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">多环境部署映射</span>
+<div class="p-2.5 rounded bg-surface-container flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-status-success text-[15px]">check_circle</span>
+<span class="font-label-md text-label-md text-text-primary">Local-dev 环境</span>
+</div>
+<span class="font-code-sm text-code-sm text-text-secondary">127.0.0.1:50051</span>
+</div>
+<div class="flex items-start justify-between pt-2">
+<div class="flex items-start gap-1.5">
+<span class="material-symbols-outlined text-status-warning text-[15px] shrink-0 mt-0.5">error_outline</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-text-primary">Staging 集群映射</span>
+<span class="font-body-sm text-body-sm text-status-warning">缺少 ClusterIP 对应配置</span>
+</div>
+</div>
+</div>
+<button class="mt-1 w-full py-1.5 bg-bg-raised hover:bg-surface-container-high text-accent-primary rounded font-label-md text-label-md font-semibold transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[15px]">settings_ethernet</span>
+<span>配置部署映射规则</span>
+</button>
+</div>
+</div>
+<!-- Quick Code & Definition Navigation -->
+<div class="flex flex-col gap-2 mt-auto">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">快速跳转与代码事实</span>
+<button class="w-full py-2 bg-surface-container-high hover:bg-bg-raised text-text-primary rounded font-label-md text-label-md flex items-center justify-between px-space-sm transition-colors group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-accent-primary text-[16px]">file_open</span>
+<span>打开 proto 定义文件</span>
+</div>
+<span class="font-code-sm text-code-sm text-text-secondary">risk.proto:42</span>
+</button>
+<button class="w-full py-2 bg-surface-container-high hover:bg-bg-raised text-text-primary rounded font-label-md text-label-md flex items-center justify-between px-space-sm transition-colors group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-accent-primary text-[16px]">code</span>
+<span>查看实现代码</span>
+</div>
+<span class="font-code-sm text-code-sm text-text-secondary">handler.py:118</span>
+</button>
+</div>
+</div>
+<!-- Inspector Footer Summary -->
+<div class="p-space-sm bg-surface-container-lowest flex items-center justify-between font-code-sm text-code-sm text-text-secondary shrink-0">
+<span>AST Node ID: #88392a</span>
+<span>Graph Level: 2/4</span>
+</div>
+</aside>
+</div>
+</div>
+<script>
+  // Dynamic interaction handles for the system map
+  document.getElementById('toggle-unresolved')?.addEventListener('click', function() {
+    this.classList.toggle('opacity-70');
+  });
+
+  const contractNode = document.getElementById('contract-node-risk');
+  if (contractNode) {
+    contractNode.addEventListener('click', () => {
+      contractNode.classList.add('scale-105');
+      setTimeout(() => contractNode.classList.remove('scale-105'), 200);
+    });
+  }
+</script></main></div><footer class="fixed bottom-0 left-0 right-0 h-[24px] bg-surface-container-lowest border-t border-border-subtle z-50 flex items-center justify-between px-space-sm font-label-sm text-label-sm select-none"><div class="flex items-center gap-space-sm"><div class="flex items-center gap-1 text-accent-primary"><span class="material-symbols-outlined text-[13px]">fork_right</span><span>git:main</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1.5 text-text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-status-success"></span><span>语法分析可用</span><span class="text-border-subtle">·</span><span>语义分析已完成 7,830 点</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-center gap-1"><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-warning border border-status-warning/30">候选 412</span><span class="px-1 py-0.2 rounded bg-surface-container-high text-status-error border border-status-error/30">未解析 184</span></div></div><div class="flex items-center gap-space-sm text-text-secondary"><span class="text-text-primary font-code-sm text-code-sm">Ln 42, Col 18</span><span class="text-border-subtle">·</span><span>UTF-8</span><span class="text-border-subtle">·</span><span class="text-lang-python font-semibold">Python 3.12 (venv)</span><span class="text-border-subtle">·</span><span>4 空格缩进</span></div><div class="flex items-center gap-space-xs"><button class="h-4 px-1.5 rounded bg-bg-raised border border-border-subtle flex items-center gap-1 text-accent-primary hover:border-accent-primary transition-colors" type="button"><span class="w-1.5 h-1.5 rounded-full bg-accent-primary"></span><span>阅读模式</span><span class="text-border-subtle">|</span><span class="font-code-sm text-code-sm">428 MiB</span><span class="text-border-subtle">|</span><span class="text-text-secondary">后台已暂停</span></button><span class="material-symbols-outlined text-[14px] text-text-secondary">memory</span></div></footer></body></html>

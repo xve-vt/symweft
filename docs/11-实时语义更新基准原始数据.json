@@ -1,0 +1,1101 @@
+{
+  "date": "2026-10-18",
+  "scope": "Same QEMU 29 successful TU baseline / 30 recorded; no new AST indexing; native events 0 during query benchmark; OS page cache not purged; warm-up queries precede timing",
+  "extractor": "a2-clang-v3",
+  "source_index": "build/semantic/qemu-final/cache",
+  "clone_index": "build/semantic/qemu-realtime/cache",
+  "comparisons": {
+    "strict": {
+      "source_root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+      "configured_units": 2855,
+      "compiler_environment": {
+        "CPATH": "/usr/local/include",
+        "C_INCLUDE_PATH": "",
+        "CPLUS_INCLUDE_PATH": "",
+        "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "MACOSX_DEPLOYMENT_TARGET": "",
+        "LIBCLANG_PATH": ""
+      },
+      "scope": "Already indexed subset; IPC + input hashing + SQLite + fact decoding; OS page cache not purged; excludes AST and UI rendering.",
+      "idle_check": null,
+      "validation": "strict",
+      "watch": {
+        "auto_jobs": 0,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 771287744,
+          "charged_bytes": 0,
+          "enabled": false,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 158,
+          "hits": 0
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": false,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 799277506,
+          "charged_bytes": 0,
+          "enabled": false,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 89015,
+          "hits": 0
+        },
+        "invalidated_units": 0,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": null,
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 0
+      },
+      "core_rss_observed_bytes": [
+        71401472,
+        71434240,
+        71483392,
+        72892416
+      ],
+      "entity_name": "qemu_init",
+      "entity_id": "6b7f372dc9e6c6f1de5fb96994a864a3ec47e4b427eb0e0e0d4ba8a2d45cdce9",
+      "counts": {
+        "definitions": 1,
+        "incoming": 1,
+        "outgoing": 405
+      },
+      "outgoing_resolution": {
+        "direct": 403,
+        "unresolved": 2
+      },
+      "timing_ms": {
+        "at": {
+          "first": 37.980334,
+          "p50": 37.4234165,
+          "p95": 41.073,
+          "max": 51.704625,
+          "samples": 30
+        },
+        "definitions": {
+          "first": 19.736958,
+          "p50": 17.637166999999998,
+          "p95": 19.513833,
+          "max": 20.904625,
+          "samples": 30
+        },
+        "incoming": {
+          "first": 39.969875,
+          "p50": 16.0459165,
+          "p95": 17.3895,
+          "max": 17.47775,
+          "samples": 30
+        },
+        "outgoing": {
+          "first": 24.731667,
+          "p50": 24.3529995,
+          "p95": 28.991209,
+          "max": 39.814042,
+          "samples": 30
+        }
+      }
+    },
+    "cached": {
+      "source_root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+      "configured_units": 2855,
+      "compiler_environment": {
+        "CPATH": "/usr/local/include",
+        "C_INCLUDE_PATH": "",
+        "CPLUS_INCLUDE_PATH": "",
+        "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "MACOSX_DEPLOYMENT_TARGET": "",
+        "LIBCLANG_PATH": ""
+      },
+      "scope": "Already indexed subset; IPC + input hashing + SQLite + fact decoding; OS page cache not purged; excludes AST and UI rendering.",
+      "idle_check": {
+        "polls": 10,
+        "wait_seconds": 0.8,
+        "additional_input_hashes": 0,
+        "additional_configuration_hashes": 0,
+        "auto_jobs": 0
+      },
+      "validation": "cached",
+      "watch": {
+        "auto_jobs": 0,
+        "auto_refresh": false,
+        "configuration_fingerprints": {
+          "bytes_read": 4881568,
+          "charged_bytes": 294,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 1,
+          "hits": 157
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 6334455,
+          "charged_bytes": 204029,
+          "enabled": true,
+          "entries": 687,
+          "evictions": 0,
+          "hashes": 687,
+          "hits": 88328
+        },
+        "invalidated_units": 0,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 0,
+          "events": 0,
+          "overflows": 0,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/test_code/qemu",
+            "/Users/liuweifeng/work/symweft/build/semantic/qemu-build"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 1
+      },
+      "core_rss_observed_bytes": [
+        74661888,
+        74661888,
+        74694656,
+        76120064
+      ],
+      "entity_name": "qemu_init",
+      "entity_id": "6b7f372dc9e6c6f1de5fb96994a864a3ec47e4b427eb0e0e0d4ba8a2d45cdce9",
+      "counts": {
+        "definitions": 1,
+        "incoming": 1,
+        "outgoing": 405
+      },
+      "outgoing_resolution": {
+        "direct": 403,
+        "unresolved": 2
+      },
+      "timing_ms": {
+        "at": {
+          "first": 3.791708,
+          "p50": 3.2180419999999996,
+          "p95": 3.937375,
+          "max": 4.133834,
+          "samples": 30
+        },
+        "definitions": {
+          "first": 1.338167,
+          "p50": 1.0925205,
+          "p95": 1.20375,
+          "max": 1.415333,
+          "samples": 30
+        },
+        "incoming": {
+          "first": 4.217334,
+          "p50": 1.1256255,
+          "p95": 1.313625,
+          "max": 1.324625,
+          "samples": 30
+        },
+        "outgoing": {
+          "first": 8.50825,
+          "p50": 7.7338955,
+          "p95": 9.158541,
+          "max": 9.559958,
+          "samples": 30
+        }
+      }
+    }
+  },
+  "realtime_protocol": {
+    "watch_backend": "Fsevent",
+    "source_update": {
+      "elapsed_ms": 658.05,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 91
+      },
+      "watch": {
+        "auto_jobs": 1,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 3787,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 7,
+          "hits": 2
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 1005,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 12,
+          "hits": 4
+        },
+        "invalidated_units": 2,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 4,
+          "events": 4,
+          "overflows": 0,
+          "publish_epoch": 1,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 4
+      }
+    },
+    "header_update": {
+      "elapsed_ms": 575.8,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 79
+      },
+      "watch": {
+        "auto_jobs": 2,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 4328,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 8,
+          "hits": 17
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 1471,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 17,
+          "hits": 7
+        },
+        "invalidated_units": 4,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 8,
+          "events": 8,
+          "overflows": 0,
+          "publish_epoch": 2,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 6
+      }
+    },
+    "restore_include": {
+      "elapsed_ms": 562.95,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 43
+      },
+      "watch": {
+        "auto_jobs": 3,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 4869,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 9,
+          "hits": 26
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 1812,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 21,
+          "hits": 7
+        },
+        "invalidated_units": 6,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 12,
+          "events": 12,
+          "overflows": 0,
+          "publish_epoch": 3,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 8
+      }
+    },
+    "new_shadow_header": {
+      "elapsed_ms": 656.83,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 90
+      },
+      "watch": {
+        "auto_jobs": 4,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 5410,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 10,
+          "hits": 39
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 2035,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 24,
+          "hits": 10
+        },
+        "invalidated_units": 8,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 15,
+          "events": 15,
+          "overflows": 0,
+          "publish_epoch": 4,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 10
+      }
+    },
+    "deleted_shadow_header": {
+      "elapsed_ms": 580.49,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 74
+      },
+      "watch": {
+        "auto_jobs": 5,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 5951,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 11,
+          "hits": 48
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 2376,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 28,
+          "hits": 10
+        },
+        "invalidated_units": 10,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 19,
+          "events": 19,
+          "overflows": 0,
+          "publish_epoch": 6,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 12
+      }
+    },
+    "atomic_save": {
+      "elapsed_ms": 574.23,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 64
+      },
+      "watch": {
+        "auto_jobs": 6,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 6492,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 12,
+          "hits": 63
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 2790,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 33,
+          "hits": 14
+        },
+        "invalidated_units": 12,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 29,
+          "events": 29,
+          "overflows": 0,
+          "publish_epoch": 9,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 14
+      }
+    },
+    "burst": {
+      "elapsed_ms": 581.45,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 69
+      },
+      "watch": {
+        "auto_jobs": 7,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 7033,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 13,
+          "hits": 66
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 3131,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 37,
+          "hits": 14
+        },
+        "invalidated_units": 14,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 35,
+          "events": 35,
+          "overflows": 0,
+          "publish_epoch": 11,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 16
+      }
+    },
+    "dirty_buffer_release": {
+      "elapsed_ms": 76.43,
+      "job": {
+        "analyzed": 1,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 1,
+        "trigger": "watch",
+        "wall_ms": 41
+      },
+      "watch": {
+        "auto_jobs": 9,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 7574,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 14,
+          "hits": 73
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 3727,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 43,
+          "hits": 14
+        },
+        "invalidated_units": 16,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 38,
+          "events": 38,
+          "overflows": 0,
+          "publish_epoch": 12,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 20
+      }
+    },
+    "resume": {
+      "elapsed_ms": 492.12,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 66
+      },
+      "watch": {
+        "auto_jobs": 10,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 9197,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 17,
+          "hits": 78
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 4103,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 47,
+          "hits": 14
+        },
+        "invalidated_units": 18,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 0,
+          "events": 0,
+          "overflows": 0,
+          "publish_epoch": 0,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 23
+      }
+    },
+    "pressure_resume": {
+      "elapsed_ms": 484.82,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "watch",
+        "wall_ms": 63
+      },
+      "watch": {
+        "auto_jobs": 11,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 9738,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 18,
+          "hits": 85
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 4461,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 51,
+          "hits": 14
+        },
+        "invalidated_units": 20,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 3,
+          "events": 3,
+          "overflows": 0,
+          "publish_epoch": 1,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 25
+      }
+    },
+    "manual_recorded_refresh": {
+      "elapsed_ms": 76.33,
+      "job": {
+        "analyzed": 2,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 2,
+        "trigger": "manual",
+        "wall_ms": 43
+      },
+      "watch": {
+        "auto_jobs": 11,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 9738,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 18,
+          "hits": 88
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 4821,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 55,
+          "hits": 14
+        },
+        "invalidated_units": 20,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 3,
+          "events": 3,
+          "overflows": 0,
+          "publish_epoch": 1,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 26
+      }
+    },
+    "settings_preserve_queued_save": {
+      "elapsed_ms": 495.63,
+      "job": {
+        "analyzed": 1,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 1,
+        "trigger": "watch",
+        "wall_ms": 47
+      },
+      "watch": {
+        "auto_jobs": 12,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 13525,
+          "charged_bytes": 0,
+          "enabled": false,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 25,
+          "hits": 88
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 4821,
+          "charged_bytes": 0,
+          "enabled": false,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 55,
+          "hits": 14
+        },
+        "invalidated_units": 21,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": false,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 0,
+          "events": 0,
+          "overflows": 0,
+          "publish_epoch": 0,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 29
+      }
+    },
+    "first_failure_recovery": {
+      "elapsed_ms": 578.18,
+      "job": {
+        "analyzed": 1,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 1,
+        "trigger": "watch",
+        "wall_ms": 37
+      },
+      "watch": {
+        "auto_jobs": 13,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 16230,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 30,
+          "hits": 97
+        },
+        "configuration_required": false,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": null,
+        "fingerprints": {
+          "bytes_read": 5287,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 60,
+          "hits": 14
+        },
+        "invalidated_units": 23,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 6,
+          "events": 6,
+          "overflows": 0,
+          "publish_epoch": 0,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": false,
+        "pending_units": 0,
+        "pressure_paused": false,
+        "revision": 34
+      }
+    },
+    "configuration_changed": {
+      "elapsed_ms": 77.07,
+      "job": {
+        "analyzed": 1,
+        "failures": [],
+        "reused": 0,
+        "state": "complete",
+        "total": 1,
+        "trigger": "watch",
+        "wall_ms": 37
+      },
+      "watch": {
+        "auto_jobs": 13,
+        "auto_refresh": true,
+        "configuration_fingerprints": {
+          "bytes_read": 16786,
+          "charged_bytes": 304,
+          "enabled": true,
+          "entries": 1,
+          "evictions": 0,
+          "hashes": 31,
+          "hits": 99
+        },
+        "configuration_required": true,
+        "consistency": "native hints + per-query input stamps + bounded hash lifetime; strict when metadata cache disabled",
+        "enabled": true,
+        "error": "compilation database changed; configure semantics again",
+        "fingerprints": {
+          "bytes_read": 5334,
+          "charged_bytes": 0,
+          "enabled": true,
+          "entries": 0,
+          "evictions": 0,
+          "hashes": 61,
+          "hits": 14
+        },
+        "invalidated_units": 26,
+        "manual_refresh_required": false,
+        "max_auto_units": 256,
+        "metadata_cache": true,
+        "monitor": {
+          "backend": "Fsevent",
+          "degraded": false,
+          "epoch": 8,
+          "events": 8,
+          "overflows": 0,
+          "publish_epoch": 0,
+          "queued_paths": 0,
+          "roots": [
+            "/Users/liuweifeng/work/symweft/build/checks/semantic-live-7kvkz88f"
+          ]
+        },
+        "paused": true,
+        "pending_units": 3,
+        "pressure_paused": false,
+        "revision": 36
+      }
+    }
+  },
+  "native_realtime": {
+    "light": {
+      "analysis_calls": 1,
+      "analysis_level": "syntax",
+      "analysis_symbols": 1,
+      "appearance": "NSAppearanceNameAqua",
+      "caret_byte": 59,
+      "core_version": "0.1.0",
+      "current_function": "caller",
+      "current_scope_calls": 1,
+      "document": "b.cpp",
+      "document_size_bytes": 87,
+      "error": "",
+      "file_count": 5,
+      "navigator_geometry": "frame=(0.0, 0.0, 260.0, 653.0); rows=5; hidden=false",
+      "reader_geometry": "origin=(320.0, 723.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 52.0, 694.0)); clip-frame=Optional((52.0, -0.0, 619.0, 694.0)); clip-bounds=Optional((0.0, 0.0, 619.0, 694.0))",
+      "semantic_configured": true,
+      "semantic_context_functions": 1,
+      "semantic_incoming": 0,
+      "semantic_notice": "语义索引已更新。",
+      "semantic_outgoing": 1,
+      "semantic_outgoing_names": [
+        "second"
+      ],
+      "semantic_watch_revision": 3,
+      "status": "ok",
+      "storage_source": "analysis",
+      "workspace": "native-live-12ii56oe"
+    },
+    "dark": {
+      "analysis_calls": 1,
+      "analysis_level": "syntax",
+      "analysis_symbols": 1,
+      "appearance": "NSAppearanceNameDarkAqua",
+      "caret_byte": 59,
+      "core_version": "0.1.0",
+      "current_function": "caller",
+      "current_scope_calls": 1,
+      "document": "b.cpp",
+      "document_size_bytes": 87,
+      "error": "",
+      "file_count": 5,
+      "navigator_geometry": "frame=(0.0, 0.0, 260.0, 653.0); rows=5; hidden=false",
+      "reader_geometry": "origin=(320.0, 723.0); inset=(12.0, 12.0); ruler=Optional((268.0, 29.0, 52.0, 694.0)); clip-frame=Optional((52.0, -0.0, 619.0, 694.0)); clip-bounds=Optional((0.0, 0.0, 619.0, 694.0))",
+      "semantic_configured": true,
+      "semantic_context_functions": 1,
+      "semantic_incoming": 0,
+      "semantic_notice": "语义索引已更新。",
+      "semantic_outgoing": 1,
+      "semantic_outgoing_names": [
+        "second"
+      ],
+      "semantic_watch_revision": 3,
+      "status": "ok",
+      "storage_source": "analysis",
+      "workspace": "native-live-12ii56oe"
+    }
+  },
+  "validation": {
+    "rust_tests": 31,
+    "native_budget_test": "257 empty TU snapshots and real header create; no compiler worker starts",
+    "clippy": "--workspace --all-targets -D warnings",
+    "semantic_protocol": "passed",
+    "mac_foundation": "passed",
+    "final_build": "Release app rebuilt after final cancellation/configuration consistency fixes; all 31 tests and semantic regressions passed."
+  }
+}

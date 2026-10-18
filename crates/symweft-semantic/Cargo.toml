@@ -1,0 +1,20 @@
+[package]
+name = "symweft-semantic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+symweft-index = { path = "../symweft-index" }
+clang-sys = { version = "=1.8.1", features = ["runtime", "clang_10_0"] }
+shell-words = "=1.1.1"
+libc = "0.2"
+blake3 = "=1.8.2"
+notify = "=8.2.0"
+bincode = { version = "=2.0.1", default-features = false, features = ["std", "serde"] }
+zstd = "=0.13.3"
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+

@@ -1,0 +1,96 @@
+{
+  "root": "/Users/liuweifeng/work/symweft/test_code/qemu",
+  "commands": "/Users/liuweifeng/work/symweft/build/semantic/qemu-build/compile_commands.json",
+  "configured_units": 2855,
+  "scope": "one unsaved TU system/vl.c; append comment; warm OS caches; no full-project AST analysis",
+  "compiler_environment": {
+    "CPATH": "/usr/local/include",
+    "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+    "LIBCLANG_PATH": ""
+  },
+  "start_ack_ms": 2.903166,
+  "ready_wall_ms": 774.482833,
+  "preview": {
+    "charged_bytes": 24773188,
+    "clang_accounted_bytes": 25831733,
+    "completeness": "current overlay translation unit only; disk contributions are queried separately",
+    "diagnostics": [],
+    "extract_micros": 294704,
+    "memory_budget_bytes": 33554432,
+    "overlay": true,
+    "parse_micros": 287586,
+    "persisted": false,
+    "queued": false,
+    "reason": null,
+    "state": "ready",
+    "ticket": {
+      "job_id": 1,
+      "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+      "revision": 2,
+      "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5"
+    },
+    "wall_ms": 741,
+    "worker_active": false
+  },
+  "source_read_during_preview": {
+    "samples": 24,
+    "p50_ms": 0.240479,
+    "p95_ms": 0.622041,
+    "max_ms": 0.944791
+  },
+  "queries": {
+    "at": {
+      "samples": 30,
+      "p50_ms": 2.363854,
+      "p95_ms": 3.32425,
+      "max_ms": 3.379125
+    },
+    "outgoing": {
+      "samples": 30,
+      "p50_ms": 4.751436999999999,
+      "p95_ms": 5.557,
+      "max_ms": 5.93875,
+      "rows": 405
+    }
+  },
+  "core_rss_observed_bytes": {
+    "min": 76906496,
+    "max": 131497984,
+    "samples": 25
+  },
+  "after_cancel": {
+    "charged_bytes": 0,
+    "clang_accounted_bytes": null,
+    "completeness": "current overlay translation unit only; disk contributions are queried separately",
+    "diagnostics": null,
+    "extract_micros": null,
+    "memory_budget_bytes": 33554432,
+    "overlay": true,
+    "parse_micros": null,
+    "persisted": false,
+    "queued": false,
+    "reason": "preview cancelled by client",
+    "state": "cancelled",
+    "ticket": {
+      "job_id": 1,
+      "path": "/Users/liuweifeng/work/symweft/test_code/qemu/system/vl.c",
+      "revision": 2,
+      "unit_id": "c664b037445038acb94180f0c2d0bf693cc957a9ba989db23daf6a96bfdca2b5"
+    },
+    "wall_ms": null,
+    "worker_active": false
+  },
+  "disk_source_unchanged": true,
+  "disk_index_not_published": true,
+  "validation": {
+    "rust_tests": 32,
+    "clippy": "passed --workspace --all-targets -D warnings",
+    "semantic_protocol": "passed",
+    "native_realtime_protocol": "passed",
+    "async_preview_protocol": "passed",
+    "swift_foundation": "passed",
+    "macos_release_build": "passed",
+    "native_light_dark_realtime": "passed",
+    "qemu_tracked_sources": "unchanged"
+  }
+}
