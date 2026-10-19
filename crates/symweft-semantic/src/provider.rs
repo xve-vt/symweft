@@ -273,9 +273,14 @@ impl Walker<'_> {
                     extent: range.clone(),
                 });
             }
-            if kind == CXCursor_CallExpr {
+            if matches!(kind, CXCursor_CallExpr | CXCursor_CXXDeleteExpr) {
                 let target_cursor = clang_getCursorReferenced(cursor);
                 let target_kind = clang_getCursorKind(target_cursor);
+                let call_name = if name.is_empty() && clang_Cursor_isNull(target_cursor) == 0 {
+                    string(clang_getCursorSpelling(target_cursor))
+                } else {
+                    name.clone()
+                };
                 let (target, resolution) = if callable(target_kind) {
                     (
                         identity(target_cursor, self.command).map(|p| p.0),
@@ -296,7 +301,7 @@ impl Walker<'_> {
                 self.calls.push(Call {
                     caller: owner.clone(),
                     target: target.clone(),
-                    name: name.clone(),
+                    name: call_name.clone(),
                     resolution: resolution.into(),
                     location: range.clone(),
                     spelling: spelling.clone(),

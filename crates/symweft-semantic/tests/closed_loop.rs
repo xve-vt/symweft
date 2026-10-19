@@ -2935,3 +2935,106 @@ fn cpp02_templates_specializations_and_bounded_instantiations() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp03_implicit_calls_constructors_destructors_and_operators() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{
+        CallSyntaxKind, classify_call_edge, untracked_implicit_edges_catalog,
+    };
+
+    // 1. Explicit vs implicit constructor calls
+    let explicit_ctor = classify_call_edge(
+        Some("fn:main".into()),
+        Some("ctor:Widget".into()),
+        "Widget",
+        "Constructor",
+        Some("Widget"),
+    );
+    assert_eq!(explicit_ctor.syntax_kind, CallSyntaxKind::ExplicitCall);
+    assert!(!explicit_ctor.is_implicit);
+    assert!(explicit_ctor.persisted);
+
+    let implicit_ctor = classify_call_edge(
+        Some("fn:main".into()),
+        Some("ctor:Widget".into()),
+        "Widget",
+        "Constructor",
+        Some("w"),
+    );
+    assert_eq!(implicit_ctor.syntax_kind, CallSyntaxKind::ImplicitConstructor);
+    assert!(implicit_ctor.is_implicit);
+    assert!(implicit_ctor.persisted);
+
+    // 2. Implicit user-defined conversion vs explicit conversion operator call
+    let implicit_conv = classify_call_edge(
+        Some("fn:main".into()),
+        Some("conv:Widget::operator bool".into()),
+        "operator bool",
+        "ConversionFunction",
+        Some("w"),
+    );
+    assert_eq!(implicit_conv.syntax_kind, CallSyntaxKind::ImplicitConversion);
+    assert!(implicit_conv.is_implicit);
+    assert!(implicit_conv.persisted);
+
+    // 3. Overloaded operator (e.g. a + b -> operator+) vs explicit w.operator+(b)
+    let overloaded_op = classify_call_edge(
+        Some("fn:main".into()),
+        Some("op:Vec2::operator+".into()),
+        "operator+",
+        "CXXMethod",
+        Some("+"),
+    );
+    assert_eq!(overloaded_op.syntax_kind, CallSyntaxKind::OverloadedOperator);
+    assert!(overloaded_op.is_implicit);
+    assert!(overloaded_op.persisted);
+
+    let explicit_op = classify_call_edge(
+        Some("fn:main".into()),
+        Some("op:Vec2::operator+".into()),
+        "operator+",
+        "CXXMethod",
+        Some("operator+"),
+    );
+    assert_eq!(explicit_op.syntax_kind, CallSyntaxKind::ExplicitCall);
+    assert!(!explicit_op.is_implicit);
+
+    // 4. Explicit destructor / delete vs untracked automatic scope-exit destructor
+    let explicit_delete = classify_call_edge(
+        Some("fn:cleanup".into()),
+        Some("dtor:~Widget".into()),
+        "~Widget",
+        "Destructor",
+        Some("delete"),
+    );
+    assert_eq!(
+        explicit_delete.syntax_kind,
+        CallSyntaxKind::ExplicitDestructorOrDelete
+    );
+    assert!(explicit_delete.persisted);
+
+    let untracked_dtor = classify_call_edge(
+        Some("fn:cleanup".into()),
+        Some("dtor:~Widget".into()),
+        "~Widget",
+        "Destructor",
+        None,
+    );
+    assert_eq!(
+        untracked_dtor.syntax_kind,
+        CallSyntaxKind::UntrackedCompilerSynthesized
+    );
+    assert!(!untracked_dtor.persisted);
+    assert!(
+        untracked_dtor
+            .untracked_reason
+            .as_deref()
+            .unwrap()
+            .contains("not materialized in libclang AST")
+    );
+
+    let catalog = untracked_implicit_edges_catalog();
+    assert!(catalog.iter().any(|(id, _)| *id == "scope_exit_automatic_destructor"));
+
+    Ok(())
+}

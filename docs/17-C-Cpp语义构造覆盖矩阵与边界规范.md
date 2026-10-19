@@ -40,3 +40,17 @@
   - 在 AST 遍历 `CXCursor_CallExpr` 时，通过 `clang_getSpecializedCursorTemplate` 同时提取具体实例化目标与 `TemplateInstantiationRef` 主模板引用。
 - **实例化展开预算保护（`MAX_TEMPLATE_INSTANTIATIONS_PER_TU = 1024`）**：
   - 单个编译单元最多展开记录 1024 个隐式模板实例化引用；超出预算时置 `budget_exhausted = true` 并停止追加隐式实例化，但始终保留主模板与显式/偏特化定义，防止深层模板元编程耗尽内存。
+
+## 3. 隐式调用和运算符（CPP-03）
+
+- **显式与隐式调用分类（`CallSyntaxKind`）**：
+  - `ExplicitCall`：常规函数/方法调用、显式同名构造调用 `Widget(1)` 或显式 `obj.operator+(other)`。
+  - `ImplicitConstructor`：声明触发的隐式构造或隐式拷贝/转换构造（libclang 生成无表面函数名的 `CXCursor_CallExpr`，由 `provider.rs` 回填目标构造函数符号名）。
+  - `ImplicitConversion`：隐式触发的用户定义类型转换函数（`CXCursor_ConversionFunction`，如 `operator bool()`）。
+  - `OverloadedOperator`：通过中缀/前缀/后缀或下标/括号语法触发的重载运算符调用（`a + b`、`obj[i]`、`fn()`）。
+  - `ExplicitDestructorOrDelete`：显式析构调用 `p->~Widget()` 或 `delete p`（`CXCursor_CXXDeleteExpr`）。
+  - `UntrackedCompilerSynthesized`：编译器合成或栈展开自动调用。
+- **未追踪边明确说明（`untracked_implicit_edges_catalog`）**：
+  - `scope_exit_automatic_destructor`：块作用域退出或异常栈展开时的局部变量自动析构，libclang AST 不生成 `CallExpr` 节点；系统如实记录析构函数声明/定义与显式 `~T()`/`delete` 调用，绝不按右花括号位置伪造栈退出调用边。
+  - `trivial_compiler_defaulted_special_members`：无用户源码定义的编译器合成 trivial 默认/拷贝/移动特殊成员函数不生成跨文件调用边。
+  - `uninstantiated_dependent_operator`：未实例化模板体内的依赖型运算符表达式不猜测目标重载。

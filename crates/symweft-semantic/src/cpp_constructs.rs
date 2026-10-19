@@ -239,3 +239,131 @@ impl TemplateInstantiationTracker {
             .collect()
     }
 }
+
+/// Explicit vs implicit C++ call classification (CPP-03).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallSyntaxKind {
+    ExplicitCall,
+    ImplicitConstructor,
+    ImplicitConversion,
+    OverloadedOperator,
+    ExplicitDestructorOrDelete,
+    UntrackedCompilerSynthesized,
+}
+
+impl CallSyntaxKind {
+    pub fn is_implicit(self) -> bool {
+        matches!(
+            self,
+            Self::ImplicitConstructor
+                | Self::ImplicitConversion
+                | Self::OverloadedOperator
+                | Self::UntrackedCompilerSynthesized
+        )
+    }
+
+    pub fn is_persisted_edge(self) -> bool {
+        !matches!(self, Self::UntrackedCompilerSynthesized)
+    }
+}
+
+/// Classified call edge with explicit/implicit provenance and untracked edge explanation (CPP-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClassifiedCallEdge {
+    pub caller_id: Option<String>,
+    pub target_id: Option<String>,
+    pub callee_name: String,
+    pub target_cursor_kind: String,
+    pub syntax_kind: CallSyntaxKind,
+    pub is_implicit: bool,
+    pub persisted: bool,
+    pub untracked_reason: Option<String>,
+}
+
+/// Classify a C++ call or operator invocation into explicit vs implicit categories (CPP-03).
+pub fn classify_call_syntax(
+    callee_name: &str,
+    target_cursor_kind: &str,
+    surface_token: Option<&str>,
+) -> CallSyntaxKind {
+    if target_cursor_kind == "ConversionFunction" {
+        if surface_token.is_some_and(|tok| tok.contains("operator")) {
+            return CallSyntaxKind::ExplicitCall;
+        }
+        return CallSyntaxKind::ImplicitConversion;
+    }
+    if callee_name.starts_with("operator") {
+        let is_explicit_operator_call =
+            surface_token.is_some_and(|tok| tok.starts_with("operator"));
+        if is_explicit_operator_call {
+            return CallSyntaxKind::ExplicitCall;
+        }
+        return CallSyntaxKind::OverloadedOperator;
+    }
+    if target_cursor_kind == "Constructor" {
+        let explicit_surface = surface_token.is_some_and(|tok| {
+            !tok.is_empty() && (tok == callee_name || callee_name.ends_with(tok))
+        });
+        if explicit_surface {
+            return CallSyntaxKind::ExplicitCall;
+        }
+        return CallSyntaxKind::ImplicitConstructor;
+    }
+    if target_cursor_kind == "Destructor" {
+        let explicit_dtor = surface_token
+            .is_some_and(|tok| tok.contains('~') || tok == "delete" || tok == "delete[]");
+        if explicit_dtor {
+            return CallSyntaxKind::ExplicitDestructorOrDelete;
+        }
+        return CallSyntaxKind::UntrackedCompilerSynthesized;
+    }
+    CallSyntaxKind::ExplicitCall
+}
+
+/// Construct a fully classified call record with untracked rationale when applicable (CPP-03).
+pub fn classify_call_edge(
+    caller_id: Option<String>,
+    target_id: Option<String>,
+    callee_name: &str,
+    target_cursor_kind: &str,
+    surface_token: Option<&str>,
+) -> ClassifiedCallEdge {
+    let syntax_kind = classify_call_syntax(callee_name, target_cursor_kind, surface_token);
+    let untracked_reason = if syntax_kind == CallSyntaxKind::UntrackedCompilerSynthesized {
+        Some(
+            "scope-exit / stack-unwinding automatic destructor invocation is not materialized in libclang AST; omitted rather than fabricated"
+                .into(),
+        )
+    } else {
+        None
+    };
+    ClassifiedCallEdge {
+        caller_id,
+        target_id,
+        callee_name: callee_name.to_string(),
+        target_cursor_kind: target_cursor_kind.to_string(),
+        syntax_kind,
+        is_implicit: syntax_kind.is_implicit(),
+        persisted: syntax_kind.is_persisted_edge(),
+        untracked_reason,
+    }
+}
+
+/// Catalog of C++ implicit/synthesized edges that are intentionally not fabricated in A2 (CPP-03).
+pub fn untracked_implicit_edges_catalog() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "scope_exit_automatic_destructor",
+            "Automatic variable destruction at block scope exit / stack unwinding has no AST CallExpr in libclang; only explicit ~T() and delete expressions are recorded.",
+        ),
+        (
+            "trivial_compiler_defaulted_special_members",
+            "Compiler-synthesized trivial copy/move constructors and assignment operators without user definitions are not emitted as project call edges.",
+        ),
+        (
+            "uninstantiated_dependent_operator",
+            "Dependent operator expressions inside uninstantiated template bodies cannot be resolved to a concrete overload without instantiation.",
+        ),
+    ]
+}
