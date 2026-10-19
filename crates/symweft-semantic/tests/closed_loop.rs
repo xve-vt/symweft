@@ -3624,3 +3624,22 @@ fn val06_incremental_vs_clean_full_rebuild_canonical_equivalence() -> Result<()>
 
     Ok(())
 }
+
+#[test]
+fn val07_scaled_fact_volume_and_cold_start_read_benchmarks() -> Result<()> {
+    use symweft_semantic::scale_validation::{FactCorpusOrigin, FactScaleStorageBenchmark};
+
+    let matrix = FactScaleStorageBenchmark::canonical_scale_comparison_matrix();
+    assert_eq!(matrix.len(), 3);
+    assert_eq!(matrix[0].origin, FactCorpusOrigin::RealCompilerExtracted);
+    assert_eq!(matrix[1].origin, FactCorpusOrigin::SyntheticScaled10x);
+    assert_eq!(matrix[2].origin, FactCorpusOrigin::SyntheticScaled100x);
+
+    for row in &matrix {
+        assert!(row.is_honest_provenance());
+        assert!(row.cold_page_query_p95_micros > row.warm_page_query_p95_micros);
+        assert!(row.core_peak_rss_bytes < 512 * 1024 * 1024);
+    }
+
+    Ok(())
+}
