@@ -1,7 +1,7 @@
 //! One transient TU, separate from the persistent disk index. No AST is retained.
 use super::*;
 use crate::model::{
-    Diagnostic, DiskBaseline, DocumentRevision, Location, MAX_OVERLAY_DOCUMENTS,
+    Diagnostic, DiskBaseline, DocumentRevision, IncluderCoverage, Location, MAX_OVERLAY_DOCUMENTS,
     MAX_OVERLAY_SOURCE_BYTES, PreviewDocument, QueryCoverage, QueryVersion, Snapshot,
 };
 // A delayed cancel must not match a new controller after workspace/configure.
@@ -35,6 +35,7 @@ struct Ticket {
     epoch: u64,
     #[serde(skip)]
     documents: Vec<TicketDocument>,
+    includer_coverage: IncluderCoverage,
 }
 struct Pending {
     ticket: Ticket,
@@ -175,11 +176,32 @@ impl Controller {
         version.coverage = QueryCoverage::OverlayWithPersistentIndex { unit_id };
         Some(version)
     }
+    pub fn completeness_summary(&self) -> String {
+        let Some(ticket) = &self.overlay.ticket else {
+            return COMPLETENESS.to_string();
+        };
+        match ticket.includer_coverage.scope.as_str() {
+            "none" => "no known includers found for edited headers; 0 includer units affected; unindexed units/changes may exist and results are not stable pages".to_string(),
+            "partial" => format!(
+                "partial includer coverage: {} of {} known includer(s) updated in overlay; {} includer(s) invalidated by unsaved header changes; project not fully updated",
+                ticket.includer_coverage.updated_includers.len(),
+                ticket.includer_coverage.known_includers.len(),
+                ticket.includer_coverage.stale_includers.len(),
+            ),
+            "full" => format!(
+                "all {} known includer(s) updated in overlay; unindexed units/changes may exist and results are not stable pages",
+                ticket.includer_coverage.known_includers.len(),
+            ),
+            _ => COMPLETENESS.to_string(),
+        }
+    }
     pub(super) fn preview_status_with_disk(&self, disk: DiskBaseline) -> Result<Value> {
         let query_version = self.overlay_query_version(disk.clone());
         let project_query_version = self.project_overlay_query_version(disk);
         let overlay = &self.overlay;
         let result = overlay.result.as_ref();
+        let completeness = self.completeness_summary();
+        let includer_coverage = overlay.ticket.as_ref().map(|t| &t.includer_coverage);
         Ok(
             json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
             "ticket":overlay.ticket,"reason":overlay.reason,
@@ -193,7 +215,7 @@ impl Controller {
             "profile":result.and_then(|r|r.reply.profile.as_ref()).map(|run|json!({"run":run,"result_validation_micros":result.map(|r|r.validation_micros)})),
             "diagnostics":result.map(|r|r.reply.diagnostics.iter().take(64).map(|d|
                 json!({"severity":d.severity,"message":excerpt(&d.message,1024),"location":d.location})).collect::<Vec<_>>()),
-            "completeness":COMPLETENESS,"query_version":query_version,"project_query_version":project_query_version}),
+            "completeness":completeness,"includer_coverage":includer_coverage,"query_version":query_version,"project_query_version":project_query_version}),
         )
     }
     pub fn preview_status(&self) -> Result<Value> {
@@ -272,6 +294,43 @@ impl Controller {
             })
             .collect();
         ticket_documents.sort_by(|left, right| left.path.cmp(&right.path));
+        let mut all_affected = std::collections::BTreeSet::new();
+        for doc in &full_documents {
+            let affected = self
+                .query_store
+                .affected(&self.database.configuration, &doc.path)?;
+            all_affected.extend(affected);
+        }
+        let (scope, updated_includers, stale_includers) = if all_affected.is_empty() {
+            ("none".to_string(), Vec::new(), Vec::new())
+        } else {
+            let mut updated = Vec::new();
+            let mut stale = Vec::new();
+            for id in &all_affected {
+                if id == &command.unit_id {
+                    updated.push(id.clone());
+                } else {
+                    stale.push(id.clone());
+                }
+            }
+            let scope = if stale.is_empty() {
+                "full".to_string()
+            } else {
+                "partial".to_string()
+            };
+            (scope, updated, stale)
+        };
+        if !stale_includers.is_empty() {
+            let stale_set: HashSet<_> = stale_includers.iter().cloned().collect();
+            self.query_store
+                .invalidate_units(&self.database.configuration, &stale_set)?;
+        }
+        let includer_coverage = IncluderCoverage {
+            scope,
+            known_includers: all_affected.into_iter().collect(),
+            updated_includers,
+            stale_includers,
+        };
         self.overlay
             .invalidate("superseded", "replaced by a newer preview request");
         self.defer_index_for_preview();
@@ -283,6 +342,7 @@ impl Controller {
             unit_id: command.unit_id.clone(),
             epoch: self.source_epoch.load(Ordering::SeqCst),
             documents: ticket_documents,
+            includer_coverage,
         };
         self.overlay.ticket = Some(ticket.clone());
         self.overlay.budget = memory_mib as usize * 1024 * 1024;
@@ -313,22 +373,35 @@ impl Controller {
         let affected = self
             .query_store
             .affected(&self.database.configuration, full)?;
-        let mut candidates = self
+        let mut candidates: Vec<_> = self
             .database
             .commands
             .iter()
             .filter(|c| c.file.to_string_lossy() == full || affected.contains(&c.unit_id))
-            .filter(|c| unit_id.is_none_or(|id| id == c.unit_id));
-        let command = candidates
-            .next()
-            .ok_or("no matching TU; headers need an indexed owner")?;
-        if candidates.next().is_some() {
+            .filter(|c| unit_id.is_none_or(|id| id == c.unit_id))
+            .collect();
+        if candidates.is_empty() {
+            if affected.is_empty()
+                && !self
+                    .database
+                    .commands
+                    .iter()
+                    .any(|c| c.file.to_string_lossy() == full)
+            {
+                return Err(
+                    "no matching TU; header has no known includer records; analyze an including source file first"
+                        .into(),
+                );
+            }
+            return Err("no matching TU; headers need an indexed owner".into());
+        }
+        if candidates.len() > 1 {
             return Err(
                 "preview requires exactly one matching TU; supply unit_id for headers or variants"
                     .into(),
             );
         }
-        Ok(command.clone())
+        Ok(candidates.remove(0).clone())
     }
     pub fn cancel_preview(&mut self, job_id: u64) -> Result<Value> {
         self.preview_ticket(job_id)?;

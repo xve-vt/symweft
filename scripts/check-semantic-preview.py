@@ -54,8 +54,8 @@ def check_multiple_buffers(output):
         (root / "api.h").write_text(header)
         (root / "a.c").write_text('int first(void){return 1;} int second(void){return 2;}\n')
         (root / "b.cpp").write_text(source)
-        commands = [{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp"]]
-        (root / "compile_commands.json").write_text(json.dumps(commands))
+        (root / "c.c").write_text('#include "api.h"\nint c_caller(void){return CHOSEN();}\n')
+        (root / "compile_commands.json").write_text(json.dumps([{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp", "c.c"]]))
         client = protocol.Client(root, root / "cache")
         try:
             client.configure()
@@ -90,16 +90,31 @@ def check_multiple_buffers(output):
             assert error["code"] == "overlay_budget", error
 
             key = start(client, "b.cpp", main_revision, documents=documents)
-            wait(client, key)
+            status = wait(client, key)
             revisions = {(Path(item["path"]).name, item["revision"]) for item in key["query_version"]["documents"]}
             assert revisions == {("api.h", header_revision), ("b.cpp", main_revision)}, revisions
+            coverage = status["ticket"]["includer_coverage"]
+            assert coverage["scope"] == "partial", coverage
+            assert any("c.c" in str(s) for s in coverage["stale_includers"]), coverage
+            assert any("b.cpp" in str(s) for s in coverage["updated_includers"]), coverage
+            assert "partial includer coverage" in status["completeness"], status["completeness"]
+            assert "project not fully updated" in status["completeness"], status["completeness"]
             offset = len(source[:source.index("CHOSEN")].encode())
             context = client.rpc("semantic.preview.at", dict(key, byte_offset=offset))
             assert any(row["name"] == "second" and row["target"] == second for row in context["references"]), context
-            definitions = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="definitions"))["rows"]
+            project_rels = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="definitions"))
+            definitions = project_rels["rows"]
             assert any(row["main_file"].endswith("a.c") and row["evidence"] == "clang_semantic" for row in definitions), definitions
+            assert project_rels["includer_coverage"]["scope"] == "partial", project_rels
+            assert "partial includer coverage" in project_rels["completeness"], project_rels
             assert (root / "api.h").read_text() == header
             assert (root / "b.cpp").read_text() == source
+
+            (root / "unindexed.h").write_text("int unindexed_fn(void);\n")
+            unindexed_open = client.rpc("document.open", {"path": "unindexed.h"})
+            unindexed_rev = unindexed_open["analysis"]["revision"]
+            unindexed_err = client.rpc("semantic.preview.start", {"path": "unindexed.h", "revision": unindexed_rev}, expect_error=True)
+            assert "no known includer records" in unindexed_err["message"], unindexed_err
         finally:
             client.close()
     print("PASS main/header buffers compile together with complete revisions, dirty coverage and budget rejection")

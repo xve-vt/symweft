@@ -635,3 +635,80 @@ fn native_broad_change_over_automatic_budget_invalidates_without_starting_worker
     );
     Ok(())
 }
+
+#[test]
+fn header_invalidation_and_partial_includer_coverage() -> Result<()> {
+    let f = Fixture::new();
+    f.write("api.h", "#define VAL 1
+int target(void);
+");
+    f.write("a.c", "#include "api.h"
+int a_call(void){return target() + VAL;}
+");
+    f.write("b.c", "#include "api.h"
+int b_call(void){return target() + VAL;}
+");
+    let db = f.commands(&["a.c", "b.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    drop(store);
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 1. Unindexed header with no known includers returns clear error
+    let no_inc_err = controller.preview_command("unindexed.h", None).unwrap_err();
+    assert!(no_inc_err.to_string().contains("no known includer records"), "{no_inc_err}");
+
+    // 2. Header with multiple known includers requires unit_id
+    let multi_err = controller.preview_command(&f.0.join("api.h").to_string_lossy(), None).unwrap_err();
+    assert!(multi_err.to_string().contains("requires exactly one matching TU"), "{multi_err}");
+
+    // 3. Edit api.h and preview for a.c
+    let header_path = f.0.join("api.h").to_string_lossy().into_owned();
+    let a_path = f.0.join("a.c").to_string_lossy().into_owned();
+    let docs = vec![
+        PreviewDocument {
+            path: a_path.clone(),
+            revision: 1,
+            content: f.read("a.c"),
+        },
+        PreviewDocument {
+            path: header_path.clone(),
+            revision: 2,
+            content: "#define VAL 2
+int target(void);
+".into(),
+        },
+    ];
+    let a_unit = &db.commands[0].unit_id;
+    let b_unit = &db.commands[1].unit_id;
+    let status = controller.start_preview_documents(docs, Some(a_unit), 32)?;
+    let coverage = &status["ticket"]["includer_coverage"];
+    assert_eq!(coverage["scope"], "partial");
+    assert_eq!(coverage["updated_includers"][0], *a_unit);
+    assert_eq!(coverage["stale_includers"][0], *b_unit);
+    assert!(status["completeness"].as_str().unwrap().contains("partial includer coverage"));
+    assert!(status["completeness"].as_str().unwrap().contains("project not fully updated"));
+
+    // Check that b.c has been invalidated in the store
+    let store = Store::open(&path)?;
+    let b_state: String = store.connection.query_row(
+        "SELECT state FROM units WHERE id=?1",
+        [b_unit],
+        |r| r.get(0),
+    )?;
+    assert_eq!(b_state, "stale");
+
+    Ok(())
+}

@@ -50,6 +50,14 @@ pub enum QueryCoverage {
     OverlayWithPersistentIndex { unit_id: String },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct IncluderCoverage {
+    pub scope: String,
+    pub known_includers: Vec<String>,
+    pub updated_includers: Vec<String>,
+    pub stale_includers: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
     pub path: String,

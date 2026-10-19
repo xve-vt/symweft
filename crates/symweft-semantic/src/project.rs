@@ -92,9 +92,15 @@ impl Controller {
             32,
         );
         let entity = unique_entity(&references, &declarations);
+        let completeness = status
+            .get("completeness")
+            .and_then(Value::as_str)
+            .unwrap_or(COMPLETENESS);
+        let includer_coverage = status.get("includer_coverage").cloned();
         Ok(json!({
             "evidence": "clang_semantic_project",
-            "completeness": COMPLETENESS,
+            "completeness": completeness,
+            "includer_coverage": includer_coverage,
             "entity_id": entity,
             "references": references,
             "declarations": declarations,
@@ -133,9 +139,15 @@ impl Controller {
             take_rows(&mut disk, "rows"),
             limit,
         );
+        let completeness = status
+            .get("completeness")
+            .and_then(Value::as_str)
+            .unwrap_or(COMPLETENESS);
+        let includer_coverage = status.get("includer_coverage").cloned();
         Ok(json!({
             "evidence": "clang_semantic_project",
-            "completeness": COMPLETENESS,
+            "completeness": completeness,
+            "includer_coverage": includer_coverage,
             "entity_id": entity,
             "direction": direction,
             "rows": rows,
