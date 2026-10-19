@@ -712,3 +712,102 @@ int target(void);
 
     Ok(())
 }
+
+#[test]
+fn multi_tu_foreground_scheduler_bounded_coalescing_and_preemption() -> Result<()> {
+    let f = Fixture::new();
+    f.write("api.h", "#define VAL 1
+int target(void);
+");
+    f.write("a.c", "#include "api.h"
+int a_call(void){return target() + VAL;}
+");
+    f.write("b.c", "#include "api.h"
+int b_call(void){return target() + VAL;}
+");
+    f.write("unrelated.c", "int unindexed_stuff(void){return 42;}
+");
+    let db = f.commands(&["a.c", "b.c", "unrelated.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    drop(store);
+
+    // Fake worker with sleep to verify queuing and concurrency
+    f.write("fake-worker", r#"#!/usr/bin/env python3
+import fcntl,json,os,pathlib,sys,time
+request=json.load(sys.stdin)
+root=pathlib.Path(request['command']['root'])
+lock=(root/'worker.lock').open('w')
+try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+except BlockingIOError:
+    (root/'overlap').write_text('two compiler processes')
+    sys.exit(9)
+with (root/'workers').open('a') as events:
+    events.write(request['command']['unit_id']+'
+')
+time.sleep(.08)
+json.dump({'snapshot':None,'error':None,'diagnostics':[]},sys.stdout)
+"#);
+    let worker = f.0.join("fake-worker");
+    fs::set_permissions(&worker, fs::Permissions::from_mode(0o700))?;
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path,
+        worker,
+        Limits::default(),
+    )?;
+
+    let a_unit = &db.commands[0].unit_id;
+    let b_unit = &db.commands[1].unit_id;
+    let unrelated_unit = &db.commands[2].unit_id;
+
+    let header_path = f.0.join("api.h").to_string_lossy().into_owned();
+    let a_path = f.0.join("a.c").to_string_lossy().into_owned();
+
+    // 1. Start preview with revision 1
+    let docs1 = vec![
+        PreviewDocument { path: a_path.clone(), revision: 1, content: f.read("a.c") },
+        PreviewDocument { path: header_path.clone(), revision: 1, content: "#define VAL 10
+".into() },
+    ];
+    let status1 = controller.start_preview_documents(docs1, Some(a_unit), 32)?;
+    assert_eq!(status1["queued"], true);
+    assert_eq!(status1["queue_len"], 1);
+    assert_eq!(status1["queued_units"][0], *b_unit);
+    // Ensure unindexed unrelated unit is NEVER enqueued
+    assert!(!status1["queued_units"].as_array().unwrap().iter().any(|u| u == unrelated_unit));
+
+    // 2. Fast continuous revision (revision 2) coalesces and replaces older revision
+    let docs2 = vec![
+        PreviewDocument { path: a_path.clone(), revision: 2, content: f.read("a.c") },
+        PreviewDocument { path: header_path.clone(), revision: 2, content: "#define VAL 20
+".into() },
+    ];
+    let status2 = controller.start_preview_documents(docs2, Some(a_unit), 32)?;
+    assert_eq!(status2["ticket"]["revision"], 2);
+    assert_eq!(status2["queue_len"], 1);
+    assert_eq!(status2["queued_units"][0], *b_unit);
+
+    // 3. Wait for all foreground queue items to finish
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "failed" && s["queue_len"] == 0 && s["worker_active"] == false {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+
+    // 4. Verify concurrency lock was never broken
+    assert!(!f.0.join("overlap").exists(), "worker concurrency exceeded!");
+
+    Ok(())
+}

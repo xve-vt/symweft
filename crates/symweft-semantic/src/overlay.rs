@@ -53,26 +53,30 @@ struct Completed {
     wall_ms: u128,
     validation_micros: u64,
 }
+pub const MAX_QUEUED_OVERLAYS: usize = 16;
+
 #[derive(Default)]
 pub(super) struct State {
     ticket: Option<Ticket>,
-    pending: Option<Pending>,
+    queue: std::collections::VecDeque<Pending>,
     running: Option<Running>,
     result: Option<Completed>,
+    results: std::collections::HashMap<String, Completed>,
     state: &'static str,
     reason: Option<String>,
     budget: usize,
 }
 impl State {
     pub(super) fn busy(&self) -> bool {
-        self.pending.is_some() || self.running.is_some()
+        !self.queue.is_empty() || self.running.is_some()
     }
     pub(super) fn invalidate(&mut self, state: &'static str, reason: &str) {
         if let Some(running) = &self.running {
             running.cancel.store(true, Ordering::Relaxed);
         }
-        self.pending = None;
+        self.queue.clear();
         self.result = None;
+        self.results.clear();
         self.state = state;
         self.reason = Some(reason.into());
     }
@@ -203,9 +207,12 @@ impl Controller {
         let completeness = self.completeness_summary();
         let includer_coverage = overlay.ticket.as_ref().map(|t| &t.includer_coverage);
         Ok(
+            let queued_units: Vec<_> = overlay.queue.iter().map(|p| p.ticket.unit_id.clone()).collect();
+            let queue_len = overlay.queue.len();
             json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
             "ticket":overlay.ticket,"reason":overlay.reason,
-            "worker_active":overlay.running.is_some(),"queued":overlay.pending.is_some(),
+            "worker_active":overlay.running.is_some(),"queued":!overlay.queue.is_empty(),
+            "queue_len":queue_len,"queued_units":queued_units,
             "overlay":true,"persisted":false,"memory_budget_bytes":overlay.budget,
             "charged_bytes":result.map_or(0,|r|r.charged),
             "wall_ms":result.map(|r|r.wall_ms),
@@ -346,20 +353,52 @@ impl Controller {
         };
         self.overlay.ticket = Some(ticket.clone());
         self.overlay.budget = memory_mib as usize * 1024 * 1024;
-        self.overlay.pending = Some(Pending {
+        let overlays: Vec<_> = full_documents
+            .iter()
+            .map(|document| Overlay {
+                path: document.path.clone(),
+                content: document.content.clone(),
+            })
+            .collect();
+        let primary_pending = Pending {
             ticket,
             request: WorkerRequest {
-                command,
-                overlays: full_documents
-                    .into_iter()
-                    .map(|document| Overlay {
-                        path: document.path,
-                        content: document.content,
-                    })
-                    .collect(),
+                command: command.clone(),
+                overlays: overlays.clone(),
             },
             budget: self.overlay.budget,
-        });
+        };
+        let mut secondary_jobs = Vec::new();
+        for stale_id in &stale_includers {
+            if let Some(cmd) = self.database.commands.iter().find(|c| &c.unit_id == stale_id) {
+                let sec_job_id = next_id()?;
+                let sec_ticket = Ticket {
+                    job_id: sec_job_id,
+                    path: cmd.file.to_string_lossy().into_owned(),
+                    revision: primary_revision,
+                    unit_id: stale_id.clone(),
+                    epoch: self.source_epoch.load(Ordering::SeqCst),
+                    documents: ticket_documents.clone(),
+                    includer_coverage: includer_coverage.clone(),
+                };
+                secondary_jobs.push(Pending {
+                    ticket: sec_ticket,
+                    request: WorkerRequest {
+                        command: cmd.clone(),
+                        overlays: overlays.clone(),
+                    },
+                    budget: self.overlay.budget,
+                });
+            }
+        }
+        // Active file priority: primary job at front
+        self.overlay.queue.push_front(primary_pending);
+        // Append bounded secondary jobs
+        for sec in secondary_jobs {
+            if self.overlay.queue.len() < MAX_QUEUED_OVERLAYS {
+                self.overlay.queue.push_back(sec);
+            }
+        }
         self.overlay.state = "queued";
         self.overlay.reason = None;
         self.pump_preview();
@@ -478,6 +517,22 @@ impl Controller {
                 .handle
                 .join()
                 .unwrap_or_else(|_| Err("preview thread panicked".into()));
+            if let Ok(res) = &result {
+                if let Some(snapshot) = &res.reply.snapshot {
+                    self.overlay.results.insert(snapshot.unit_id.clone(), res.clone());
+                    if let Some(ticket) = self.overlay.ticket.as_mut() {
+                        if let Some(pos) = ticket.includer_coverage.stale_includers.iter().position(|id| id == &snapshot.unit_id) {
+                            let id = ticket.includer_coverage.stale_includers.remove(pos);
+                            if !ticket.includer_coverage.updated_includers.contains(&id) {
+                                ticket.includer_coverage.updated_includers.push(id);
+                            }
+                            if ticket.includer_coverage.stale_includers.is_empty() {
+                                ticket.includer_coverage.scope = "full".to_string();
+                            }
+                        }
+                    }
+                }
+            }
             if self
                 .overlay
                 .ticket
@@ -505,7 +560,7 @@ impl Controller {
         if self.overlay.running.is_some() || self.job.as_ref().is_some_and(|j| !j.is_finished()) {
             return;
         }
-        let Some(pending) = self.overlay.pending.take() else {
+        let Some(pending) = self.overlay.queue.pop_front() else {
             return;
         };
         let (exe, limits, provider, config_hash) = (

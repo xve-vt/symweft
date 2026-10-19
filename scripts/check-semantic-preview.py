@@ -89,7 +89,11 @@ def check_multiple_buffers(output):
             error = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": too_many}, expect_error=True)
             assert error["code"] == "overlay_budget", error
 
-            key = start(client, "b.cpp", main_revision, documents=documents)
+            ack = client.rpc("semantic.preview.start", {"path": "b.cpp", "revision": main_revision, "documents": documents})
+            assert ack["queued"] == True or ack["worker_active"] == True
+            assert ack["queue_len"] >= 1, ack
+            assert any("c.c" in u for u in ack["queued_units"]), ack
+            key = dict(path="b.cpp", revision=main_revision, job_id=ack["ticket"]["job_id"], query_version=ack["query_version"], project_query_version=ack["project_query_version"])
             status = wait(client, key)
             revisions = {(Path(item["path"]).name, item["revision"]) for item in key["query_version"]["documents"]}
             assert revisions == {("api.h", header_revision), ("b.cpp", main_revision)}, revisions
