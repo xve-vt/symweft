@@ -122,6 +122,27 @@ def check_multiple_buffers(output):
             assert (root / "api.h").read_text() == header
             assert (root / "b.cpp").read_text() == source
 
+            # OVL-09: Opening another clean file does NOT unconditionally discard valid unsaved preview
+            (root / "clean.c").write_text("int clean_num(void){return 77;}\n")
+            clean_opened = client.rpc("document.open", {"path": "clean.c"})
+            status_after_clean = client.rpc("semantic.preview.progress", key)
+            assert status_after_clean["state"] == "ready", status_after_clean
+            context_after_clean = client.rpc("semantic.preview.at", dict(key, byte_offset=offset))
+            assert any(row["name"] == "second" and row["target"] == second for row in context_after_clean["references"]), context_after_clean
+
+            # Closing clean file does NOT affect active overlay
+            client.rpc("document.close", {"path": "clean.c"})
+            status_after_close = client.rpc("semantic.preview.progress", key)
+            assert status_after_close["state"] == "ready", status_after_close
+
+            # Opening and editing clean.c creates new dirty buffer; discarding via document.open clears dirty
+            clean_opened = client.rpc("document.open", {"path": "clean.c"})
+            clean_bytes = len((root / "clean.c").read_bytes())
+            client.rpc("document.edit", {"path": "clean.c", "base_revision": clean_opened["analysis"]["revision"], "start_byte": clean_bytes, "old_end_byte": clean_bytes, "new_text": "// dirty\n"})
+            # Discard clean.c edits by reopening from disk
+            clean_reloaded = client.rpc("document.open", {"path": "clean.c"})
+            assert clean_reloaded["document"]["content"] == "int clean_num(void){return 77;}\n"
+
             (root / "unindexed.h").write_text("int unindexed_fn(void);\n")
             unindexed_open = client.rpc("document.open", {"path": "unindexed.h"})
             unindexed_rev = unindexed_open["analysis"]["revision"]

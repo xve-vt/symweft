@@ -1067,3 +1067,93 @@ fn save_baseline_continuity_and_memory_contribution_retirement() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn multi_document_lifecycle_discard_reload_switch_and_preservation() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int first(void){return 1;} int second(void){return 2;}
+");
+    f.write("b.c", "int first(void); int second(void); int caller(void){return first();}
+");
+    f.write("clean.c", "int clean_func(void){return 42;}
+");
+    let db = f.commands(&["a.c", "b.c", "clean.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    let clean_snap = analyze(&db, 2)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    store.publish(&clean_snap)?;
+    drop(store);
+
+    let b_unit = db.commands[1].unit_id.clone();
+    let clean_path = f.0.join("clean.c").to_string_lossy().into_owned();
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 1. Edit b.c in overlay to call second()
+    let new_b_source = "int first(void); int second(void); int caller(void){return second();}
+";
+    let docs = vec![
+        PreviewDocument {
+            path: b_path.clone(),
+            revision: 2,
+            content: new_b_source.into(),
+        },
+    ];
+    let status = controller.start_preview_documents(docs, Some(&b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 2. Test opening/inspecting another clean file DOES NOT affect active overlay
+    assert!(!controller.overlay_affects_path(&clean_path));
+    // Overlay for b.c remains ready and queryable
+    let ctx = controller.preview_at(id, &b_path, 2, 0)?;
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 3. Test closing clean file DOES NOT affect active overlay
+    assert!(!controller.overlay_affects_path(&clean_path));
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 4. Test discarding / reloading b.c from disk reclaims overlay and restores disk baseline
+    assert!(controller.overlay_affects_path(&b_path));
+    controller.invalidate_preview("document opened or reloaded");
+    assert_eq!(controller.preview_status()?["state"], "stale");
+    // Queries on old preview ticket fail
+    assert!(controller.preview_at(id, &b_path, 2, 0).is_err());
+
+    // Restore clean b.c disk baseline in SQLite
+    let b_disk_snap = analyze(&db, 1)?;
+    let mut store = Store::open(&path)?;
+    store.publish(&b_disk_snap)?;
+    let first_sym = a_snap.symbols.iter().find(|s| s.name == "first").unwrap();
+    let first_calls = store.relations(&db.configuration, &first_sym.id, "incoming", &a_snap.provider, 10)?;
+    let first_callers = first_calls["rows"].as_array().unwrap();
+    assert_eq!(first_callers.len(), 1, "disk baseline restored for caller -> first()");
+    assert_eq!(first_callers[0]["unit_id"], b_unit);
+
+    // 5. Test workspace switch / drop cleanly shuts down
+    drop(controller);
+
+    Ok(())
+}

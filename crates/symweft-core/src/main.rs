@@ -124,10 +124,19 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
                 .ok_or_else(|| CoreError::new("workspace_required", "Open a workspace first."))?;
             let path = parameter(&request.params, "path")?;
             let document = current.read_document(path)?;
-            if let Some(semantic) = session.semantic.as_mut() {
-                semantic.invalidate_preview("document opened or reloaded");
+            let was_dirty = session.semantic_dirty.remove(path);
+            let affects_overlay = session
+                .semantic
+                .as_ref()
+                .map_or(false, |s| s.overlay_affects_path(path));
+            if was_dirty || affects_overlay {
+                if let Some(semantic) = session.semantic.as_mut() {
+                    semantic.invalidate_preview("document opened or reloaded");
+                    if was_dirty {
+                        let _ = semantic.index(&[path.to_string()], 100);
+                    }
+                }
             }
-            session.semantic_dirty.remove(path);
             let source_hash = symweft_index::hash(document.content.as_bytes());
             session.opened_hash = Some((path.into(), source_hash));
             if let Some(semantic) = session.semantic.as_mut() {
@@ -254,10 +263,19 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
         }
         "document.close" => {
             let path = parameter(&request.params, "path")?;
-            if let Some(semantic) = session.semantic.as_mut() {
-                semantic.invalidate_preview("document closed");
+            let was_dirty = session.semantic_dirty.remove(path);
+            let affects_overlay = session
+                .semantic
+                .as_ref()
+                .map_or(false, |s| s.overlay_affects_path(path));
+            if was_dirty || affects_overlay {
+                if let Some(semantic) = session.semantic.as_mut() {
+                    semantic.invalidate_preview("document closed");
+                    if was_dirty {
+                        let _ = semantic.index(&[path.to_string()], 100);
+                    }
+                }
             }
-            session.semantic_dirty.remove(path);
             if session
                 .opened_hash
                 .as_ref()
@@ -265,7 +283,8 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
             {
                 session.opened_hash = None;
             }
-            Ok(json!({"closed": session.engine.close(path)}))
+            let closed = session.engine.close(path);
+            Ok(json!({"closed": closed}))
         }
         "analysis.get" => Ok(serde_json::to_value(
             session

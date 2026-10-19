@@ -484,6 +484,38 @@ impl Controller {
         self.overlay.invalidate("retired", reason);
         self.pump_preview();
     }
+    pub fn overlay_affects_path(&self, path: &str) -> bool {
+        let Ok(full) = self.absolute_path(path) else {
+            return false;
+        };
+        if let Some(ticket) = &self.overlay.ticket {
+            if ticket.path == full || ticket.documents.iter().any(|d| d.path == full) {
+                return true;
+            }
+            if ticket.includer_coverage.known_includers.iter().any(|id| {
+                self.database
+                    .commands
+                    .iter()
+                    .any(|c| &c.unit_id == id && c.file.to_string_lossy() == full)
+            }) {
+                return true;
+            }
+            if let Ok(affected) = self.query_store.affected(&self.database.configuration, &full) {
+                if affected.contains(&ticket.unit_id) {
+                    return true;
+                }
+            }
+        }
+        if self
+            .overlay
+            .queue
+            .iter()
+            .any(|p| p.ticket.path == full || p.ticket.documents.iter().any(|d| d.path == full))
+        {
+            return true;
+        }
+        false
+    }
     fn preview_ticket(&self, job_id: u64) -> Result<&Ticket> {
         self.overlay
             .ticket
