@@ -367,3 +367,131 @@ pub fn untracked_implicit_edges_catalog() -> Vec<(&'static str, &'static str)> {
         ),
     ]
 }
+
+/// C/C++ type declaration and alias classification (CPP-04).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CppTypeKind {
+    Class,
+    Struct,
+    Union,
+    Enum,
+    EnumConstant,
+    TypedefAlias,
+    UsingTypeAlias,
+}
+
+impl CppTypeKind {
+    pub fn from_cursor_kind(kind_spelling: &str) -> Option<Self> {
+        match kind_spelling {
+            "ClassDecl" | "ClassTemplate" | "ClassTemplatePartialSpecialization" => Some(Self::Class),
+            "StructDecl" => Some(Self::Struct),
+            "UnionDecl" => Some(Self::Union),
+            "EnumDecl" => Some(Self::Enum),
+            "EnumConstantDecl" => Some(Self::EnumConstant),
+            "TypedefDecl" => Some(Self::TypedefAlias),
+            "TypeAliasDecl" | "TypeAliasTemplateDecl" => Some(Self::UsingTypeAlias),
+            _ => None,
+        }
+    }
+}
+
+/// C++ inheritance access specifier (CPP-04).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessSpecifier {
+    Public,
+    Protected,
+    Private,
+    Unknown,
+}
+
+/// Base/derived inheritance relation (CPP-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InheritanceRelation {
+    pub derived_id: String,
+    pub derived_name: String,
+    pub base_id: String,
+    pub base_name: String,
+    pub access: AccessSpecifier,
+    pub is_virtual: bool,
+}
+
+/// Virtual method override relation (CPP-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VirtualOverrideRelation {
+    pub override_method_id: String,
+    pub override_method_name: String,
+    pub base_method_id: String,
+    pub base_method_name: String,
+}
+
+/// `typedef` and `using` type alias relation (CPP-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TypeAliasRelation {
+    pub alias_id: String,
+    pub alias_name: String,
+    pub kind: CppTypeKind,
+    pub underlying_type_id: Option<String>,
+    pub underlying_type_spelling: String,
+}
+
+/// Out-of-line or in-line member declaration/definition link (CPP-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemberDeclarationRelation {
+    pub owner_type_id: String,
+    pub member_id: String,
+    pub member_name: String,
+    pub is_definition: bool,
+    pub is_static: bool,
+}
+
+/// Queryable index for C/C++ types, inheritance, virtual overrides, aliases, and members (CPP-04).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TypeHierarchyIndex {
+    pub inheritances: Vec<InheritanceRelation>,
+    pub overrides: Vec<VirtualOverrideRelation>,
+    pub aliases: Vec<TypeAliasRelation>,
+    pub members: Vec<MemberDeclarationRelation>,
+}
+
+impl TypeHierarchyIndex {
+    pub fn base_classes_of(&self, derived_id: &str) -> Vec<&InheritanceRelation> {
+        self.inheritances
+            .iter()
+            .filter(|rel| rel.derived_id == derived_id)
+            .collect()
+    }
+
+    pub fn derived_classes_of(&self, base_id: &str) -> Vec<&InheritanceRelation> {
+        self.inheritances
+            .iter()
+            .filter(|rel| rel.base_id == base_id)
+            .collect()
+    }
+
+    pub fn overridden_by(&self, override_method_id: &str) -> Vec<&VirtualOverrideRelation> {
+        self.overrides
+            .iter()
+            .filter(|rel| rel.override_method_id == override_method_id)
+            .collect()
+    }
+
+    pub fn overrides_of(&self, base_method_id: &str) -> Vec<&VirtualOverrideRelation> {
+        self.overrides
+            .iter()
+            .filter(|rel| rel.base_method_id == base_method_id)
+            .collect()
+    }
+
+    pub fn resolve_type_alias(&self, alias_id: &str) -> Option<&TypeAliasRelation> {
+        self.aliases.iter().find(|rel| rel.alias_id == alias_id)
+    }
+
+    pub fn members_of(&self, owner_type_id: &str) -> Vec<&MemberDeclarationRelation> {
+        self.members
+            .iter()
+            .filter(|rel| rel.owner_type_id == owner_type_id)
+            .collect()
+    }
+}

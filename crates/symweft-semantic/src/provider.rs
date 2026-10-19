@@ -324,6 +324,39 @@ impl Walker<'_> {
                     }
                 }
             }
+            if kind == CXCursor_CXXMethod {
+                let mut overridden: *mut CXCursor = ptr::null_mut();
+                let mut num_overridden: u32 = 0;
+                clang_getOverriddenCursors(cursor, &mut overridden, &mut num_overridden);
+                if !overridden.is_null() {
+                    let slice = std::slice::from_raw_parts(overridden, num_overridden as usize);
+                    for &base_cursor in slice {
+                        if let Some((base_target, _)) = identity(base_cursor, self.command) {
+                            self.references.push(Reference {
+                                target: base_target,
+                                name: name.clone(),
+                                kind: "CXXMethodOverride".into(),
+                                location: range.clone(),
+                                spelling: spelling.clone(),
+                            });
+                        }
+                    }
+                    clang_disposeOverriddenCursors(overridden);
+                }
+            }
+            if matches!(kind, CXCursor_TypedefDecl | CXCursor_TypeAliasDecl) {
+                let underlying = clang_getCanonicalType(clang_getTypedefDeclUnderlyingType(cursor));
+                let type_decl = clang_getTypeDeclaration(underlying);
+                if let Some((target, _)) = identity(type_decl, self.command) {
+                    self.references.push(Reference {
+                        target,
+                        name: name.clone(),
+                        kind: "TypeAliasUnderlyingRef".into(),
+                        location: range.clone(),
+                        spelling: spelling.clone(),
+                    });
+                }
+            }
             if matches!(
                 kind,
                 CXCursor_DeclRefExpr
@@ -333,6 +366,7 @@ impl Walker<'_> {
                     | CXCursor_NamespaceRef
                     | CXCursor_MemberRef
                     | CXCursor_MacroExpansion
+                    | CXCursor_CXXBaseSpecifier
             ) {
                 let referenced = clang_getCursorReferenced(cursor);
                 if let Some((target, _)) = identity(referenced, self.command) {

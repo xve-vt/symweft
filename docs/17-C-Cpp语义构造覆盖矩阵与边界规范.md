@@ -54,3 +54,15 @@
   - `scope_exit_automatic_destructor`：块作用域退出或异常栈展开时的局部变量自动析构，libclang AST 不生成 `CallExpr` 节点；系统如实记录析构函数声明/定义与显式 `~T()`/`delete` 调用，绝不按右花括号位置伪造栈退出调用边。
   - `trivial_compiler_defaulted_special_members`：无用户源码定义的编译器合成 trivial 默认/拷贝/移动特殊成员函数不生成跨文件调用边。
   - `uninstantiated_dependent_operator`：未实例化模板体内的依赖型运算符表达式不猜测目标重载。
+
+## 4. 类型、继承与实现关系（CPP-04）
+
+- **类型与别名统一分类（`CppTypeKind`）**：
+  - 完整覆盖 `Class`、`Struct`、`Union`、`Enum`、`EnumConstant`、`TypedefAlias`（`CXCursor_TypedefDecl`）与 `UsingTypeAlias`（`CXCursor_TypeAliasDecl` / `CXCursor_TypeAliasTemplateDecl`）。
+  - 在 `provider.rs` 中，针对 `TypedefDecl` 与 `TypeAliasDecl` 通过 `clang_getTypedefDeclUnderlyingType` + `clang_getCanonicalType` 解析底层被别名类型声明，并生成 `TypeAliasUnderlyingRef` 引用关系。
+- **基类与派生类双向查询（`InheritanceRelation`）**：
+  - 遍历 `CXCursor_CXXBaseSpecifier` 提取基类引用，记录派生类、基类、访问控制（`public`/`protected`/`private`）及是否虚继承（`is_virtual`），支持 `base_classes_of` 与 `derived_classes_of` 双向检索。
+- **虚函数重写关系（`VirtualOverrideRelation`）**：
+  - 在 `CXCursor_CXXMethod` 上调用 `clang_getOverriddenCursors` 提取所有直接被重写的基类虚函数，写入 `CXXMethodOverride` 关系，支持查询子类重写了哪个基类方法（`overridden_by`）以及基类虚函数有哪些子类实现（`overrides_of`）。
+- **成员声明与类外定义关联（`MemberDeclarationRelation`）**：
+  - 类内成员声明与类外定义（`void FileStream::read()`）通过规范化 USR 归并至同一实体 ID，分别记录 `definition = false` 与 `definition = true`。

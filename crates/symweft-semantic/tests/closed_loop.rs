@@ -3038,3 +3038,94 @@ fn cpp03_implicit_calls_constructors_destructors_and_operators() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp04_types_inheritance_overrides_and_type_aliases() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{
+        AccessSpecifier, CppTypeKind, InheritanceRelation, MemberDeclarationRelation,
+        TypeAliasRelation, TypeHierarchyIndex, VirtualOverrideRelation,
+    };
+
+    // 1. Verify class/struct/union/enum/typedef/using classification
+    assert_eq!(CppTypeKind::from_cursor_kind("ClassDecl"), Some(CppTypeKind::Class));
+    assert_eq!(CppTypeKind::from_cursor_kind("StructDecl"), Some(CppTypeKind::Struct));
+    assert_eq!(CppTypeKind::from_cursor_kind("UnionDecl"), Some(CppTypeKind::Union));
+    assert_eq!(CppTypeKind::from_cursor_kind("EnumDecl"), Some(CppTypeKind::Enum));
+    assert_eq!(
+        CppTypeKind::from_cursor_kind("EnumConstantDecl"),
+        Some(CppTypeKind::EnumConstant)
+    );
+    assert_eq!(
+        CppTypeKind::from_cursor_kind("TypedefDecl"),
+        Some(CppTypeKind::TypedefAlias)
+    );
+    assert_eq!(
+        CppTypeKind::from_cursor_kind("TypeAliasDecl"),
+        Some(CppTypeKind::UsingTypeAlias)
+    );
+
+    let mut index = TypeHierarchyIndex::default();
+
+    // 2. Base/derived class relationships
+    index.inheritances.push(InheritanceRelation {
+        derived_id: "type:FileStream".into(),
+        derived_name: "FileStream".into(),
+        base_id: "type:Stream".into(),
+        base_name: "Stream".into(),
+        access: AccessSpecifier::Public,
+        is_virtual: false,
+    });
+    index.inheritances.push(InheritanceRelation {
+        derived_id: "type:MemoryStream".into(),
+        derived_name: "MemoryStream".into(),
+        base_id: "type:Stream".into(),
+        base_name: "Stream".into(),
+        access: AccessSpecifier::Public,
+        is_virtual: true,
+    });
+    assert_eq!(index.base_classes_of("type:FileStream").len(), 1);
+    assert_eq!(index.derived_classes_of("type:Stream").len(), 2);
+
+    // 3. Virtual method override relationships
+    index.overrides.push(VirtualOverrideRelation {
+        override_method_id: "method:FileStream::read".into(),
+        override_method_name: "read".into(),
+        base_method_id: "method:Stream::read".into(),
+        base_method_name: "read".into(),
+    });
+    assert_eq!(index.overridden_by("method:FileStream::read")[0].base_method_id, "method:Stream::read");
+    assert_eq!(index.overrides_of("method:Stream::read")[0].override_method_id, "method:FileStream::read");
+
+    // 4. Typedef & using type alias relationships
+    index.aliases.push(TypeAliasRelation {
+        alias_id: "alias:StreamPtr".into(),
+        alias_name: "StreamPtr".into(),
+        kind: CppTypeKind::UsingTypeAlias,
+        underlying_type_id: Some("type:Stream".into()),
+        underlying_type_spelling: "Stream *".into(),
+    });
+    let alias = index.resolve_type_alias("alias:StreamPtr").unwrap();
+    assert_eq!(alias.underlying_type_id.as_deref(), Some("type:Stream"));
+
+    // 5. Member declaration & out-of-line definition links
+    index.members.push(MemberDeclarationRelation {
+        owner_type_id: "type:FileStream".into(),
+        member_id: "method:FileStream::read".into(),
+        member_name: "read".into(),
+        is_definition: false,
+        is_static: false,
+    });
+    index.members.push(MemberDeclarationRelation {
+        owner_type_id: "type:FileStream".into(),
+        member_id: "method:FileStream::read".into(),
+        member_name: "read".into(),
+        is_definition: true,
+        is_static: false,
+    });
+    let members = index.members_of("type:FileStream");
+    assert_eq!(members.len(), 2);
+    assert!(members.iter().any(|m| !m.is_definition));
+    assert!(members.iter().any(|m| m.is_definition));
+
+    Ok(())
+}
