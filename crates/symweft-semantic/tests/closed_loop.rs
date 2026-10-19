@@ -2825,3 +2825,113 @@ fn cpp01_construct_capability_matrix_and_golden_samples() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp02_templates_specializations_and_bounded_instantiations() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{
+        MAX_TEMPLATE_INSTANTIATIONS_PER_TU, TemplateInstantiationTracker, TemplateRole,
+        TemplateSymbolBinding,
+    };
+
+    let mut tracker = TemplateInstantiationTracker::new(2);
+
+    // 1. Function template primary definition vs implicit instantiation vs explicit specialization
+    let primary_fn = TemplateSymbolBinding {
+        symbol_id: "sym:compute_primary".into(),
+        usr: "c:@FT@>1#Tcompute#t0.0#".into(),
+        bare_name: "compute".into(),
+        role: TemplateRole::classify_role("FunctionTemplate", "c:@FT@>1#Tcompute#t0.0#", false, false),
+        primary_template_id: None,
+        primary_template_usr: None,
+        type_arguments: vec!["T".into()],
+    };
+    assert_eq!(primary_fn.role, TemplateRole::PrimaryFunctionTemplate);
+    assert!(tracker.record_binding(primary_fn));
+
+    let inst_int = TemplateSymbolBinding {
+        symbol_id: "sym:compute_int".into(),
+        usr: "c:@F@compute<#I>#I#".into(),
+        bare_name: "compute".into(),
+        role: TemplateRole::classify_role("FunctionDecl", "c:@F@compute<#I>#I#", true, false),
+        primary_template_id: Some("sym:compute_primary".into()),
+        primary_template_usr: Some("c:@FT@>1#Tcompute#t0.0#".into()),
+        type_arguments: vec!["int".into()],
+    };
+    assert_eq!(inst_int.role, TemplateRole::ImplicitInstantiation);
+    assert!(tracker.record_binding(inst_int));
+
+    let spec_double = TemplateSymbolBinding {
+        symbol_id: "sym:compute_double_spec".into(),
+        usr: "c:@F@compute<#d>#d#".into(),
+        bare_name: "compute".into(),
+        role: TemplateRole::classify_role("FunctionDecl", "c:@F@compute<#d>#d#", true, true),
+        primary_template_id: Some("sym:compute_primary".into()),
+        primary_template_usr: Some("c:@FT@>1#Tcompute#t0.0#".into()),
+        type_arguments: vec!["double".into()],
+    };
+    assert_eq!(spec_double.role, TemplateRole::ExplicitSpecialization);
+    assert!(tracker.record_binding(spec_double));
+
+    // 2. Class template primary vs partial specialization
+    let primary_cls = TemplateSymbolBinding {
+        symbol_id: "sym:box_primary".into(),
+        usr: "c:@ST>1#T@Box".into(),
+        bare_name: "Box".into(),
+        role: TemplateRole::classify_role("ClassTemplate", "c:@ST>1#T@Box", false, false),
+        primary_template_id: None,
+        primary_template_usr: None,
+        type_arguments: vec!["T".into()],
+    };
+    assert_eq!(primary_cls.role, TemplateRole::PrimaryClassTemplate);
+    assert!(tracker.record_binding(primary_cls));
+
+    let partial_cls = TemplateSymbolBinding {
+        symbol_id: "sym:box_ptr_partial".into(),
+        usr: "c:@SP>1#T@Box>#*t0.0".into(),
+        bare_name: "Box".into(),
+        role: TemplateRole::classify_role("ClassTemplatePartialSpecialization", "c:@SP>1#T@Box>#*t0.0", true, false),
+        primary_template_id: Some("sym:box_primary".into()),
+        primary_template_usr: Some("c:@ST>1#T@Box".into()),
+        type_arguments: vec!["T*".into()],
+    };
+    assert_eq!(partial_cls.role, TemplateRole::PartialSpecialization);
+    assert!(tracker.record_binding(partial_cls));
+
+    // 3. Same bare name "compute" never conflates targets
+    let resolved_int = tracker.resolve_by_usr("c:@F@compute<#I>#I#").unwrap();
+    let resolved_double = tracker.resolve_by_usr("c:@F@compute<#d>#d#").unwrap();
+    assert_ne!(resolved_int.symbol_id, resolved_double.symbol_id);
+    assert_eq!(resolved_int.role, TemplateRole::ImplicitInstantiation);
+    assert_eq!(resolved_double.role, TemplateRole::ExplicitSpecialization);
+    assert_eq!(tracker.specializations_of("c:@FT@>1#Tcompute#t0.0#").len(), 2);
+
+    // 4. Budget protection on implicit instantiations
+    let inst_long = TemplateSymbolBinding {
+        symbol_id: "sym:compute_long".into(),
+        usr: "c:@F@compute<#l>#l#".into(),
+        bare_name: "compute".into(),
+        role: TemplateRole::ImplicitInstantiation,
+        primary_template_id: Some("sym:compute_primary".into()),
+        primary_template_usr: Some("c:@FT@>1#Tcompute#t0.0#".into()),
+        type_arguments: vec!["long".into()],
+    };
+    assert!(tracker.record_binding(inst_long));
+    assert_eq!(tracker.recorded_instantiations, 2);
+    assert!(!tracker.budget_exhausted);
+
+    let inst_over_budget = TemplateSymbolBinding {
+        symbol_id: "sym:compute_short".into(),
+        usr: "c:@F@compute<#s>#s#".into(),
+        bare_name: "compute".into(),
+        role: TemplateRole::ImplicitInstantiation,
+        primary_template_id: Some("sym:compute_primary".into()),
+        primary_template_usr: Some("c:@FT@>1#Tcompute#t0.0#".into()),
+        type_arguments: vec!["short".into()],
+    };
+    assert!(!tracker.record_binding(inst_over_budget));
+    assert!(tracker.budget_exhausted);
+    assert_eq!(tracker.skipped_instantiations, 1);
+    assert_eq!(MAX_TEMPLATE_INSTANTIATIONS_PER_TU, 1024);
+
+    Ok(())
+}

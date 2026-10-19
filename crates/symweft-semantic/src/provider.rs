@@ -184,6 +184,7 @@ struct Walker<'a> {
     owner: Option<String>,
     depth: usize,
     visited: usize,
+    template_instantiations: usize,
     error: Option<String>,
 }
 impl Walker<'_> {
@@ -294,12 +295,29 @@ impl Walker<'_> {
                 };
                 self.calls.push(Call {
                     caller: owner.clone(),
-                    target,
+                    target: target.clone(),
                     name: name.clone(),
                     resolution: resolution.into(),
                     location: range.clone(),
                     spelling: spelling.clone(),
                 });
+                let template_cursor = clang_getSpecializedCursorTemplate(target_cursor);
+                if clang_Cursor_isNull(template_cursor) == 0
+                    && self.template_instantiations < crate::cpp_constructs::MAX_TEMPLATE_INSTANTIATIONS_PER_TU
+                {
+                    if let Some((primary_id, _)) = identity(template_cursor, self.command) {
+                        if Some(&primary_id) != target.as_ref() {
+                            self.template_instantiations += 1;
+                            self.references.push(Reference {
+                                target: primary_id,
+                                name: name.clone(),
+                                kind: "TemplateInstantiationRef".into(),
+                                location: range.clone(),
+                                spelling: spelling.clone(),
+                            });
+                        }
+                    }
+                }
             }
             if matches!(
                 kind,
@@ -466,6 +484,7 @@ pub fn analyze(request: &WorkerRequest) -> Result<WorkerReply> {
         owner: None,
         depth: 0,
         visited: 0,
+        template_instantiations: 0,
         error: None,
     };
     unsafe {

@@ -26,3 +26,17 @@
 | `c_cpp_macros_and_generated_code` | `preprocessor` | `supported` | `MacroDefinition` 与 `MacroExpansion` 绑定宏 USR | 同时记录展开点 `location` 与宏定义拼写点 `spelling`；纳入 `build_root` 生成代码 | 不同 `-D/-U` 保持独立 TU；非活动分支保留 A1 语法证据 | 生成头文件更新后经 `input_aliases` 失效并重建包含者 |
 | `cpp_virtual_dispatch_candidates` | `dispatch` | `candidate` | `clang_Cursor_isDynamicCall` 识别虚调用，关联基类虚函数及已索引 override 候选 | 锚定多态调用点，目标含基类与各派生类实现位置 | 附带 `closed_world_scope`（已索引 TU 列表） | 动态库或未索引 TU 派生类不在候选内，不冒充唯一目标 |
 | `c_cpp_function_pointers_and_indirect_calls` | `dispatch` | `unknown` | 变量/参数/字段函数指针调用标为 `indirect`，模板依赖调用标为 `unresolved` | 保留调用点与被调指针符号引用证据 | 不跨文件按同名函数猜测目标 | 严格保留 `indirect` / `unresolved` 状态 |
+
+## 2. 模板与泛型实例（CPP-02）
+
+- **主模板、特化与实例化角色分离（`TemplateRole`）**：
+  - `PrimaryFunctionTemplate`（函数主模板 `template<typename T> T compute(T)`，USR 形如 `c:@FT@>1#Tcompute...`）
+  - `PrimaryClassTemplate`（类主模板 `template<typename T> struct Box`，USR 形如 `c:@ST>1#T@Box`）
+  - `ExplicitSpecialization`（显式全特化 `template<> double compute<double>(double)`，绑定独立定义符号且保留对主模板的关联）
+  - `PartialSpecialization`（类模板偏特化 `template<typename T> struct Box<T*>`，对应 `CXCursor_ClassTemplatePartialSpecialization`）
+  - `ImplicitInstantiation`（隐式实例化调用，如 `compute<int>(42)`）
+- **双目标绑定与防裸名混淆**：
+  - `compute<int>` 与 `compute<double>` 的 USR 分别编码具体类型实参（`<#I>` vs `<#d>`），通过 `TemplateSymbolBinding` 精确区分具体目标与主模板定义，绝不退化为按裸名 `compute` 混淆。
+  - 在 AST 遍历 `CXCursor_CallExpr` 时，通过 `clang_getSpecializedCursorTemplate` 同时提取具体实例化目标与 `TemplateInstantiationRef` 主模板引用。
+- **实例化展开预算保护（`MAX_TEMPLATE_INSTANTIATIONS_PER_TU = 1024`）**：
+  - 单个编译单元最多展开记录 1024 个隐式模板实例化引用；超出预算时置 `budget_exhausted = true` 并停止追加隐式实例化，但始终保留主模板与显式/偏特化定义，防止深层模板元编程耗尽内存。

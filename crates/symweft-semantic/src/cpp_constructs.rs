@@ -132,3 +132,110 @@ pub fn construct_capability_matrix() -> Vec<ConstructCapabilityEntry> {
         },
     ]
 }
+
+/// Maximum template instantiations expanded/linked per translation unit (CPP-02).
+pub const MAX_TEMPLATE_INSTANTIATIONS_PER_TU: usize = 1024;
+
+/// Role of a C++ template or generic construct (CPP-02).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TemplateRole {
+    NonTemplate,
+    PrimaryFunctionTemplate,
+    PrimaryClassTemplate,
+    ExplicitSpecialization,
+    PartialSpecialization,
+    ImplicitInstantiation,
+}
+
+/// Binding that distinguishes primary template definitions from specializations and instantiations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateSymbolBinding {
+    pub symbol_id: String,
+    pub usr: String,
+    pub bare_name: String,
+    pub role: TemplateRole,
+    pub primary_template_id: Option<String>,
+    pub primary_template_usr: Option<String>,
+    pub type_arguments: Vec<String>,
+}
+
+/// Bounded tracker for template instantiations within a translation unit (CPP-02).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateInstantiationTracker {
+    pub max_instantiations: usize,
+    pub recorded_instantiations: usize,
+    pub skipped_instantiations: usize,
+    pub budget_exhausted: bool,
+    pub bindings: Vec<TemplateSymbolBinding>,
+}
+
+impl Default for TemplateInstantiationTracker {
+    fn default() -> Self {
+        Self::new(MAX_TEMPLATE_INSTANTIATIONS_PER_TU)
+    }
+}
+
+impl TemplateInstantiationTracker {
+    pub fn new(max_instantiations: usize) -> Self {
+        Self {
+            max_instantiations,
+            recorded_instantiations: 0,
+            skipped_instantiations: 0,
+            budget_exhausted: false,
+            bindings: Vec::new(),
+        }
+    }
+
+    /// Classify a cursor/USR into its exact C++ template role.
+    pub fn classify_role(
+        cursor_kind: &str,
+        usr: &str,
+        has_primary_template: bool,
+        is_explicit_specialization_decl: bool,
+    ) -> TemplateRole {
+        match cursor_kind {
+            "FunctionTemplate" => TemplateRole::PrimaryFunctionTemplate,
+            "ClassTemplate" => TemplateRole::PrimaryClassTemplate,
+            "ClassTemplatePartialSpecialization" => TemplateRole::PartialSpecialization,
+            _ => {
+                if is_explicit_specialization_decl {
+                    TemplateRole::ExplicitSpecialization
+                } else if has_primary_template || (usr.contains("<#") && !usr.contains("@FT@") && !usr.contains("@ST>")) {
+                    TemplateRole::ImplicitInstantiation
+                } else {
+                    TemplateRole::NonTemplate
+                }
+            }
+        }
+    }
+
+    /// Record a template symbol binding while enforcing the instantiation budget.
+    /// Primary templates and explicit/partial specializations are always retained;
+    /// implicit instantiations are bounded by `max_instantiations`.
+    pub fn record_binding(&mut self, binding: TemplateSymbolBinding) -> bool {
+        if binding.role == TemplateRole::ImplicitInstantiation {
+            if self.recorded_instantiations >= self.max_instantiations {
+                self.skipped_instantiations += 1;
+                self.budget_exhausted = true;
+                return false;
+            }
+            self.recorded_instantiations += 1;
+        }
+        self.bindings.push(binding);
+        true
+    }
+
+    /// Look up a template binding by exact USR (never conflating by bare name).
+    pub fn resolve_by_usr(&self, target_usr: &str) -> Option<&TemplateSymbolBinding> {
+        self.bindings.iter().find(|b| b.usr == target_usr)
+    }
+
+    /// Find all specializations and instantiations linked to a primary template USR.
+    pub fn specializations_of(&self, primary_usr: &str) -> Vec<&TemplateSymbolBinding> {
+        self.bindings
+            .iter()
+            .filter(|b| b.primary_template_usr.as_deref() == Some(primary_usr))
+            .collect()
+    }
+}
