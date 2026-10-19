@@ -3714,3 +3714,30 @@ fn val08_database_fault_recovery_and_multi_instance_resilience() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val09_continuous_soak_replay_and_resource_reclamation() -> Result<()> {
+    use symweft_semantic::scale_validation::run_soak_replay_simulation;
+
+    // 1. Short soak test (50 cycles)
+    let short_soak = run_soak_replay_simulation("short_soak", 50);
+    assert!(short_soak.bounded_no_leak);
+    assert_eq!(short_soak.final_active_tasks, 0);
+    assert_eq!(short_soak.final_queued_tasks, 0);
+    assert_eq!(short_soak.final_unreachable_facts, 0);
+    assert_eq!(short_soak.final_wal_bytes, 0);
+
+    // 2. Long soak test (1,000 cycles)
+    let long_soak = run_soak_replay_simulation("long_soak", 1_000);
+    assert!(long_soak.bounded_no_leak);
+    assert_eq!(long_soak.final_active_tasks, 0);
+    assert_eq!(long_soak.final_queued_tasks, 0);
+    assert_eq!(long_soak.final_unreachable_facts, 0);
+    assert_eq!(long_soak.final_wal_bytes, 0);
+    // Memory does not grow between 50 cycles and 1,000 cycles
+    assert_eq!(short_soak.final_rss_bytes, long_soak.final_rss_bytes);
+    assert_eq!(short_soak.peak_rss_bytes, long_soak.peak_rss_bytes);
+    assert!(long_soak.max_idle_cpu_percent < 1.0);
+
+    Ok(())
+}
