@@ -1297,3 +1297,191 @@ int b4(void){return target_func();}
 
     Ok(())
 }
+
+#[test]
+fn project_overlay_golden_cases_variants_unicode_external_change_and_save_equivalence() -> Result<()> {
+    let f = Fixture::new();
+    // 1. Setup multi-file project with headers, macro variants, and multi-byte UTF-8 Unicode
+    f.write("shared.h", r#"// 🚀 核心通用头文件 - 包含宏变体与 Unicode 注释
+int common_target(const char *msg);
+
+#if FEATURE_VARIANT == 1
+int v_caller(void) {
+    return common_target("Variant 1 🌟");
+}
+#elif FEATURE_VARIANT == 2
+int v_caller(void) {
+    return common_target("Variant 2 🎯");
+}
+#endif
+"#);
+
+    f.write("variant_a.c", r#"#include "shared.h"
+// 模块 A：启用特性 1
+int a_entry(void) {
+    return v_caller();
+}
+"#);
+
+    f.write("variant_b.c", r#"#include "shared.h"
+// 模块 B：启用特性 2
+int b_entry(void) {
+    return v_caller();
+}
+"#);
+
+    f.write("extra.c", r#"#include "shared.h"
+// 模块 C：独立调用者
+int extra_entry(void) {
+    return common_target("Extra 💡");
+}
+"#);
+
+    // Compilation database with variant flags
+    let entries = vec![
+        json!({"directory": f.0, "file": "variant_a.c", "arguments": ["clang", "-DFEATURE_VARIANT=1", "-I.", "-c", "variant_a.c", "-o", "a.o"]}),
+        json!({"directory": f.0, "file": "variant_b.c", "arguments": ["clang", "-DFEATURE_VARIANT=2", "-I.", "-c", "variant_b.c", "-o", "b.o"]}),
+        json!({"directory": f.0, "file": "extra.c", "arguments": ["clang", "-DFEATURE_VARIANT=1", "-I.", "-c", "extra.c", "-o", "c.o"]}),
+    ];
+    fs::write(f.0.join("compile_commands.json"), serde_json::to_vec(&entries)?)?;
+    let db = CompileDatabase::load(&f.0, &f.0.join("compile_commands.json"))?;
+
+    let db_path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&db_path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    let extra_snap = analyze(&db, 2)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    store.publish(&extra_snap)?;
+    drop(store);
+
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "common_target").unwrap();
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        db_path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 2. Multi-file dirty edit in overlay:
+    // Edit shared.h to call common_target twice in v_caller for variant 1
+    let new_shared = r#"// 🚀 核心通用头文件 - 包含宏变体与 Unicode 注释
+int common_target(const char *msg);
+
+#if FEATURE_VARIANT == 1
+int v_caller(void) {
+    common_target("Variant 1 Step A 🌟");
+    return common_target("Variant 1 Step B 🌟");
+}
+#elif FEATURE_VARIANT == 2
+int v_caller(void) {
+    return common_target("Variant 2 🎯");
+}
+#endif
+"#;
+    // Also edit variant_a.c to add another direct call with Unicode string
+    let new_variant_a = r#"#include "shared.h"
+// 模块 A：启用特性 1 并新增直接调用
+int a_direct(void) {
+    return common_target("Direct A 🔥");
+}
+int a_entry(void) {
+    return v_caller();
+}
+"#;
+
+    let shared_path = f.0.join("shared.h").to_string_lossy().into_owned();
+    let a_path = f.0.join("variant_a.c").to_string_lossy().into_owned();
+    let a_unit = db.commands[0].unit_id.clone();
+
+    let docs = vec![
+        PreviewDocument { path: a_path.clone(), revision: 2, content: new_variant_a.into() },
+        PreviewDocument { path: shared_path.clone(), revision: 2, content: new_shared.into() },
+    ];
+
+    let status = controller.start_preview_documents(docs, Some(&a_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 3. Query project relations for common_target incoming calls
+    let overlay_res = controller.project_relations_page(id, &a_path, 2, &target_sym.id, "incoming", 100, 0)?;
+    let overlay_rows = overlay_res["rows"].as_array().unwrap();
+
+    // Verify incoming call count:
+    // From variant_a (overlay): 2 calls in v_caller + 1 call in a_direct = 3 calls
+    // From variant_b (overlay/secondary): v_caller in variant_b calls common_target = 1 call
+    // From extra.c (disk): extra_entry calls common_target = 1 call
+    // Total = 3 + 1 + 1 = 5 calls
+    assert_eq!(overlay_rows.len(), 5);
+
+    // Normalize overlay rows: extract tuple of (main_file_basename, caller_name, name, location.offset)
+    let normalize = |row: &serde_json::Value| -> (String, String, String, u64) {
+        let main = PathBuf::from(row["main_file"].as_str().unwrap())
+            .file_name().unwrap().to_string_lossy().into_owned();
+        let caller_name = row["caller_name"].as_str().unwrap_or("").to_string();
+        let name = row["name"].as_str().unwrap_or("").to_string();
+        let offset = row["location"]["offset"].as_u64().unwrap();
+        (main, caller_name, name, offset)
+    };
+
+    let mut overlay_norm: Vec<_> = overlay_rows.iter().map(normalize).collect();
+    overlay_norm.sort();
+
+    // 4. Test Concurrent External Change Detection:
+    // Modify compile_commands.json on disk to trigger external change invalidation
+    fs::write(f.0.join("compile_commands.json"), b"[]")?;
+    let fresh = controller.check_preview(id, &a_path, 2);
+    // Either check_preview invalidates or preview status becomes stale
+    let s = controller.preview_status()?;
+    assert_eq!(s["state"], "stale");
+    assert!(s["reason"].as_deref().unwrap_or("").contains("configuration changed") || fresh.is_err());
+
+    // Restore compile_commands.json
+    fs::write(f.0.join("compile_commands.json"), serde_json::to_vec(&entries)?)?;
+
+    // 5. Save buffers to disk, confirm digests and baseline continuity
+    f.write("shared.h", new_shared);
+    f.write("variant_a.c", new_variant_a);
+    let shared_hash = symweft_index::hash(new_shared.as_bytes());
+    let a_hash = symweft_index::hash(new_variant_a.as_bytes());
+    assert_eq!(symweft_index::hash(&fs::read(f.0.join("shared.h"))?), shared_hash);
+    assert_eq!(symweft_index::hash(&fs::read(f.0.join("variant_a.c"))?), a_hash);
+
+    // Retire overlay
+    controller.retire_overlay("buffers saved to disk");
+    drop(controller);
+
+    // 6. Re-analyze saved buffers from disk into SQLite
+    let db = CompileDatabase::load(&f.0, &f.0.join("compile_commands.json"))?;
+    let mut store = Store::open(&db_path)?;
+    let a_new_snap = analyze(&db, 0)?;
+    let b_new_snap = analyze(&db, 1)?;
+    store.publish(&a_new_snap)?;
+    store.publish(&b_new_snap)?;
+
+    // 7. Query disk relations and verify 100% normalized equivalence
+    let disk_res = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_new_snap.provider, 100, 0)?;
+    let disk_rows = disk_res["rows"].as_array().unwrap();
+    assert_eq!(disk_rows.len(), 5);
+
+    let mut disk_norm: Vec<_> = disk_rows.iter().map(normalize).collect();
+    disk_norm.sort();
+
+    assert_eq!(overlay_norm, disk_norm, "overlay project relations and post-save disk relations must match exactly under normalized criteria!");
+
+    Ok(())
+}

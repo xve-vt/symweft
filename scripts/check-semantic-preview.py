@@ -194,6 +194,19 @@ def check_multiple_buffers(output):
             status_after = client.rpc("semantic.progress")["preview"]
             assert status_after["state"] in ["retired", "idle", "stale"]
             assert status_after["charged_bytes"] == 0
+
+            # OVL-11: Golden normalization check: post-save disk relations match pre-save overlay definitions
+            disk_rels = client.rpc("semantic.relations", {"entity_id": second, "direction": "definitions"})
+            assert len(disk_rels["rows"]) == len(definitions), (disk_rels["rows"], definitions)
+            def norm(row):
+                return (Path(row["main_file"]).name, row.get("caller_name", ""), row.get("name", ""), row.get("location", {}).get("offset"))
+            assert sorted(norm(r) for r in definitions) == sorted(norm(r) for r in disk_rels["rows"]), "golden normalization must match exactly between overlay and disk"
+
+            # Concurrent external change detection on compilation database
+            (root / "compile_commands.json").write_text("[]")
+            conf_err = client.rpc("semantic.relations", {"entity_id": second, "direction": "definitions"}, expect_error=True)
+            assert "compilation database changed" in conf_err["message"] or "configure semantics again" in conf_err["message"], conf_err
+            (root / "compile_commands.json").write_text(json.dumps([{"directory": str(root), "file": p, "arguments": ["clang++" if p.endswith("cpp") else "clang", "-c", p]} for p in ["a.c", "b.cpp", "c.c"]]))
         finally:
             client.close()
     print("PASS main/header buffers compile together with complete revisions, dirty coverage and budget rejection")

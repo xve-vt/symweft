@@ -772,6 +772,27 @@ impl Controller {
         row["evidence"] = "clang_semantic_overlay".into();
         row["freshness"] = "overlay".into();
         row["main_file"] = main_file.to_string().into();
+        if row.get("caller_name").is_none() || row["caller_name"].is_null() {
+            if let Some(caller) = row.get("caller").and_then(Value::as_str) {
+                if let Some(snapshot) = self
+                    .overlay
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.reply.snapshot.as_ref())
+                    .filter(|s| s.unit_id == unit_id)
+                    .or_else(|| {
+                        self.overlay
+                            .results
+                            .get(unit_id)
+                            .and_then(|r| r.reply.snapshot.as_ref())
+                    })
+                {
+                    if let Some(sym) = snapshot.symbols.iter().find(|s| s.id == caller) {
+                        row["caller_name"] = sym.name.clone().into();
+                    }
+                }
+            }
+        }
         row
     }
     fn overlay_row(&self, value: impl Serialize) -> Value {
