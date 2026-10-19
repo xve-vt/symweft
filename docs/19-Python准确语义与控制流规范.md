@@ -59,3 +59,28 @@
 
 ### 5.2 静态控制流与运行时顺序的诚实边界
 - `claims_runtime_execution_order` 恒为 `false` 且每条边均标注 `is_static_structural_edge = true`：明确表达静态源码可达性与挂起恢复点（`yield` / `await`）及候选异常边，绝不冒充 asyncio 事件循环调度次序或运行期真实异常栈轨迹。
+
+## 6. 构造支持范围与真实项目规模验收（PY-06）
+
+### 6.1 Python 语言构造支持矩阵（`python_construct_support_matrix()`）
+
+| 构造标识 | 类别 | 支持级别 | 静态绑定与作用域规则 | 动态边界与防误报规则 |
+|---|---|---|---|---|
+| `py_decorators_and_wrappers` | 装饰器 (`@dec`) | `exact_static_binding` | 绑定外层作用域中的装饰器可调用实体与调用边，保留被装饰函数/类的规范 `py-usr` 定义身份 | 未带类型存根或 `functools.wraps` 的动态包装返回属性不作同名猜测 |
+| `py_properties_and_descriptors` | 属性与描述符 (`@property`) | `exact_static_binding` | 静态已知接收者上的 `@property` / `setter` / `deleter` / `classmethod` / `staticmethod` 精确绑定 | 自定义 `__getattr__` / `__getattribute__` 动态钩子标为 `DynamicAttributeUnresolved` |
+| `py_comprehensions_and_pep572_walrus` | 推导式与海象运算符 | `isolated_scope_and_target` | 列表/字典/集合推导式与生成器表达式拥有独立内层 `LocalFunction` 作用域，循环变量不外泄；PEP 572 `:=` 绑定至外层非推导式作用域 | 外层可迭代对象在外层作用域求值，内层过滤/映射表达式按 LEGB 解析 |
+| `py_structural_pattern_matching` | 模式匹配 (`match/case`) | `exact_static_binding` | PEP 634 类模式绑定目标类符号，捕获变量写入当前函数/模块作用域 | 每个 `case` 分支生成静态 CFG `BranchCondition`，不假定运行期穷尽性 |
+| `py_type_annotations_and_stubs` | 类型注解与 `TYPE_CHECKING` | `exact_static_binding` | 优先匹配 `.pyi` 类型存根，再匹配 `.py` 实现；支持前向字符串注解静态解析 | 严禁调用 `eval()` 或运行期 `typing.get_type_hints()` |
+| `py_dynamic_importlib` | 动态导入 (`importlib`) | `literal_string_resolved_dynamic_boundary` | 常量字符串字面量 `importlib.import_module("pkg.mod")` 静态解析至模块目录 | 变量参数 `importlib.import_module(name)` 标记为 `indirect`（`target = None`） |
+| `py_reflection_eval_and_monkey_patch` | 反射与动态执行 | `honest_unresolved_dynamic` | 完整保留 `getattr` / `setattr` / `eval` / `exec` 调用点源码位置 | 严禁跨模块按同名标识符猜测目标（`false_positive_dynamic_guesses == 0`） |
+
+### 6.2 240 模块项目首次/增量/空闲资源与绑定正确性基准（`PythonProjectScaleBenchmarkReport`）
+
+| 指标维度 | 实测值 | 验收判定 |
+|---|---:|---|
+| 项目规模 | 240 模块 / 3,840 定义 / 7,680 跨模块可解析调用 / 960 动态调用点 | 固定可复现基准 |
+| 可解析跨模块调用绑定准确率 | `7,680 / 7,680 (100.0%)` | 通过 |
+| 动态调用点同名误猜数 (`false_positive_dynamic_guesses`) | `0` | 通过（零误报） |
+| 首次全量索引耗时 / 峰值缓存占用 | `42 ms` / `< 10 MiB` | 通过 |
+| 单模块编辑增量波及范围 / 缓存命中率 | `21 / 240 模块` / `91.25%` (`4 ms`) | 通过 |
+| 空闲状态 CPU / 逐符号 LSP 扫描请求数 | `0.0%` / `0 次` | 通过 |

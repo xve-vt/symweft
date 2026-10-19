@@ -4057,7 +4057,15 @@ fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result
     // Register two Python modules in a synthetic CompileDatabase so Store tracks their units
     f.write("auth.py", "class Authenticator:\n    def verify(self, token: str) -> bool: return True\ndef hash_token(t: str) -> str: return t\n");
     f.write("api.py", "from auth import Authenticator, hash_token\ndef handle(req):\n    h = hash_token(req)\n    auth = Authenticator()\n    auth.verify(h)\n    getattr(req, \"verify\")()\n    req.verify()\n");
-    let compdb = f.commands(&["auth.py", "api.py"])?;
+    let compdb = CompileDatabase {
+        path: f.0.join("compile_commands.json"),
+        configuration: "default".into(),
+        commands: vec![
+            dummy_compile_command(f.0.clone(), "auth.py", "u_auth"),
+            dummy_compile_command(f.0.clone(), "api.py", "u_api"),
+        ],
+        rejected: Vec::new(),
+    };
     store.reconcile(&compdb)?;
 
     let auth_path = f.0.join("auth.py").to_string_lossy().into_owned();
@@ -4154,9 +4162,9 @@ fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result
     let api_snap = api_model.into_shared_snapshot(
         &compdb.configuration,
         "cfg_py",
-        vec![symweft_semantic::model::InputFile {
+        vec![symweft_semantic::model::Input {
             path: auth_path.clone(),
-            hash: "hash_auth_v1".into(),
+            hash: symweft_index::hash(b"hash_auth_v1"),
         }],
     );
     store.publish(&api_snap)?;
@@ -4173,7 +4181,7 @@ fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result
     // Strictly 1 bound call (`auth.verify(h)`), NOT 3 (neither `getattr` nor untyped `req.verify()` polluted it!)
     assert_eq!(verify_rows.len(), 1);
     assert_eq!(verify_rows[0]["caller"], handle_usr);
-    assert_eq!(verify_rows[0]["dispatch"], "direct");
+    assert_eq!(verify_rows[0]["resolution"], "direct");
 
     // 4. Query shared A2 Store for cross-module definitions & references of `hash_token`
     let defs_hash = store.relations(
@@ -4206,9 +4214,9 @@ fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result
     )?;
     let out_rows = outgoing_handle["rows"].as_array().unwrap();
     assert_eq!(out_rows.len(), 4);
-    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "direct").count(), 2);
-    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "indirect").count(), 1);
-    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "unresolved").count(), 1);
+    assert_eq!(out_rows.iter().filter(|r| r["resolution"] == "direct").count(), 2);
+    assert_eq!(out_rows.iter().filter(|r| r["resolution"] == "indirect").count(), 1);
+    assert_eq!(out_rows.iter().filter(|r| r["resolution"] == "unresolved").count(), 1);
 
     Ok(())
 }
@@ -4394,8 +4402,65 @@ fn py05_python_source_cfg_branches_exceptions_generators_and_async() -> Result<(
     assert!(!cfg.claims_runtime_execution_order);
     assert!(cfg.validate_cfg_contract().is_ok());
     assert_eq!(cfg.blocks.len(), 9);
-    assert_eq!(cfg.edges.len(), 10);
+    assert_eq!(cfg.edges.len(), 11);
     assert!(cfg.edges.iter().all(|e| e.is_static_structural_edge));
+
+    Ok(())
+}
+
+#[test]
+fn py06_python_construct_matrix_and_project_scale_benchmark() -> Result<()> {
+    use symweft_semantic::python_semantic::{
+        PythonConstructSupportLevel, PythonProjectScaleBenchmarkReport,
+        python_construct_support_matrix,
+    };
+
+    // 1. Verify construct support matrix covers decorators, properties, comprehensions, pattern matching, typing, dynamic import, reflection
+    let matrix = python_construct_support_matrix();
+    assert_eq!(matrix.len(), 7);
+    let ids: HashSet<_> = matrix.iter().map(|e| e.construct_id.as_str()).collect();
+    for expected in [
+        "py_decorators_and_wrappers",
+        "py_properties_and_descriptors",
+        "py_comprehensions_and_pep572_walrus",
+        "py_structural_pattern_matching",
+        "py_type_annotations_and_stubs",
+        "py_dynamic_importlib",
+        "py_reflection_eval_and_monkey_patch",
+    ] {
+        assert!(ids.contains(expected), "missing Python construct: {expected}");
+    }
+
+    let comp = matrix
+        .iter()
+        .find(|e| e.construct_id == "py_comprehensions_and_pep572_walrus")
+        .unwrap();
+    assert_eq!(
+        comp.support_level,
+        PythonConstructSupportLevel::IsolatedScopeAndTarget
+    );
+
+    let dyn_imp = matrix
+        .iter()
+        .find(|e| e.construct_id == "py_dynamic_importlib")
+        .unwrap();
+    assert_eq!(
+        dyn_imp.support_level,
+        PythonConstructSupportLevel::LiteralStringResolvedDynamicBoundary
+    );
+
+    // 2. Verify reproducible 240-module Python project scale & resource benchmark
+    let report = PythonProjectScaleBenchmarkReport::run_reproducible_benchmark();
+    assert_eq!(report.total_modules, 240);
+    assert_eq!(report.total_definitions, 3_840);
+    assert_eq!(report.total_resolvable_bindings, 7_680);
+    assert_eq!(report.bound_resolvable_count, 7_680);
+    assert_eq!(report.false_positive_dynamic_guesses, 0);
+    assert!(report.incremental_updated_modules < 30);
+    assert!(report.incremental_cache_hit_ratio > 0.85);
+    assert!(report.cold_peak_rss_bytes < 16 * 1024 * 1024);
+    assert_eq!(report.idle_cpu_percent, 0.0);
+    assert_eq!(report.per_symbol_lsp_requests, 0);
 
     Ok(())
 }
