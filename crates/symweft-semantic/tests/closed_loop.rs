@@ -4464,3 +4464,92 @@ fn py06_python_construct_matrix_and_project_scale_benchmark() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn rs01_cargo_workspace_crate_graph_variants_and_build_policy_gaps() -> Result<()> {
+    use std::collections::{BTreeMap, BTreeSet};
+    use symweft_semantic::rust_semantic::{
+        BuildScriptAndProcMacroPolicy, CargoWorkspaceBuildVariant, RustCrateNode,
+        RustCrateTargetKind, RustEdition,
+    };
+
+    let mut crates = BTreeMap::new();
+    crates.insert(
+        "symweft-derive".into(),
+        RustCrateNode {
+            crate_id: "symweft-derive".into(),
+            name: "symweft_derive".into(),
+            version: "0.1.0".into(),
+            edition: RustEdition::Edition2024,
+            target_kind: RustCrateTargetKind::ProcMacro,
+            root_file: "crates/symweft-derive/src/lib.rs".into(),
+            enabled_features: BTreeSet::new(),
+            cfg_flags: BTreeSet::new(),
+            dependencies: Vec::new(),
+            has_build_script: false,
+        },
+    );
+    crates.insert(
+        "symweft-core".into(),
+        RustCrateNode {
+            crate_id: "symweft-core".into(),
+            name: "symweft_core".into(),
+            version: "0.1.0".into(),
+            edition: RustEdition::Edition2024,
+            target_kind: RustCrateTargetKind::Bin,
+            root_file: "crates/symweft-core/src/main.rs".into(),
+            enabled_features: ["sqlite-bundled".to_string(), "unix-uds".to_string()]
+                .into_iter()
+                .collect(),
+            cfg_flags: ["unix".to_string()].into_iter().collect(),
+            dependencies: vec![(
+                "symweft_derive".into(),
+                "symweft-derive".into(),
+            )],
+            has_build_script: true,
+        },
+    );
+
+    let ws_static = CargoWorkspaceBuildVariant {
+        workspace_root: "/workspace/symweft".into(),
+        toolchain_version: "rustc 1.85.0 (4d91de4e4 2025-02-17)".into(),
+        target_triple: "aarch64-apple-darwin".into(),
+        cargo_lock_sha256: "lock_hash_v1".into(),
+        execution_policy: BuildScriptAndProcMacroPolicy::DisabledStaticOnly,
+        crates: crates.clone(),
+    };
+
+    let fp_darwin = ws_static.variant_fingerprint();
+    assert_eq!(fp_darwin.len(), 64);
+
+    // 1. Changing target triple, features, edition, or toolchain produces a distinct identity
+    let mut ws_linux = ws_static.clone();
+    ws_linux.target_triple = "x86_64-unknown-linux-gnu".into();
+    assert_ne!(fp_darwin, ws_linux.variant_fingerprint());
+
+    let mut ws_no_feat = ws_static.clone();
+    ws_no_feat
+        .crates
+        .get_mut("symweft-core")
+        .unwrap()
+        .enabled_features
+        .remove("unix-uds");
+    assert_ne!(fp_darwin, ws_no_feat.variant_fingerprint());
+
+    // 2. Verify build.rs and proc-macro disabled policy explicitly reports gaps
+    let gaps = ws_static.evaluate_execution_policy_gaps(
+        &["#[derive(Serialize, Deserialize)]", "#[rpc_route]"],
+        &["include!(concat!(env!("OUT_DIR"), "/schema_gen.rs"))"],
+    );
+    assert!(!gaps.executes_build_scripts_or_proc_macros);
+    assert_eq!(gaps.crates_with_skipped_build_scripts, vec!["symweft-core"]);
+    assert_eq!(
+        gaps.crates_with_skipped_proc_macros,
+        vec!["symweft-derive"]
+    );
+    assert_eq!(gaps.unexpanded_derive_and_attr_macros.len(), 2);
+    assert_eq!(gaps.missing_out_dir_includes.len(), 1);
+    assert!(gaps.pubcompleteness_note.contains("static safe mode"));
+
+    Ok(())
+}

@@ -13,6 +13,7 @@ pub mod profile;
 pub mod provider;
 pub mod python_semantic;
 pub mod query_index;
+pub mod rust_semantic;
 pub mod scale_validation;
 pub mod service;
 pub mod store;
