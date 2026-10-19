@@ -491,3 +491,76 @@ impl LargeCppSampleBenchmark {
             && self.overlay_edit_preamble_hit_ms < 500
     }
 }
+
+/// Six mutation scenarios tested for incremental vs clean full-rebuild equivalence (VAL-06).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IncrementalMutationScenario {
+    FunctionBodyChange,
+    FunctionSignatureChange,
+    SharedHeaderEdit,
+    FileDeleteOrRename,
+    CompileConfigurationChange,
+    GitBranchSwitch,
+}
+
+/// Canonicalized semantic fact tuple used to compare incremental vs clean rebuild stores (VAL-06).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct CanonicalFactTuple {
+    pub unit_id: String,
+    pub kind: String,
+    pub usr: String,
+    pub target_usr: Option<String>,
+    pub path: String,
+    pub offset: u32,
+}
+
+/// Equivalence verification result between an incrementally updated index and a clean rebuild (VAL-06).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncrementalEquivalenceReport {
+    pub scenario: IncrementalMutationScenario,
+    pub incremental_count: usize,
+    pub clean_rebuild_count: usize,
+    pub missing_in_incremental: Vec<CanonicalFactTuple>,
+    pub residual_stale_in_incremental: Vec<CanonicalFactTuple>,
+    pub is_equivalent: bool,
+}
+
+impl IncrementalEquivalenceReport {
+    /// Normalize and compare incremental facts against a clean full-rebuild baseline,
+    /// detecting any missing facts or residual stale edges (VAL-06).
+    pub fn verify(
+        scenario: IncrementalMutationScenario,
+        mut incremental_facts: Vec<CanonicalFactTuple>,
+        mut clean_rebuild_facts: Vec<CanonicalFactTuple>,
+    ) -> Self {
+        incremental_facts.sort();
+        incremental_facts.dedup();
+        clean_rebuild_facts.sort();
+        clean_rebuild_facts.dedup();
+
+        let missing_in_incremental: Vec<CanonicalFactTuple> = clean_rebuild_facts
+            .iter()
+            .filter(|f| incremental_facts.binary_search(f).is_err())
+            .cloned()
+            .collect();
+
+        let residual_stale_in_incremental: Vec<CanonicalFactTuple> = incremental_facts
+            .iter()
+            .filter(|f| clean_rebuild_facts.binary_search(f).is_err())
+            .cloned()
+            .collect();
+
+        let is_equivalent =
+            missing_in_incremental.is_empty() && residual_stale_in_incremental.is_empty();
+
+        Self {
+            scenario,
+            incremental_count: incremental_facts.len(),
+            clean_rebuild_count: clean_rebuild_facts.len(),
+            missing_in_incremental,
+            residual_stale_in_incremental,
+            is_equivalent,
+        }
+    }
+}

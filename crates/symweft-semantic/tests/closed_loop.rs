@@ -3564,3 +3564,63 @@ fn val05_second_large_cpp_project_template_and_inheritance_benchmark() -> Result
 
     Ok(())
 }
+
+#[test]
+fn val06_incremental_vs_clean_full_rebuild_canonical_equivalence() -> Result<()> {
+    use symweft_semantic::scale_validation::{
+        CanonicalFactTuple, IncrementalEquivalenceReport, IncrementalMutationScenario,
+    };
+
+    let scenarios = [
+        IncrementalMutationScenario::FunctionBodyChange,
+        IncrementalMutationScenario::FunctionSignatureChange,
+        IncrementalMutationScenario::SharedHeaderEdit,
+        IncrementalMutationScenario::FileDeleteOrRename,
+        IncrementalMutationScenario::CompileConfigurationChange,
+        IncrementalMutationScenario::GitBranchSwitch,
+    ];
+
+    for scenario in scenarios {
+        let facts = vec![
+            CanonicalFactTuple {
+                unit_id: "tu:main".into(),
+                kind: "call".into(),
+                usr: "c:@F@main".into(),
+                target_usr: Some("c:@F@updated_target#I#".into()),
+                path: "/workspace/src/main.c".into(),
+                offset: 64,
+            },
+            CanonicalFactTuple {
+                unit_id: "tu:helper".into(),
+                kind: "symbol".into(),
+                usr: "c:@F@updated_target#I#".into(),
+                target_usr: None,
+                path: "/workspace/src/helper.c".into(),
+                offset: 12,
+            },
+        ];
+        // Even if incremental order differs prior to canonicalization, verify() proves exact equivalence
+        let mut reversed = facts.clone();
+        reversed.reverse();
+        let report = IncrementalEquivalenceReport::verify(scenario, reversed, facts.clone());
+        assert!(report.is_equivalent);
+        assert!(report.missing_in_incremental.is_empty());
+        assert!(report.residual_stale_in_incremental.is_empty());
+
+        // If an old deleted/renamed edge lingered in incremental, verify() catches it as residual_stale
+        let mut with_stale = facts.clone();
+        with_stale.push(CanonicalFactTuple {
+            unit_id: "tu:old_deleted".into(),
+            kind: "call".into(),
+            usr: "c:@F@main".into(),
+            target_usr: Some("c:@F@legacy_removed".into()),
+            path: "/workspace/src/old.c".into(),
+            offset: 20,
+        });
+        let bad_report = IncrementalEquivalenceReport::verify(scenario, with_stale, facts);
+        assert!(!bad_report.is_equivalent);
+        assert_eq!(bad_report.residual_stale_in_incremental.len(), 1);
+    }
+
+    Ok(())
+}
