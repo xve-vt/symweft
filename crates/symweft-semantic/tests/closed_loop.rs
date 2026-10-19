@@ -4755,3 +4755,111 @@ fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> R
 
     Ok(())
 }
+
+#[test]
+fn rs04_macro_dual_anchors_multi_dirty_overlay_and_no_stale_fallback_on_failure() -> Result<()> {
+    use symweft_semantic::model::{Location, Snapshot, StageLocation};
+    use symweft_semantic::rust_semantic::{
+        BuildScriptAndProcMacroPolicy, RUST_PROVIDER_KEY, RustMacroDualAnchor, RustMacroKind,
+        RustUnsavedOverlayCoordinator,
+    };
+
+    // 1. Verify dual source anchors for declarative and proc-macro expansions
+    let dual = RustMacroDualAnchor {
+        macro_usr: "rs-usr:symweft_derive:rpc_route!".into(),
+        macro_name: "rpc_route".into(),
+        kind: RustMacroKind::AttributeProcMacro,
+        invocation_site: Location {
+            path: "crates/symweft-core/src/main.rs".into(),
+            line: 42,
+            column: 1,
+            start_byte: 1200,
+            end_byte: 1215,
+            expansion: None,
+        },
+        definition_or_expansion_site: StageLocation {
+            path: "crates/symweft-derive/src/lib.rs".into(),
+            line: 18,
+            column: 5,
+            start_byte: 450,
+            end_byte: 620,
+        },
+    };
+    let shared_loc = dual.to_shared_location();
+    assert_eq!(shared_loc.path, "crates/symweft-core/src/main.rs");
+    assert_eq!(
+        shared_loc.expansion.as_ref().unwrap().path,
+        "crates/symweft-derive/src/lib.rs"
+    );
+
+    // 2. Verify multi-document dirty overlay invalidation across dependent crates
+    let mut coord = RustUnsavedOverlayCoordinator::new(
+        "var_fp_1",
+        BuildScriptAndProcMacroPolicy::DisabledStaticOnly,
+    );
+    coord.register_crate_dependency("symweft-core", "symweft-semantic");
+
+    let dummy_snap = |cid: &str| Snapshot {
+        unit_id: cid.into(),
+        configuration: "default".into(),
+        main_file: format!("crates/{cid}/src/lib.rs"),
+        compile_hash: "var_fp_1".into(),
+        provider: RUST_PROVIDER_KEY.into(),
+        complete: true,
+        diagnostics: Vec::new(),
+        inputs: Vec::new(),
+        symbols: Vec::new(),
+        references: Vec::new(),
+        calls: Vec::new(),
+    };
+    coord.publish_crate_snapshot("symweft-index", dummy_snap("symweft-index"));
+    coord.publish_crate_snapshot("symweft-semantic", dummy_snap("symweft-semantic"));
+    coord.publish_crate_snapshot("symweft-core", dummy_snap("symweft-core"));
+    assert_eq!(coord.active_crate_snapshots.len(), 3);
+
+    // Edit files in `symweft-semantic` and `symweft-core` simultaneously
+    let invalidated = coord.apply_dirty_documents(&[
+        (
+            "crates/symweft-semantic/src/lib.rs".into(),
+            2,
+            "h_sem_rev2".into(),
+            "symweft-semantic".into(),
+        ),
+        (
+            "crates/symweft-core/src/main.rs".into(),
+            3,
+            "h_core_rev3".into(),
+            "symweft-core".into(),
+        ),
+    ]);
+    assert_eq!(
+        invalidated,
+        vec![
+            "symweft-core".to_string(),
+            "symweft-semantic".to_string()
+        ]
+    );
+    // Clean unaffected crate `symweft-index` remains active!
+    assert!(coord.active_crate_snapshots.contains_key("symweft-index"));
+    assert!(!coord.active_crate_snapshots.contains_key("symweft-semantic"));
+
+    // 3. Failure in `symweft-semantic` masks old disk facts and never falls back to stale results
+    coord.record_crate_failure(
+        "symweft-semantic",
+        "unclosed delimiter in macro invocation",
+    );
+    let fail_info = coord.failed_crates.get("symweft-semantic").unwrap();
+    assert!(fail_info.old_disk_facts_masked);
+    assert!(!coord.active_crate_snapshots.contains_key("symweft-semantic"));
+    assert!(coord.active_crate_snapshots.contains_key("symweft-index"));
+
+    // 4. Changing proc-macro policy invalidates all cached snapshots
+    let changed = coord.on_config_or_policy_change(
+        "var_fp_2",
+        BuildScriptAndProcMacroPolicy::TrustedSandboxedExecution,
+    );
+    assert!(changed);
+    assert!(coord.active_crate_snapshots.is_empty());
+
+    Ok(())
+}

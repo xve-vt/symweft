@@ -39,3 +39,14 @@
 
 ### 3.2 防单态化爆炸上限（`MAX_RUST_MONOMORPHIZED_INSTANCES_PER_CRATE = 512`）
 - 严禁无界物化泛型单态化组合实例；当特化实例数达到单 crate 预算上限（512）时，`record_or_collapse_generic_instance()` 自动折叠回主泛型定义身份并记录 `collapsed_to_primary_generic_count`。
+
+## 4. 宏锚点与未保存分析（RS-04）
+
+### 4.1 声明宏与过程宏双位置锚点（`RustMacroDualAnchor`）
+- 覆盖 `macro_rules!`（`DeclarativeMacroRules`）、`#[derive(...)]`（`DeriveProcMacro`）、属性过程宏（`AttributeProcMacro`）与函数式过程宏（`FunctionLikeProcMacro`）。
+- 每个由宏展开生成的符号、引用或调用均同时绑定用户源码调用点（`invocation_site`）与宏定义/展开位置（`definition_or_expansion_site`），通过 `to_shared_location()` 映射至共用 `Location { expansion: Some(StageLocation) }`。
+
+### 4.2 多 Dirty 文档协同、策略切换失效与失败不回退（`RustUnsavedOverlayCoordinator`）
+- **跨 Crate 级联失效**：`apply_dirty_documents()` 同时接收多个未保存文档修订，自动失效所属 crate 及 `reverse_crate_deps` 中的下游依赖 crate，同时保留未受影响的干净 crate 快照。
+- **配置与 `proc-macro` 策略切换**：`on_config_or_policy_change()` 在 `variant_fingerprint` 或 `BuildScriptAndProcMacroPolicy` 变化时全量失效旧快照。
+- **失败绝不回退为伪准确结果**：当未保存代码或宏展开失败时，`record_crate_failure()` 立即移除旧快照并记录 `old_disk_facts_masked = true`，绝不回退读取过期的磁盘旧边或将不完整的语法猜测冒充为准确语义。

@@ -546,3 +546,151 @@ impl RustTraitAndCallResolver {
         }
     }
 }
+
+/// Classification of a Rust macro invocation (RS-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustMacroKind {
+    DeclarativeMacroRules,
+    DeriveProcMacro,
+    AttributeProcMacro,
+    FunctionLikeProcMacro,
+}
+
+/// Dual source anchor for a symbol or call generated inside a Rust macro expansion (RS-04).
+/// Preserves both the user-written macro invocation site and the macro definition/expansion span.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustMacroDualAnchor {
+    pub macro_usr: String,
+    pub macro_name: String,
+    pub kind: RustMacroKind,
+    pub invocation_site: crate::model::Location,
+    pub definition_or_expansion_site: crate::model::StageLocation,
+}
+
+impl RustMacroDualAnchor {
+    /// Builds a shared `crate::model::Location` whose primary coordinates point to the user invocation
+    /// site and whose `expansion` field points to the macro definition/expansion span.
+    pub fn to_shared_location(&self) -> crate::model::Location {
+        let mut loc = self.invocation_site.clone();
+        loc.expansion = Some(self.definition_or_expansion_site.clone());
+        loc
+    }
+}
+
+/// Failure record for a crate whose unsaved overlay analysis failed (RS-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FailedRustCrateOverlay {
+    pub crate_id: String,
+    pub reason: String,
+    pub old_disk_facts_masked: bool,
+}
+
+/// Coordinator for multi-document unsaved Rust analysis, macro invalidation, and failure masking (RS-04).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustUnsavedOverlayCoordinator {
+    pub variant_fingerprint: String,
+    pub execution_policy: BuildScriptAndProcMacroPolicy,
+    /// Map of `file_path -> (revision, content_hash)`.
+    pub dirty_documents: BTreeMap<String, (u64, String)>,
+    /// Map of `crate_id -> reverse dependent crate_ids`.
+    pub reverse_crate_deps: BTreeMap<String, BTreeSet<String>>,
+    /// Map of `crate_id -> active valid Snapshot`.
+    pub active_crate_snapshots: BTreeMap<String, crate::model::Snapshot>,
+    /// Map of `crate_id -> FailedRustCrateOverlay` when analysis fails (masks old facts!).
+    pub failed_crates: BTreeMap<String, FailedRustCrateOverlay>,
+    pub stale_crates: BTreeSet<String>,
+}
+
+impl RustUnsavedOverlayCoordinator {
+    pub fn new(
+        variant_fingerprint: &str,
+        execution_policy: BuildScriptAndProcMacroPolicy,
+    ) -> Self {
+        Self {
+            variant_fingerprint: variant_fingerprint.to_string(),
+            execution_policy,
+            dirty_documents: BTreeMap::new(),
+            reverse_crate_deps: BTreeMap::new(),
+            active_crate_snapshots: BTreeMap::new(),
+            failed_crates: BTreeMap::new(),
+            stale_crates: BTreeSet::new(),
+        }
+    }
+
+    pub fn register_crate_dependency(&mut self, dependent_crate: &str, dependency_crate: &str) {
+        self.reverse_crate_deps
+            .entry(dependency_crate.to_string())
+            .or_default()
+            .insert(dependent_crate.to_string());
+    }
+
+    /// Applies multiple unsaved dirty buffers simultaneously and invalidates the owning crates
+    /// plus their downstream dependent crates.
+    pub fn apply_dirty_documents(
+        &mut self,
+        docs: &[(String, u64, String, String)], // (file_path, revision, hash, owning_crate_id)
+    ) -> Vec<String> {
+        let mut invalidated = BTreeSet::new();
+        for (path, rev, hash, crate_id) in docs {
+            self.dirty_documents
+                .insert(path.clone(), (*rev, hash.clone()));
+            invalidated.insert(crate_id.clone());
+            if let Some(dependents) = self.reverse_crate_deps.get(crate_id) {
+                for dep in dependents {
+                    invalidated.insert(dep.clone());
+                }
+            }
+        }
+        for cid in &invalidated {
+            self.stale_crates.insert(cid.clone());
+            // Mask old snapshot immediately so stale facts are never served while dirty
+            self.active_crate_snapshots.remove(cid);
+        }
+        invalidated.into_iter().collect()
+    }
+
+    /// Invalidates all cached crate snapshots when Cargo features/target or `proc-macro` policy changes.
+    pub fn on_config_or_policy_change(
+        &mut self,
+        new_variant_fingerprint: &str,
+        new_policy: BuildScriptAndProcMacroPolicy,
+    ) -> bool {
+        if self.variant_fingerprint == new_variant_fingerprint
+            && self.execution_policy == new_policy
+        {
+            return false;
+        }
+        for cid in self.active_crate_snapshots.keys() {
+            self.stale_crates.insert(cid.clone());
+        }
+        self.active_crate_snapshots.clear();
+        self.failed_crates.clear();
+        self.variant_fingerprint = new_variant_fingerprint.to_string();
+        self.execution_policy = new_policy;
+        true
+    }
+
+    /// Publishes a valid crate snapshot for the current variant.
+    pub fn publish_crate_snapshot(&mut self, crate_id: &str, snapshot: crate::model::Snapshot) {
+        self.stale_crates.remove(crate_id);
+        self.failed_crates.remove(crate_id);
+        self.active_crate_snapshots
+            .insert(crate_id.to_string(), snapshot);
+    }
+
+    /// Records a crate analysis/macro-expansion failure without falling back to stale disk facts
+    /// or fabricating pseudo-accurate bindings.
+    pub fn record_crate_failure(&mut self, crate_id: &str, reason: &str) {
+        self.active_crate_snapshots.remove(crate_id);
+        self.stale_crates.insert(crate_id.to_string());
+        self.failed_crates.insert(
+            crate_id.to_string(),
+            FailedRustCrateOverlay {
+                crate_id: crate_id.to_string(),
+                reason: reason.to_string(),
+                old_disk_facts_masked: true,
+            },
+        );
+    }
+}
