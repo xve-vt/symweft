@@ -1151,3 +1151,170 @@ impl PythonIncrementalProvider {
         invalidated
     }
 }
+
+/// Control-flow basic block category in a Python source CFG (PY-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PythonCfgNodeKind {
+    Entry,
+    BasicBlock,
+    BranchCondition,
+    LoopHeader,
+    TryBody,
+    ExceptHandler,
+    FinallyBlock,
+    GeneratorYieldPoint,
+    AsyncAwaitSuspendPoint,
+    NormalExit,
+    ExceptionalExit,
+}
+
+/// Directed control-flow edge category in a Python source CFG (PY-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PythonCfgEdgeKind {
+    Sequential,
+    TrueBranch,
+    FalseBranch,
+    LoopBody,
+    LoopBackEdge,
+    LoopExit,
+    ExceptionCandidate { exception_type: Option<String> },
+    FinallyThrough,
+    YieldSuspendResume,
+    AwaitSuspendResume,
+}
+
+/// Basic block node with source location anchor in a Python CFG (PY-05).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PythonCfgBlock {
+    pub block_id: usize,
+    pub kind: PythonCfgNodeKind,
+    pub label: String,
+    pub location: crate::model::Location,
+}
+
+/// Directed edge between two basic blocks in a Python CFG (PY-05).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PythonCfgEdge {
+    pub from_block: usize,
+    pub to_block: usize,
+    pub kind: PythonCfgEdgeKind,
+    pub is_static_structural_edge: bool,
+}
+
+/// Static source-level Control Flow Graph for a Python function, generator, or coroutine (PY-05).
+/// Explicitly represents static structural control flow and never claims runtime event-loop or
+/// dynamic exception dispatch ordering.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PythonFunctionCfg {
+    pub function_usr: String,
+    pub function_name: String,
+    pub file_path: String,
+    pub is_generator: bool,
+    pub is_async_coroutine: bool,
+    /// Hard honesty contract: static CFG never impersonates runtime dynamic execution order.
+    pub claims_runtime_execution_order: bool,
+    pub blocks: Vec<PythonCfgBlock>,
+    pub edges: Vec<PythonCfgEdge>,
+}
+
+impl PythonFunctionCfg {
+    pub fn new(
+        function_usr: &str,
+        function_name: &str,
+        file_path: &str,
+        start_line: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> Self {
+        let entry = PythonCfgBlock {
+            block_id: 0,
+            kind: PythonCfgNodeKind::Entry,
+            label: format!("entry:{function_name}"),
+            location: crate::model::Location {
+                path: file_path.to_string(),
+                line: start_line,
+                column: 1,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        };
+        Self {
+            function_usr: function_usr.to_string(),
+            function_name: function_name.to_string(),
+            file_path: file_path.to_string(),
+            is_generator: false,
+            is_async_coroutine: false,
+            claims_runtime_execution_order: false,
+            blocks: vec![entry],
+            edges: Vec::new(),
+        }
+    }
+
+    pub fn add_block(
+        &mut self,
+        kind: PythonCfgNodeKind,
+        label: &str,
+        line: u32,
+        column: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> usize {
+        if kind == PythonCfgNodeKind::GeneratorYieldPoint {
+            self.is_generator = true;
+        }
+        if kind == PythonCfgNodeKind::AsyncAwaitSuspendPoint {
+            self.is_async_coroutine = true;
+        }
+        let id = self.blocks.len();
+        self.blocks.push(PythonCfgBlock {
+            block_id: id,
+            kind,
+            label: label.to_string(),
+            location: crate::model::Location {
+                path: self.file_path.clone(),
+                line,
+                column,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        });
+        id
+    }
+
+    pub fn add_edge(&mut self, from_block: usize, to_block: usize, kind: PythonCfgEdgeKind) {
+        self.edges.push(PythonCfgEdge {
+            from_block,
+            to_block,
+            kind,
+            is_static_structural_edge: true,
+        });
+    }
+
+    /// Validates that every block has a valid source span and that the CFG does not claim runtime execution order.
+    pub fn validate_cfg_contract(&self) -> std::result::Result<(), String> {
+        if self.claims_runtime_execution_order {
+            return Err(
+                "CFG honesty violation: static Python CFG must not claim runtime execution order"
+                    .into(),
+            );
+        }
+        for b in &self.blocks {
+            if b.location.path.is_empty() || b.location.end_byte < b.location.start_byte {
+                return Err(format!("invalid source location on CFG block {}", b.block_id));
+            }
+        }
+        for e in &self.edges {
+            if e.from_block >= self.blocks.len() || e.to_block >= self.blocks.len() {
+                return Err(format!(
+                    "dangling CFG edge {} -> {}",
+                    e.from_block, e.to_block
+                ));
+            }
+        }
+        Ok(())
+    }
+}

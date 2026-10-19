@@ -4314,3 +4314,88 @@ fn py04_python_provider_incremental_scheduling_and_env_invalidation() -> Result<
 
     Ok(())
 }
+
+#[test]
+fn py05_python_source_cfg_branches_exceptions_generators_and_async() -> Result<()> {
+    use symweft_semantic::python_semantic::{
+        PythonCfgEdgeKind, PythonCfgNodeKind, PythonFunctionCfg,
+    };
+
+    let mut cfg = PythonFunctionCfg::new(
+        "py-usr:pipeline:stream_items",
+        "stream_items",
+        "src/pipeline.py",
+        10,
+        200,
+        680,
+    );
+
+    // 1. Loop header & branch condition (`for item in batch:` -> `if item.valid:`)
+    let loop_hdr = cfg.add_block(PythonCfgNodeKind::LoopHeader, "for item in batch", 11, 5, 230, 255);
+    let cond_blk = cfg.add_block(PythonCfgNodeKind::BranchCondition, "if item.valid", 12, 9, 265, 285);
+    cfg.add_edge(0, loop_hdr, PythonCfgEdgeKind::Sequential);
+    cfg.add_edge(loop_hdr, cond_blk, PythonCfgEdgeKind::LoopBody);
+
+    // 2. Try block + async/await suspend point + generator yield point
+    let try_blk = cfg.add_block(PythonCfgNodeKind::TryBody, "try: fetch(item)", 13, 13, 300, 340);
+    let await_blk = cfg.add_block(
+        PythonCfgNodeKind::AsyncAwaitSuspendPoint,
+        "await client.fetch(item)",
+        14,
+        17,
+        350,
+        390,
+    );
+    let yield_blk = cfg.add_block(
+        PythonCfgNodeKind::GeneratorYieldPoint,
+        "yield processed",
+        15,
+        17,
+        400,
+        430,
+    );
+    let except_blk = cfg.add_block(
+        PythonCfgNodeKind::ExceptHandler,
+        "except TimeoutError:",
+        16,
+        13,
+        440,
+        490,
+    );
+    let finally_blk = cfg.add_block(
+        PythonCfgNodeKind::FinallyBlock,
+        "finally: metrics.inc()",
+        18,
+        13,
+        500,
+        550,
+    );
+    let exit_blk = cfg.add_block(PythonCfgNodeKind::NormalExit, "return", 20, 5, 560, 580);
+
+    cfg.add_edge(cond_blk, try_blk, PythonCfgEdgeKind::TrueBranch);
+    cfg.add_edge(cond_blk, loop_hdr, PythonCfgEdgeKind::FalseBranch);
+    cfg.add_edge(try_blk, await_blk, PythonCfgEdgeKind::Sequential);
+    cfg.add_edge(await_blk, yield_blk, PythonCfgEdgeKind::AwaitSuspendResume);
+    cfg.add_edge(yield_blk, finally_blk, PythonCfgEdgeKind::YieldSuspendResume);
+    cfg.add_edge(
+        try_blk,
+        except_blk,
+        PythonCfgEdgeKind::ExceptionCandidate {
+            exception_type: Some("TimeoutError".into()),
+        },
+    );
+    cfg.add_edge(except_blk, finally_blk, PythonCfgEdgeKind::Sequential);
+    cfg.add_edge(finally_blk, loop_hdr, PythonCfgEdgeKind::LoopBackEdge);
+    cfg.add_edge(loop_hdr, exit_blk, PythonCfgEdgeKind::LoopExit);
+
+    // 3. Verify CFG properties, flags, source spans, and honesty contract
+    assert!(cfg.is_generator);
+    assert!(cfg.is_async_coroutine);
+    assert!(!cfg.claims_runtime_execution_order);
+    assert!(cfg.validate_cfg_contract().is_ok());
+    assert_eq!(cfg.blocks.len(), 9);
+    assert_eq!(cfg.edges.len(), 10);
+    assert!(cfg.edges.iter().all(|e| e.is_static_structural_edge));
+
+    Ok(())
+}

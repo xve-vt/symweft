@@ -49,3 +49,13 @@
 - **反向依赖级联失效**：`update_dirty_buffer()` 更新模块修订并通过 `reverse_importers` 自动将直接导入者标记为 `stale_modules`。
 - **旧修订与取消拦截**：已被 `cancel_job()` 标记的作业或低于最新 dirty 修订的结果在 `publish_module_snapshot()` 时被直接拒绝。
 - **内存账本与环境切换**：缓存体积受 `max_cache_bytes` 约束（淘汰时优先保留活跃 `is_dirty_overlay` 模块）；当 `on_environment_change()` 检测到解释器、虚拟环境或配置指纹变更时，立即失效全部旧环境缓存。
+
+## 5. Python 源码控制流图（CFG）（PY-05）
+
+### 5.1 公开控制流结构与精确源码锚点（`PythonFunctionCfg`）
+- **节点类型（`PythonCfgNodeKind`）**：覆盖 `Entry`、`BasicBlock`、`BranchCondition`（`if`/`elif`/`else`）、`LoopHeader`（`for`/`while`）、`TryBody`、`ExceptHandler`、`FinallyBlock`、`GeneratorYieldPoint`（`yield` / `yield from`）、`AsyncAwaitSuspendPoint`（`async` / `await`）、`NormalExit` 与 `ExceptionalExit`。
+- **有向边类型（`PythonCfgEdgeKind`）**：区分 `Sequential`、`TrueBranch`、`FalseBranch`、`LoopBody`、`LoopBackEdge`、`LoopExit`、`ExceptionCandidate`、`FinallyThrough`、`YieldSuspendResume` 与 `AwaitSuspendResume`。
+- 每个基本块均绑定源码文件路径、行列号与字节区间（`start_byte..end_byte`）。
+
+### 5.2 静态控制流与运行时顺序的诚实边界
+- `claims_runtime_execution_order` 恒为 `false` 且每条边均标注 `is_static_structural_edge = true`：明确表达静态源码可达性与挂起恢复点（`yield` / `await`）及候选异常边，绝不冒充 asyncio 事件循环调度次序或运行期真实异常栈轨迹。
