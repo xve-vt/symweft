@@ -479,6 +479,11 @@ impl Controller {
             self.pump_preview();
         }
     }
+    pub fn retire_overlay(&mut self, reason: &str) {
+        self.overlay.ticket = None;
+        self.overlay.invalidate("retired", reason);
+        self.pump_preview();
+    }
     fn preview_ticket(&self, job_id: u64) -> Result<&Ticket> {
         self.overlay
             .ticket

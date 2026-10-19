@@ -127,6 +127,25 @@ def check_multiple_buffers(output):
             unindexed_rev = unindexed_open["analysis"]["revision"]
             unindexed_err = client.rpc("semantic.preview.start", {"path": "unindexed.h", "revision": unindexed_rev}, expect_error=True)
             assert "no known includer records" in unindexed_err["message"], unindexed_err
+
+            # OVL-08: Save buffer to disk, confirm digest, baseline continuity and memory contribution retirement
+            stale_save = client.rpc("document.save", {"path": "b.cpp", "revision": main_revision - 1}, expect_error=True)
+            assert stale_save["code"] in ["stale_revision", "invalid_params", "analysis_error"], stale_save
+
+            save_res = client.rpc("document.save", {"path": "b.cpp", "revision": main_revision})
+            assert save_res["saved"] == True
+            assert save_res["dirty"] == False
+            assert (root / "b.cpp").read_text() != source
+            assert len(save_res["digest"]) == 64
+
+            save_header = client.rpc("document.save", {"path": "api.h", "revision": header_revision})
+            assert save_header["saved"] == True
+            assert save_header["dirty"] == False
+            assert "second" in (root / "api.h").read_text()
+
+            status_after = client.rpc("semantic.progress")["preview"]
+            assert status_after["state"] in ["retired", "idle", "stale"]
+            assert status_after["charged_bytes"] == 0
         finally:
             client.close()
     print("PASS main/header buffers compile together with complete revisions, dirty coverage and budget rejection")

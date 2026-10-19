@@ -978,3 +978,92 @@ fn failed_tu_merge_semantics_masks_old_edges_and_retains_valid_tus() -> Result<(
 
     Ok(())
 }
+
+#[test]
+fn save_baseline_continuity_and_memory_contribution_retirement() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int first(void){return 1;} int second(void){return 2;}
+");
+    f.write("b.c", "int first(void); int second(void); int caller(void){return first();}
+");
+    let db = f.commands(&["a.c", "b.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    let initial_baseline = store.disk_baseline()?;
+    drop(store);
+
+    let a_unit = db.commands[0].unit_id.clone();
+    let b_unit = db.commands[1].unit_id.clone();
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 1. Edit b.c in memory to call second()
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+    let new_b_source = "int first(void); int second(void); int caller(void){return second();}
+";
+    let docs = vec![
+        PreviewDocument {
+            path: b_path.clone(),
+            revision: 2,
+            content: new_b_source.into(),
+        },
+    ];
+    let status = controller.start_preview_documents(docs, Some(&b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    // Wait for preview to complete
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 2. Perform Save to disk and confirm digest
+    f.write("b.c", new_b_source);
+    let digest = symweft_index::hash(new_b_source.as_bytes());
+    assert_eq!(symweft_index::hash(&fs::read(f.0.join("b.c"))?), digest);
+
+    // 3. Retire memory overlay contribution
+    controller.retire_overlay("buffer saved to disk baseline");
+    assert_eq!(controller.preview_status()?["state"], "retired");
+    assert_eq!(controller.preview_status()?["charged_bytes"], 0);
+
+    // 4. Update baseline by re-analyzing saved b.c from disk
+    let b_new_snap = analyze(&db, 1)?;
+    let mut store = Store::open(&path)?;
+    store.publish(&b_new_snap)?;
+    let new_baseline = store.disk_baseline()?;
+    assert!(new_baseline.revision > initial_baseline.revision);
+
+    // 5. Query relations: no duplicate edges, edge from second() counted ONCE from disk
+    let second_sym = a_snap.symbols.iter().find(|s| s.name == "second").unwrap();
+    let second_calls = store.relations(&db.configuration, &second_sym.id, "incoming", &a_snap.provider, 10)?;
+    let callers = second_calls["rows"].as_array().unwrap();
+    assert_eq!(callers.len(), 1, "must not duplicate count edges!");
+    assert_eq!(callers[0]["unit_id"], b_unit);
+    assert_eq!(callers[0]["evidence"], "clang_semantic");
+
+    // first() incoming calls from b.c must now be 0
+    let first_sym = a_snap.symbols.iter().find(|s| s.name == "first").unwrap();
+    let first_calls = store.relations(&db.configuration, &first_sym.id, "incoming", &a_snap.provider, 10)?;
+    let first_callers = first_calls["rows"].as_array().unwrap();
+    assert_eq!(first_callers.len(), 0);
+
+    Ok(())
+}

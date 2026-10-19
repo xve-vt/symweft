@@ -310,6 +310,48 @@ impl Workspace {
             encoding: "UTF-8".into(),
         })
     }
+
+    pub fn save_document(&self, relative: &str, content: &str) -> Result<[u8; 32], CoreError> {
+        if relative.is_empty()
+            || relative.contains('\\')
+            || Path::new(relative).is_absolute()
+            || relative
+                .split('/')
+                .any(|part| part == ".." || part == "." || part.is_empty())
+        {
+            return Err(CoreError::new(
+                "invalid_path",
+                "Expected a workspace-relative file path.",
+            ));
+        }
+        let full = self.root.join(relative);
+        let canonical = if full.exists() {
+            fs::canonicalize(&full).map_err(|e| CoreError::new("file_unavailable", e.to_string()))?
+        } else {
+            full.clone()
+        };
+        if !canonical.starts_with(&self.root) {
+            return Err(CoreError::new(
+                "outside_workspace",
+                "File resolves outside the workspace.",
+            ));
+        }
+        let bytes = content.as_bytes();
+        if bytes.len() as u64 > MAX_DOCUMENT_BYTES {
+            return Err(CoreError::new(
+                "file_too_large",
+                "File content exceeds maximum document size.",
+            ));
+        }
+        fs::write(&canonical, bytes)
+            .map_err(|e| CoreError::new("io_error", format!("Failed to write document to disk: {e}")))?;
+        let read_back = fs::read(&canonical)
+            .map_err(|e| CoreError::new("io_error", format!("Failed to read back document from disk: {e}")))?;
+        if read_back != bytes {
+            return Err(CoreError::new("digest_mismatch", "Disk content does not match buffer."));
+        }
+        Ok(symweft_index::hash(&read_back))
+    }
 }
 
 #[cfg(test)]

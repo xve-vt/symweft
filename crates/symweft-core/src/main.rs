@@ -76,7 +76,7 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
         "initialize" => Ok(json!({
             "name": "symweft-core", "version": env!("CARGO_PKG_VERSION"),
             "protocol_version": PROTOCOL_VERSION,
-            "capabilities": ["workspace.open", "document.read", "document.open", "document.edit", "document.close", "analysis.get", "analysis.at", "analysis.stats", "cache.configure", "cache.status", "cache.pressure", "usage.record", "usage.clear", "heat.query", "index.flush", "semantic.configure", "semantic.index", "semantic.status", "semantic.progress", "semantic.cancel", "semantic.symbols", "semantic.at", "semantic.relations", "semantic.invalidate", "semantic.preview", "semantic.preview.start", "semantic.preview.progress", "semantic.preview.cancel", "semantic.preview.at", "semantic.preview.relations", "semantic.project.at", "semantic.project.relations", "semantic.watch", "semantic.refresh"],
+            "capabilities": ["workspace.open", "document.read", "document.open", "document.edit", "document.save", "document.close", "analysis.get", "analysis.at", "analysis.stats", "cache.configure", "cache.status", "cache.pressure", "usage.record", "usage.clear", "heat.query", "index.flush", "semantic.configure", "semantic.index", "semantic.status", "semantic.progress", "semantic.cancel", "semantic.symbols", "semantic.at", "semantic.relations", "semantic.invalidate", "semantic.preview", "semantic.preview.start", "semantic.preview.progress", "semantic.preview.cancel", "semantic.preview.at", "semantic.preview.relations", "semantic.project.at", "semantic.project.relations", "semantic.watch", "semantic.refresh"],
             "limits": {"max_entries": MAX_ENTRIES, "max_document_bytes": MAX_DOCUMENT_BYTES,
                 "max_request_bytes": MAX_REQUEST_BYTES, "max_analysis_document_bytes": session.engine.budget().max_document_bytes,
                 "max_hot_documents": session.engine.budget().max_documents,
@@ -224,6 +224,33 @@ fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreError
             Ok(
                 json!({"analysis": session.engine.document(path, update.revision).map_err(analysis_error)?, "update": update}),
             )
+        }
+        "document.save" => {
+            let current = session
+                .workspace
+                .as_ref()
+                .ok_or_else(|| CoreError::new("workspace_required", "Open a workspace first."))?;
+            let path = parameter(&request.params, "path")?;
+            let revision = number(&request.params, "revision")?;
+            let content = session
+                .engine
+                .source(path, revision)
+                .map_err(analysis_error)?;
+            let digest = current.save_document(path, content)?;
+            session.semantic_dirty.remove(path);
+            session.opened_hash = Some((path.into(), digest));
+            if let Some(semantic) = session.semantic.as_mut() {
+                semantic.retire_overlay("buffer saved to disk baseline");
+                let _ = semantic.index(&[path.to_string()], 100);
+            }
+            let digest_hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+            Ok(json!({
+                "saved": true,
+                "path": path,
+                "revision": revision,
+                "digest": digest_hex,
+                "dirty": false,
+            }))
         }
         "document.close" => {
             let path = parameter(&request.params, "path")?;
