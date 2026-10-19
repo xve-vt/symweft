@@ -3129,3 +3129,79 @@ fn cpp04_types_inheritance_overrides_and_type_aliases() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp05_variable_references_and_read_write_classification() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{
+        VariableAccessMode, VariableStorageScope, classify_variable_access,
+        classify_variable_scope,
+    };
+
+    // 1. Storage scope classification: local, global, static, parameter, member field
+    assert_eq!(
+        classify_variable_scope("VarDecl", "FunctionDecl", false),
+        Some(VariableStorageScope::Local)
+    );
+    assert_eq!(
+        classify_variable_scope("VarDecl", "TranslationUnit", false),
+        Some(VariableStorageScope::Global)
+    );
+    assert_eq!(
+        classify_variable_scope("VarDecl", "TranslationUnit", true),
+        Some(VariableStorageScope::StaticInternal)
+    );
+    assert_eq!(
+        classify_variable_scope("ParmDecl", "FunctionDecl", false),
+        Some(VariableStorageScope::Parameter)
+    );
+    assert_eq!(
+        classify_variable_scope("FieldDecl", "StructDecl", false),
+        Some(VariableStorageScope::MemberField)
+    );
+
+    // 2. Read / Write / ReadWrite / AddressOf classification
+    assert_eq!(
+        classify_variable_access("VarDecl", "BinaryOperator", Some("="), true),
+        Some(VariableAccessMode::Write)
+    );
+    assert_eq!(
+        classify_variable_access("VarDecl", "BinaryOperator", Some("="), false),
+        Some(VariableAccessMode::Read)
+    );
+    assert_eq!(
+        classify_variable_access("FieldDecl", "CompoundAssignOperator", Some("+="), true),
+        Some(VariableAccessMode::ReadWrite)
+    );
+    assert_eq!(
+        classify_variable_access("ParmDecl", "UnaryOperator", Some("++"), false),
+        Some(VariableAccessMode::ReadWrite)
+    );
+    assert_eq!(
+        classify_variable_access("VarDecl", "UnaryOperator", Some("&"), false),
+        Some(VariableAccessMode::AddressOf)
+    );
+
+    // 3. Guard: Function calls, methods, macros, and enum constants are NEVER classified as writes
+    assert_eq!(
+        classify_variable_scope("FunctionDecl", "TranslationUnit", false),
+        None
+    );
+    assert_eq!(
+        classify_variable_access("FunctionDecl", "BinaryOperator", Some("="), true),
+        None
+    );
+    assert_eq!(
+        classify_variable_access("CXXMethod", "UnaryOperator", Some("++"), true),
+        None
+    );
+    assert_eq!(
+        classify_variable_access("MacroDefinition", "BinaryOperator", Some("="), true),
+        None
+    );
+    assert_eq!(
+        classify_variable_access("EnumConstantDecl", "BinaryOperator", Some("="), true),
+        None
+    );
+
+    Ok(())
+}

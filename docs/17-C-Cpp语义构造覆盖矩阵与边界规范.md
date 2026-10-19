@@ -66,3 +66,19 @@
   - 在 `CXCursor_CXXMethod` 上调用 `clang_getOverriddenCursors` 提取所有直接被重写的基类虚函数，写入 `CXXMethodOverride` 关系，支持查询子类重写了哪个基类方法（`overridden_by`）以及基类虚函数有哪些子类实现（`overrides_of`）。
 - **成员声明与类外定义关联（`MemberDeclarationRelation`）**：
   - 类内成员声明与类外定义（`void FileStream::read()`）通过规范化 USR 归并至同一实体 ID，分别记录 `definition = false` 与 `definition = true`。
+
+## 5. 变量与读写关系（CPP-05）
+
+- **五类变量存储与作用域（`VariableStorageScope`）**：
+  - `Local`（函数/块内局部变量）
+  - `Global`（编译单元或命名空间级全局变量）
+  - `StaticInternal`（`static` 内部链接变量或类静态存储变量）
+  - `Parameter`（函数形参 `CXCursor_ParmDecl`）
+  - `MemberField`（结构体/类/联合体成员变量 `CXCursor_FieldDecl`）
+- **四类访问模式稳定分类（`VariableAccessMode`）**：
+  - `Read`（右值读取、实参传递、条件判断）
+  - `Write`（简单赋值 `=` 左操作数）
+  - `ReadWrite`（复合赋值 `+=`/`-=`/`|=` 左操作数及前缀/后缀 `++`/`--`）
+  - `AddressOf`（一元取地址 `&var`，标记潜在间接访问）
+- **严格防误标保护**：
+  - `classify_variable_scope` 与 `classify_variable_access` 首先校验目标游标必须属于 `VarDecl`、`ParmDecl` 或 `FieldDecl`；对于函数调用（`FunctionDecl`/`CXXMethod`，哪怕返回左值引用出现在 `=` 左侧如 `slot() = 1`）、宏定义/宏字面量（`MacroDefinition`）及枚举常量（`EnumConstantDecl`），一律返回 `None`，绝不将函数调用或宏字面量误标为变量写操作。

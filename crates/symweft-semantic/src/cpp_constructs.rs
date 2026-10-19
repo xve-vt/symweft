@@ -495,3 +495,94 @@ impl TypeHierarchyIndex {
             .collect()
     }
 }
+
+/// Variable storage and lexical scope classification (CPP-05).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VariableStorageScope {
+    Local,
+    Global,
+    StaticInternal,
+    Parameter,
+    MemberField,
+}
+
+/// Variable reference read/write access classification (CPP-05).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VariableAccessMode {
+    Read,
+    Write,
+    ReadWrite,
+    AddressOf,
+}
+
+/// Classified variable reference fact (CPP-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VariableReferenceRecord {
+    pub target_id: String,
+    pub variable_name: String,
+    pub storage_scope: VariableStorageScope,
+    pub access_mode: VariableAccessMode,
+}
+
+/// Classify a referenced cursor into its variable storage scope, returning `None` for
+/// functions, macros, types, or enum constants so they are never treated as mutable variables (CPP-05).
+pub fn classify_variable_scope(
+    referenced_cursor_kind: &str,
+    semantic_parent_kind: &str,
+    is_static_storage: bool,
+) -> Option<VariableStorageScope> {
+    match referenced_cursor_kind {
+        "ParmDecl" => Some(VariableStorageScope::Parameter),
+        "FieldDecl" => Some(VariableStorageScope::MemberField),
+        "VarDecl" => {
+            if is_static_storage {
+                Some(VariableStorageScope::StaticInternal)
+            } else if matches!(semantic_parent_kind, "TranslationUnit" | "Namespace") {
+                Some(VariableStorageScope::Global)
+            } else {
+                Some(VariableStorageScope::Local)
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Classify a variable reference's read/write mode, strictly rejecting function calls,
+/// enum constants, and macro literals from ever being classified as variable writes (CPP-05).
+pub fn classify_variable_access(
+    referenced_cursor_kind: &str,
+    parent_expr_kind: &str,
+    operator_token: Option<&str>,
+    is_lhs_of_assignment: bool,
+) -> Option<VariableAccessMode> {
+    if !matches!(referenced_cursor_kind, "VarDecl" | "ParmDecl" | "FieldDecl") {
+        return None;
+    }
+    if matches!(parent_expr_kind, "UnaryOperator") {
+        match operator_token {
+            Some("++" | "--") => return Some(VariableAccessMode::ReadWrite),
+            Some("&") => return Some(VariableAccessMode::AddressOf),
+            _ => {}
+        }
+    }
+    if matches!(parent_expr_kind, "CompoundAssignOperator") && is_lhs_of_assignment {
+        return Some(VariableAccessMode::ReadWrite);
+    }
+    if matches!(parent_expr_kind, "BinaryOperator") {
+        if let Some(op) = operator_token {
+            if op == "=" && is_lhs_of_assignment {
+                return Some(VariableAccessMode::Write);
+            }
+            if matches!(
+                op,
+                "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
+            ) && is_lhs_of_assignment
+            {
+                return Some(VariableAccessMode::ReadWrite);
+            }
+        }
+    }
+    Some(VariableAccessMode::Read)
+}
