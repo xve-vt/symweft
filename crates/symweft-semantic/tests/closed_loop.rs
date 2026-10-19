@@ -1485,3 +1485,108 @@ int a_entry(void) {
 
     Ok(())
 }
+
+#[test]
+fn protocol_and_client_ticket_isolation_and_legacy_compatibility() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int a_caller(void){return target();}\n");
+    f.write("b.c", "int target(void); int b_caller(void){return target();}\n");
+    f.write("c.c", "int target(void); int c_caller(void){return target();}\n");
+    let db = f.commands(&["a.c", "b.c", "c.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    let c_snap = analyze(&db, 2)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    store.publish(&c_snap)?;
+    drop(store);
+
+    let a_unit = db.commands[0].unit_id.clone();
+    let b_unit = db.commands[1].unit_id.clone();
+    let c_unit = db.commands[2].unit_id.clone();
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 1. Edit b.c: b_caller calls target twice
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+    let new_b = "int target(void); int b_caller(void){target(); return target();}\n";
+    let docs = vec![
+        PreviewDocument { path: b_path.clone(), revision: 2, content: new_b.into() },
+    ];
+    let status = controller.start_preview_documents(docs, Some(&b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    // 2. Legacy Preview Compatibility:
+    // Calling legacy preview_relations_page queries ONLY facts within the current overlay TU (b.c).
+    let legacy_incoming = controller.preview_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 100, 0)?;
+    let legacy_rows = legacy_incoming["rows"].as_array().unwrap();
+    // Only 2 incoming calls from b.c overlay:
+    assert_eq!(legacy_rows.len(), 2);
+    assert!(legacy_rows.iter().all(|r| r["main_file"].as_str().unwrap().ends_with("b.c")));
+    assert!(legacy_rows.iter().all(|r| r["evidence"] == "clang_semantic_overlay"));
+
+    let legacy_defs = controller.preview_relations_page(id, &b_path, 2, &target_sym.id, "definitions", 100, 0)?;
+    // target has no definition in b.c overlay:
+    assert_eq!(legacy_defs["rows"].as_array().unwrap().len(), 0, "legacy preview must not merge persistent definition from a.c");
+
+    // 3. Project Merged Relations (OVL-12):
+    // Calling project_relations_page merges overlay (2 calls from b.c) + persistent disk (1 from a.c + 1 from c.c) = 4 calls
+    let proj_incoming = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 100, 0)?;
+    let proj_rows = proj_incoming["rows"].as_array().unwrap();
+    assert_eq!(proj_rows.len(), 4, "project relations must merge overlay and persistent callers");
+
+    // Project definitions merges definition from a.c:
+    let proj_defs = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "definitions", 100, 0)?;
+    let def_rows = proj_defs["rows"].as_array().unwrap();
+    assert_eq!(def_rows.len(), 1);
+    assert!(def_rows[0]["main_file"].as_str().unwrap().ends_with("a.c"));
+    assert_eq!(def_rows[0]["evidence"], "clang_semantic");
+
+    // 4. Ticket Misuse Prevention:
+    // a. Non-existent / mismatched job_id is rejected:
+    let bad_id_err = controller.project_relations_page(id + 999, &b_path, 2, &target_sym.id, "incoming", 100, 0).unwrap_err();
+    assert!(bad_id_err.to_string().contains("obsolete or unknown preview job_id"), "{bad_id_err}");
+
+    // b. Mismatched revision is rejected:
+    let bad_rev_err = controller.project_relations_page(id, &b_path, 3, &target_sym.id, "incoming", 100, 0).unwrap_err();
+    assert!(bad_rev_err.to_string().contains("preview path/revision does not match ticket"), "{bad_rev_err}");
+
+    // c. Cancel preview: ticket becomes cancelled and subsequent queries fail
+    controller.cancel_preview(id)?;
+    let cancel_err = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 100, 0).unwrap_err();
+    assert!(cancel_err.to_string().contains("preview is not ready") || cancel_err.to_string().contains("cancelled"), "{cancel_err}");
+
+    // d. Start new preview: old ticket job_id cannot be reused
+    let docs2 = vec![
+        PreviewDocument { path: b_path.clone(), revision: 4, content: new_b.into() },
+    ];
+    let status2 = controller.start_preview_documents(docs2, Some(&b_unit), 32)?;
+    let id2 = status2["ticket"]["job_id"].as_u64().unwrap();
+    assert_ne!(id, id2);
+
+    let old_reuse_err = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 100, 0).unwrap_err();
+    assert!(old_reuse_err.to_string().contains("obsolete or unknown preview job_id"), "{old_reuse_err}");
+
+    Ok(())
+}

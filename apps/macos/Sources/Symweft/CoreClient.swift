@@ -19,15 +19,33 @@ actor CoreClient {
         let method: String
         let params: [String: Parameter]
     }
-    private enum Parameter: Encodable {
-        case string(String), strings([String]), integer(UInt64), boolean(Bool)
+    private struct AnyEncodable: Encodable {
+        private let encodeFunc: (Encoder) throws -> Void
+        init<T: Encodable>(_ wrapped: T) {
+            encodeFunc = { try wrapped.encode(to: $0) }
+        }
         func encode(to encoder: Encoder) throws {
-            var value = encoder.singleValueContainer()
+            try encodeFunc(encoder)
+        }
+    }
+    private enum Parameter: Encodable {
+        case string(String), strings([String]), integer(UInt64), boolean(Bool), custom(AnyEncodable)
+        func encode(to encoder: Encoder) throws {
             switch self {
-            case .string(let string): try value.encode(string)
-            case .strings(let strings): try value.encode(strings)
-            case .integer(let integer): try value.encode(integer)
-            case .boolean(let boolean): try value.encode(boolean)
+            case .string(let string):
+                var value = encoder.singleValueContainer()
+                try value.encode(string)
+            case .strings(let strings):
+                var value = encoder.singleValueContainer()
+                try value.encode(strings)
+            case .integer(let integer):
+                var value = encoder.singleValueContainer()
+                try value.encode(integer)
+            case .boolean(let boolean):
+                var value = encoder.singleValueContainer()
+                try value.encode(boolean)
+            case .custom(let custom):
+                try custom.encode(to: encoder)
             }
         }
     }
@@ -106,9 +124,16 @@ actor CoreClient {
     func cancelSemantics() throws { let _: CoreAck = try exchange("semantic.cancel", params: [:]) }
     /// Starts work without waiting for libclang. The reader UI remains read-only;
     /// these methods also support the future revisioned editor integration.
-    func startSemanticPreview(path: String, revision: UInt64, unitID: String? = nil, memoryMiB: UInt64 = 32) throws -> SemanticPreview {
+    func startSemanticPreview(
+        path: String,
+        revision: UInt64,
+        unitID: String? = nil,
+        memoryMiB: UInt64 = 32,
+        documents: [SemanticPreviewDocument]? = nil
+    ) throws -> SemanticPreview {
         var params: [String: Parameter] = ["path": .string(path), "revision": .integer(revision), "memory_mib": .integer(memoryMiB)]
         if let unitID { params["unit_id"] = .string(unitID) }
+        if let documents { params["documents"] = .custom(AnyEncodable(documents)) }
         return try exchange("semantic.preview.start", params: params)
     }
     private func previewParameters(path: String, ticket: SemanticPreviewTicket) -> [String: Parameter] {
@@ -120,17 +145,66 @@ actor CoreClient {
     func cancelSemanticPreview(ticket: SemanticPreviewTicket) throws -> SemanticPreview {
         try exchange("semantic.preview.cancel", params: ["job_id": .integer(ticket.jobId)])
     }
+    /// Legacy single-TU context lookup (only queries current overlay TU facts).
     func semanticPreviewContext(path: String, ticket: SemanticPreviewTicket, byte: Int) throws -> SemanticContext {
         var params = previewParameters(path: path, ticket: ticket)
         params["byte_offset"] = .integer(UInt64(byte))
         return try exchange("semantic.preview.at", params: params)
     }
+    /// Legacy single-TU relations query (only queries current overlay TU facts without merging other TUs).
     func semanticPreviewCalls(path: String, ticket: SemanticPreviewTicket, entity: String, direction: String) throws -> SemanticRows<SemanticCall> {
         var params = previewParameters(path: path, ticket: ticket)
         params["entity_id"] = .string(entity)
         params["direction"] = .string(direction)
         params["limit"] = .integer(100)
         return try exchange("semantic.preview.relations", params: params)
+    }
+    /// Project-level context query (merges active overlay with persistent index facts and secondary overlays).
+    func semanticProjectContext(
+        path: String,
+        ticket: SemanticPreviewTicket,
+        byte: Int,
+        queryVersion: SemanticQueryVersion
+    ) throws -> SemanticContext {
+        var params = previewParameters(path: path, ticket: ticket)
+        params["byte_offset"] = .integer(UInt64(byte))
+        params["query_version"] = .custom(AnyEncodable(queryVersion))
+        return try exchange("semantic.project.at", params: params)
+    }
+    /// Project-level relations query with pagination and stable query version.
+    func semanticProjectCalls(
+        path: String,
+        ticket: SemanticPreviewTicket,
+        entity: String,
+        direction: String,
+        limit: Int = 100,
+        offset: Int = 0,
+        queryVersion: SemanticQueryVersion
+    ) throws -> SemanticRows<SemanticCall> {
+        var params = previewParameters(path: path, ticket: ticket)
+        params["entity_id"] = .string(entity)
+        params["direction"] = .string(direction)
+        params["limit"] = .integer(UInt64(limit))
+        if offset > 0 { params["offset"] = .integer(UInt64(offset)) }
+        params["query_version"] = .custom(AnyEncodable(queryVersion))
+        return try exchange("semantic.project.relations", params: params)
+    }
+    /// Project-level definitions query with pagination and stable query version.
+    func semanticProjectDefinitions(
+        path: String,
+        ticket: SemanticPreviewTicket,
+        entity: String,
+        limit: Int = 100,
+        offset: Int = 0,
+        queryVersion: SemanticQueryVersion
+    ) throws -> SemanticRows<SemanticSymbol> {
+        var params = previewParameters(path: path, ticket: ticket)
+        params["entity_id"] = .string(entity)
+        params["direction"] = .string("definitions")
+        params["limit"] = .integer(UInt64(limit))
+        if offset > 0 { params["offset"] = .integer(UInt64(offset)) }
+        params["query_version"] = .custom(AnyEncodable(queryVersion))
+        return try exchange("semantic.project.relations", params: params)
     }
     func semanticContext(path: String, byte: Int) throws -> SemanticContext {
         try exchange("semantic.at", params: ["path": .string(path), "byte_offset": .integer(UInt64(byte))])

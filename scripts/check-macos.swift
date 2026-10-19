@@ -144,13 +144,46 @@ enum MacChecks {
                 previewState = try await core.semanticPreviewProgress(path: "b.cpp", ticket: ticket)
             }
             try expect(previewState.state == "ready" && previewState.chargedBytes > 0, "Swift async preview must retain a bounded result.")
+            try expect(previewState.queryVersion != nil, "Preview must expose single-TU query_version.")
+            try expect(previewState.projectQueryVersion != nil, "Preview must expose project_query_version.")
+            try expect(previewState.completeness != nil, "Preview must expose dynamic completeness.")
+
+            // 1. Legacy single-TU preview context and relations query (backward compatibility check)
             let previewContext = try await core.semanticPreviewContext(path: "b.cpp", ticket: ticket, byte: byteOffset)
             let previewCalls = try await core.semanticPreviewCalls(path: "b.cpp", ticket: ticket, entity: previewContext.enclosingFunctions[0].id, direction: "outgoing")
             try expect(previewCalls.rows.first?.target == semantic.entityId, "Overlay query must preserve the compiler target.")
             try expect(try String(contentsOf: root.appendingPathComponent("b.cpp"), encoding: .utf8) == cppSource, "Preview must not save the buffer.")
+
+            // 2. Project-level context and relations query through CoreClient (OVL-12)
+            let projectQueryVersion = previewState.projectQueryVersion!
+            let projContext = try await core.semanticProjectContext(path: "b.cpp", ticket: ticket, byte: byteOffset, queryVersion: projectQueryVersion)
+            try expect(projContext.entityId == semantic.entityId, "Project context must resolve the entity.")
+            try expect(projContext.completeness != nil, "Project context must report completeness.")
+
+            let projCalls = try await core.semanticProjectCalls(path: "b.cpp", ticket: ticket, entity: previewContext.enclosingFunctions[0].id, direction: "outgoing", queryVersion: projectQueryVersion)
+            try expect(projCalls.rows.count == 1 && projCalls.rows[0].target == semantic.entityId, "Project relations must preserve compiler target.")
+
+            // Project query merges definitions from other TU (a.c) whereas legacy preview does not
+            let projDefs = try await core.semanticProjectDefinitions(path: "b.cpp", ticket: ticket, entity: semantic.entityId!, queryVersion: projectQueryVersion)
+            try expect(projDefs.rows.count == 1 && projDefs.rows[0].location.path.hasSuffix("/a.c"), "Project relations must merge definition from a.c.")
+            try expect(projDefs.completeness != nil, "Project rows must report completeness.")
+
+            // 3. Cancel preview and verify that old ticket is strictly rejected (cannot be misused)
             let cancelledPreview = try await core.cancelSemanticPreview(ticket: ticket)
             try expect(cancelledPreview.state == "cancelled" && cancelledPreview.chargedBytes == 0, "Swift cancellation must release preview facts.")
-            print("PASS Swift async semantic preview, revision ticket, context/relations and eviction")
+            do {
+                _ = try await core.semanticProjectCalls(path: "b.cpp", ticket: ticket, entity: previewContext.enclosingFunctions[0].id, direction: "outgoing", queryVersion: projectQueryVersion)
+                throw Failure.expectation("Cancelled or obsolete tickets must be rejected.")
+            } catch let fault as CoreFault {
+                try expect(["invalid_params", "preview_not_ready", "index_error"].contains(fault.code), "Old cancelled ticket must fail with clear fault code.")
+            }
+            do {
+                _ = try await core.semanticPreviewContext(path: "b.cpp", ticket: ticket, byte: byteOffset)
+                throw Failure.expectation("Cancelled tickets must be rejected in legacy preview.")
+            } catch let fault as CoreFault {
+                try expect(["invalid_params", "preview_not_ready", "index_error"].contains(fault.code), "Cancelled ticket must be rejected.")
+            }
+            print("PASS Swift async semantic preview, project merge, DTO decoding, pagination and old ticket rejection")
             try await core.flushIndex()
             await core.stop()
             print("PASS persistent restart, overlay isolation, manual cache and memory pressure")

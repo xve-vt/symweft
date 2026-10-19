@@ -120,6 +120,16 @@ def check_multiple_buffers(output):
                 if r["evidence"] == "clang_semantic_overlay":
                     assert r["revision"] == main_revision, (r, main_revision)
 
+            # OVL-12: Legacy preview compatibility and ticket misuse prevention
+            legacy_defs = client.rpc("semantic.preview.relations", dict(key, entity_id=second, direction="definitions"))
+            assert len(legacy_defs["rows"]) == 0, f"legacy preview must not merge persistent definitions: {legacy_defs}"
+            bad_job_key = dict(project(key), job_id=key["job_id"] + 88888)
+            bad_job_err = client.rpc("semantic.project.relations", dict(bad_job_key, entity_id=second, direction="incoming"), expect_error=True)
+            assert "obsolete or unknown" in bad_job_err["message"] or bad_job_err["code"] in ["invalid_params", "index_error"], bad_job_err
+            bad_rev_key = dict(project(key), revision=key["revision"] + 88888)
+            bad_rev_err = client.rpc("semantic.project.relations", dict(bad_rev_key, entity_id=second, direction="incoming"), expect_error=True)
+            assert bad_rev_err["code"] in ["stale_revision", "invalid_params", "index_error"], bad_rev_err
+
             # OVL-10: Bounded pagination across stable query versions
             p_in1 = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming", limit=1, offset=0))
             assert p_in1["limit"] == 1 and p_in1["offset"] == 0, p_in1
