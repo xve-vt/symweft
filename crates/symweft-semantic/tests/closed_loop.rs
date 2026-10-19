@@ -3643,3 +3643,74 @@ fn val07_scaled_fact_volume_and_cold_start_read_benchmarks() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val08_database_fault_recovery_and_multi_instance_resilience() -> Result<()> {
+    use symweft_semantic::{
+        scale_validation::{
+            FaultRecoveryAction, StorageFaultScenario, evaluate_storage_fault_recovery,
+        },
+        store::Store,
+    };
+
+    let f = Fixture::new();
+    let db_path = f.0.join("corrupted.sqlite3");
+
+    // 1. Write corrupted bytes to SQLite file and verify Store::open_or_recover rebuilds cleanly
+    fs::write(&db_path, b"not a valid sqlite3 header at all")?;
+    assert!(Store::open(&db_path).is_err());
+    let (recovered_store, was_rebuilt) = Store::open_or_recover(&db_path)?;
+    assert!(was_rebuilt);
+    assert_eq!(recovered_store.disk_baseline()?.schema, "a2-store-v2");
+    drop(recovered_store);
+
+    // 2. Write incompatible schema version and verify Store::open_or_recover upgrades/rebuilds cleanly
+    {
+        let conn = rusqlite::Connection::open(&db_path)?;
+        conn.execute(
+            "UPDATE semantic_meta SET value='a2-store-v0-legacy' WHERE key='schema'",
+            [],
+        )?;
+    }
+    assert!(Store::open(&db_path).is_err());
+    let (upgraded_store, was_upgraded) = Store::open_or_recover(&db_path)?;
+    assert!(was_upgraded);
+    assert_eq!(upgraded_store.disk_baseline()?.schema, "a2-store-v2");
+
+    // 3. Verify all 6 fault scenarios preserve unsaved user buffers and allow derived index rebuild
+    let all_scenarios = [
+        (
+            StorageFaultScenario::MidTransactionCrash,
+            FaultRecoveryAction::WalRollbackAndResume,
+        ),
+        (
+            StorageFaultScenario::DiskFullOrReadOnly,
+            FaultRecoveryAction::FallbackReadOnlyAndPreserveBuffers,
+        ),
+        (
+            StorageFaultScenario::CorruptedSqliteOrSmf2Blob,
+            FaultRecoveryAction::QuarantineAndRebuildDerivedIndex,
+        ),
+        (
+            StorageFaultScenario::MultiInstanceWriteLockContention,
+            FaultRecoveryAction::BusyTimeoutRetryAndDeferWrite,
+        ),
+        (
+            StorageFaultScenario::SchemaFormatUpgrade,
+            FaultRecoveryAction::DropOldSchemaAndRebuildIndex,
+        ),
+        (
+            StorageFaultScenario::CacheDirectoryMigration,
+            FaultRecoveryAction::MigrateOrReinitializeCacheDir,
+        ),
+    ];
+
+    for (scenario, expected_action) in all_scenarios {
+        let outcome = evaluate_storage_fault_recovery(scenario);
+        assert_eq!(outcome.recovery_action, expected_action);
+        assert!(outcome.derived_index_rebuildable);
+        assert!(outcome.unsaved_user_buffers_intact);
+    }
+
+    Ok(())
+}

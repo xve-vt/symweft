@@ -194,6 +194,20 @@ impl Store {
             attention_enabled: std::sync::atomic::AtomicBool::new(true),
         })
     }
+    /// Open the derived semantic store, or automatically quarantine/remove and rebuild it
+    /// if the database file is corrupted or has an incompatible schema version (VAL-08).
+    pub fn open_or_recover(path: &Path) -> Result<(Self, bool)> {
+        match Self::open(path) {
+            Ok(store) => Ok((store, false)),
+            Err(_) => {
+                let _ = fs::remove_file(path);
+                let _ = fs::remove_file(path.with_extension("sqlite3-wal"));
+                let _ = fs::remove_file(path.with_extension("sqlite3-shm"));
+                let store = Self::open(path)?;
+                Ok((store, true))
+            }
+        }
+    }
     pub fn disk_baseline(&self) -> Result<DiskBaseline> {
         let (schema, store_id, revision): (String, String, String) = self.connection.query_row(
             "SELECT (SELECT value FROM semantic_meta WHERE key='schema'),(SELECT value FROM semantic_meta WHERE key='store_id'),(SELECT value FROM semantic_meta WHERE key='disk_revision')",
