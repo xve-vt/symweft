@@ -3485,3 +3485,66 @@ fn val03_failure_attribution_and_native_compiler_parity() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val04_batch_interruption_and_resumable_indexing_plan() -> Result<()> {
+    use symweft_semantic::scale_validation::{BatchResumePlan, BatchUnitCheckpoint};
+
+    let checkpoints = vec![
+        BatchUnitCheckpoint {
+            unit_id: "tu:1_done".into(),
+            state: "current".into(),
+            disk_revision: 10,
+            input_fingerprints_valid: true,
+            retry_count: 0,
+        },
+        BatchUnitCheckpoint {
+            unit_id: "tu:2_done_but_header_changed".into(),
+            state: "current".into(),
+            disk_revision: 11,
+            input_fingerprints_valid: false,
+            retry_count: 0,
+        },
+        BatchUnitCheckpoint {
+            unit_id: "tu:3_interrupted_running".into(),
+            state: "running".into(),
+            disk_revision: 9,
+            input_fingerprints_valid: true,
+            retry_count: 1,
+        },
+        BatchUnitCheckpoint {
+            unit_id: "tu:4_pending".into(),
+            state: "pending".into(),
+            disk_revision: 0,
+            input_fingerprints_valid: true,
+            retry_count: 0,
+        },
+        BatchUnitCheckpoint {
+            unit_id: "tu:5_failed".into(),
+            state: "failed".into(),
+            disk_revision: 8,
+            input_fingerprints_valid: true,
+            retry_count: 1,
+        },
+    ];
+
+    let plan = BatchResumePlan::plan_after_interruption(&checkpoints, true);
+    assert_eq!(plan.total_units, 5);
+    assert_eq!(plan.reused_valid_units, vec!["tu:1_done"]);
+    assert_eq!(plan.last_valid_disk_revision, 10);
+    assert_eq!(
+        plan.redo_incomplete_or_stale_units,
+        vec![
+            "tu:2_done_but_header_changed",
+            "tu:3_interrupted_running",
+            "tu:4_pending"
+        ]
+    );
+    assert_eq!(plan.retry_failed_units, vec!["tu:5_failed"]);
+    assert!(
+        plan.progress_explanation
+            .contains("1 valid TU(s) reused without re-parsing")
+    );
+
+    Ok(())
+}

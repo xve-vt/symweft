@@ -365,3 +365,71 @@ pub fn canonical_qemu_failure_attributions() -> Vec<FailureAttributionRecord> {
         },
     ]
 }
+
+/// Per-unit persisted checkpoint state inspected when resuming an interrupted batch (VAL-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchUnitCheckpoint {
+    pub unit_id: String,
+    pub state: String,
+    pub disk_revision: u64,
+    pub input_fingerprints_valid: bool,
+    pub retry_count: u32,
+}
+
+/// Explainable resume plan after batch cancellation or abnormal worker exit (VAL-04).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchResumePlan {
+    pub total_units: usize,
+    pub reused_valid_units: Vec<String>,
+    pub redo_incomplete_or_stale_units: Vec<String>,
+    pub retry_failed_units: Vec<String>,
+    pub last_valid_disk_revision: u64,
+    pub progress_explanation: String,
+}
+
+impl BatchResumePlan {
+    /// Compute the deterministic resume plan after cancellation or abnormal exit:
+    /// reuses `current` units with valid input fingerprints, redoes interrupted (`running`/`pending`)
+    /// or `stale` units, and optionally retries `failed` units (VAL-04).
+    pub fn plan_after_interruption(
+        checkpoints: &[BatchUnitCheckpoint],
+        retry_failed: bool,
+    ) -> Self {
+        let mut reused_valid_units = Vec::new();
+        let mut redo_incomplete_or_stale_units = Vec::new();
+        let mut retry_failed_units = Vec::new();
+        let mut last_valid_disk_revision = 0u64;
+
+        for cp in checkpoints {
+            if cp.state == "current" && cp.input_fingerprints_valid {
+                reused_valid_units.push(cp.unit_id.clone());
+                last_valid_disk_revision = last_valid_disk_revision.max(cp.disk_revision);
+            } else if cp.state == "failed" {
+                if retry_failed {
+                    retry_failed_units.push(cp.unit_id.clone());
+                }
+            } else {
+                // Covers "pending", "running" (interrupted mid-flight), "stale", or invalidated inputs
+                redo_incomplete_or_stale_units.push(cp.unit_id.clone());
+            }
+        }
+
+        let progress_explanation = format!(
+            "resuming batch of {} TU(s): {} valid TU(s) reused without re-parsing (last valid disk_revision={}), {} incomplete/stale TU(s) scheduled for redo, {} failed TU(s) scheduled for retry",
+            checkpoints.len(),
+            reused_valid_units.len(),
+            last_valid_disk_revision,
+            redo_incomplete_or_stale_units.len(),
+            retry_failed_units.len(),
+        );
+
+        Self {
+            total_units: checkpoints.len(),
+            reused_valid_units,
+            redo_incomplete_or_stale_units,
+            retry_failed_units,
+            last_valid_disk_revision,
+            progress_explanation,
+        }
+    }
+}
