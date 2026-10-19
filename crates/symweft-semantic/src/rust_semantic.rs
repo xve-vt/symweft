@@ -179,3 +179,166 @@ impl CargoWorkspaceBuildVariant {
         }
     }
 }
+
+/// Provider key for Rust A2 semantic snapshots in the shared store (RS-02..RS-06).
+pub const RUST_PROVIDER_KEY: &str = "a2-rust-scip-v1";
+
+/// Maintainable Rust semantic adapter route (RS-02).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustSemanticAdapterRoute {
+    /// Frozen production route: rust-analyzer SCIP / HIR occurrence & call adapter.
+    RustAnalyzerScipAdapter,
+}
+
+/// Role of an imported Rust symbol occurrence (RS-02).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustOccurrenceRole {
+    Definition,
+    Declaration,
+    Reference,
+    TypeReference,
+    WriteAccess,
+}
+
+/// Raw symbol occurrence imported from rust-analyzer / SCIP index (RS-02).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct RustScipOccurrence {
+    pub scip_symbol: String,
+    pub display_name: String,
+    pub symbol_kind: String,
+    pub role: RustOccurrenceRole,
+    pub file_path: String,
+    pub line: u32,
+    pub column: u32,
+    pub start_byte: u32,
+    pub end_byte: u32,
+}
+
+/// Deduplicated, variant-bound Rust symbol & occurrence importer (RS-02).
+/// Explicitly marks occurrence-only imports as `claims_complete_call_graph = false` so raw
+/// reference occurrences are never misrepresented as a complete caller->callee call graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustOccurrenceImportBatch {
+    pub adapter_route: RustSemanticAdapterRoute,
+    pub crate_id: String,
+    pub variant_fingerprint: String,
+    pub raw_occurrence_count: usize,
+    pub deduplicated_occurrence_count: usize,
+    /// Hard honesty flag: symbol/occurrence index import alone is NOT a complete call graph.
+    pub claims_complete_call_graph: bool,
+    pub symbols: Vec<crate::model::Symbol>,
+    pub references: Vec<crate::model::Reference>,
+}
+
+impl RustOccurrenceImportBatch {
+    /// Normalizes a SCIP descriptor into a canonical Symweft Rust USR (`rs-usr:<scip>`).
+    pub fn canonical_rust_usr(scip_symbol: &str) -> String {
+        if scip_symbol.starts_with("rs-usr:") {
+            scip_symbol.to_string()
+        } else {
+            format!("rs-usr:{}", scip_symbol.trim())
+        }
+    }
+
+    /// Imports and deduplicates raw SCIP occurrences for a crate target and build variant.
+    pub fn import_and_deduplicate(
+        crate_id: &str,
+        variant_fingerprint: &str,
+        raw_occurrences: Vec<RustScipOccurrence>,
+    ) -> Self {
+        let raw_occurrence_count = raw_occurrences.len();
+        // Deduplicate identical occurrences emitted across overlapping lib/test/bin targets
+        let mut unique_set: BTreeSet<RustScipOccurrence> = BTreeSet::new();
+        for occ in raw_occurrences {
+            unique_set.insert(occ);
+        }
+        let deduplicated_occurrence_count = unique_set.len();
+
+        let mut symbols = Vec::new();
+        let mut references = Vec::new();
+
+        for occ in unique_set {
+            let usr = Self::canonical_rust_usr(&occ.scip_symbol);
+            let loc = crate::model::Location {
+                path: occ.file_path.clone(),
+                line: occ.line,
+                column: occ.column,
+                start_byte: occ.start_byte,
+                end_byte: occ.end_byte,
+                expansion: None,
+            };
+            match occ.role {
+                RustOccurrenceRole::Definition | RustOccurrenceRole::Declaration => {
+                    symbols.push(crate::model::Symbol {
+                        id: usr,
+                        name: occ.display_name,
+                        kind: occ.symbol_kind,
+                        definition: occ.role == RustOccurrenceRole::Definition,
+                        location: loc,
+                    });
+                }
+                RustOccurrenceRole::Reference
+                | RustOccurrenceRole::TypeReference
+                | RustOccurrenceRole::WriteAccess => {
+                    references.push(crate::model::Reference {
+                        target: usr,
+                        name: occ.display_name,
+                        kind: match occ.role {
+                            RustOccurrenceRole::TypeReference => "type_ref".into(),
+                            RustOccurrenceRole::WriteAccess => "write_ref".into(),
+                            _ => "ref".into(),
+                        },
+                        location: loc,
+                    });
+                }
+            }
+        }
+
+        Self {
+            adapter_route: RustSemanticAdapterRoute::RustAnalyzerScipAdapter,
+            crate_id: crate_id.to_string(),
+            variant_fingerprint: variant_fingerprint.to_string(),
+            raw_occurrence_count,
+            deduplicated_occurrence_count,
+            claims_complete_call_graph: false,
+            symbols,
+            references,
+        }
+    }
+
+    /// Validates that occurrence imports are never misrepresented as a full call graph.
+    pub fn validate_import_honesty(&self) -> std::result::Result<(), String> {
+        if self.claims_complete_call_graph {
+            return Err(
+                "RS-02 honesty violation: SCIP occurrence import alone must not be claimed as a complete call graph"
+                    .into(),
+            );
+        }
+        Ok(())
+    }
+
+    /// Converts the occurrence import batch into a shared A2 `Snapshot` (with empty `calls` until RS-03 call resolution).
+    pub fn into_occurrence_snapshot(
+        self,
+        unit_id: &str,
+        configuration: &str,
+        main_file: &str,
+        inputs: Vec<crate::model::InputFile>,
+    ) -> crate::model::Snapshot {
+        crate::model::Snapshot {
+            unit_id: unit_id.to_string(),
+            configuration: configuration.to_string(),
+            main_file: main_file.to_string(),
+            compile_hash: self.variant_fingerprint,
+            provider: RUST_PROVIDER_KEY.to_string(),
+            complete: true,
+            diagnostics: Vec::new(),
+            inputs,
+            symbols: self.symbols,
+            references: self.references,
+            calls: Vec::new(),
+        }
+    }
+}

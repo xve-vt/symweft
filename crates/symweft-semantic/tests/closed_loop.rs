@@ -4553,3 +4553,97 @@ fn rs01_cargo_workspace_crate_graph_variants_and_build_policy_gaps() -> Result<(
 
     Ok(())
 }
+
+#[test]
+fn rs02_scip_symbol_occurrence_import_dedup_variants_and_honest_call_graph_boundary() -> Result<()> {
+    use symweft_semantic::rust_semantic::{
+        RUST_PROVIDER_KEY, RustOccurrenceImportBatch, RustOccurrenceRole, RustScipOccurrence,
+        RustSemanticAdapterRoute,
+    };
+
+    let f = Fixture::new();
+    f.write("lib.rs", "pub struct Store;\npub fn open_store() -> Store { Store }\n");
+    let compdb = f.commands(&["lib.rs"])?;
+    let db_path = f.0.join("rs_semantics.sqlite3");
+    let mut store = Store::open(&db_path)?;
+    store.reconcile(&compdb)?;
+
+    let lib_path = f.0.join("lib.rs").to_string_lossy().into_owned();
+    let def_occ = RustScipOccurrence {
+        scip_symbol: "rust-analyzer cargo symweft_index 0.1.0 store/open_store().".into(),
+        display_name: "open_store".into(),
+        symbol_kind: "function".into(),
+        role: RustOccurrenceRole::Definition,
+        file_path: lib_path.clone(),
+        line: 2,
+        column: 8,
+        start_byte: 18,
+        end_byte: 56,
+    };
+    let ref_occ = RustScipOccurrence {
+        scip_symbol: "rust-analyzer cargo symweft_index 0.1.0 store/open_store().".into(),
+        display_name: "open_store".into(),
+        symbol_kind: "function".into(),
+        role: RustOccurrenceRole::Reference,
+        file_path: lib_path.clone(),
+        line: 10,
+        column: 13,
+        start_byte: 120,
+        end_byte: 130,
+    };
+
+    // Pass duplicate occurrences (e.g. from lib + test target overlap)
+    let batch = RustOccurrenceImportBatch::import_and_deduplicate(
+        "symweft-index",
+        "variant_fp_darwin_v1",
+        vec![def_occ.clone(), def_occ, ref_occ.clone(), ref_occ],
+    );
+
+    // 1. Verify adapter route, deduplication, and call-graph honesty flag
+    assert_eq!(
+        batch.adapter_route,
+        RustSemanticAdapterRoute::RustAnalyzerScipAdapter
+    );
+    assert_eq!(batch.raw_occurrence_count, 4);
+    assert_eq!(batch.deduplicated_occurrence_count, 2);
+    assert!(!batch.claims_complete_call_graph);
+    assert!(batch.validate_import_honesty().is_ok());
+    assert_eq!(batch.symbols.len(), 1);
+    assert_eq!(batch.references.len(), 1);
+
+    let expected_usr = "rs-usr:rust-analyzer cargo symweft_index 0.1.0 store/open_store().";
+    assert_eq!(batch.symbols[0].id, expected_usr);
+
+    // 2. Publish to shared SQLite Store and query definitions & references
+    let snap = batch.into_occurrence_snapshot(
+        &compdb.commands[0].unit_id,
+        &compdb.configuration,
+        &lib_path,
+        vec![symweft_semantic::model::InputFile {
+            path: lib_path.clone(),
+            hash: "h_lib_v1".into(),
+        }],
+    );
+    assert!(snap.calls.is_empty(), "occurrence import alone must not fabricate call edges");
+    store.publish(&snap)?;
+
+    let defs = store.relations(
+        &compdb.configuration,
+        expected_usr,
+        "definitions",
+        RUST_PROVIDER_KEY,
+        10,
+    )?;
+    assert_eq!(defs["rows"].as_array().unwrap().len(), 1);
+
+    let refs = store.relations(
+        &compdb.configuration,
+        expected_usr,
+        "references",
+        RUST_PROVIDER_KEY,
+        10,
+    )?;
+    assert_eq!(refs["rows"].as_array().unwrap().len(), 1);
+
+    Ok(())
+}

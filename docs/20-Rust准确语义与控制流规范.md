@@ -16,3 +16,14 @@
   - `unexpanded_derive_and_attr_macros`：未展开的 `#[derive(...)]` 与属性宏调用；
   - `missing_out_dir_includes`：依赖 `env!("OUT_DIR")` 生成源码的 `include!` 缺口；
   - 并在 `pubcompleteness_note` 中如实声明缺口数量，绝不将未展开宏或缺失生成文件的分析结果伪装成完整编译语义。
+
+## 2. 符号与出现位置导入（RS-02）
+
+### 2.1 固定适配路线与身份规范（`RustOccurrenceImportBatch`）
+- **适配路线冻结**：采用 `RustSemanticAdapterRoute::RustAnalyzerScipAdapter`（基于 `rust-analyzer` / SCIP 结构化符号与出现位置协议，提供器标识为 `RUST_PROVIDER_KEY = "a2-rust-scip-v1"`），避免直接耦合不稳定的 `rustc` 内部私有 ABI。
+- **跨 Crate 稳定符号身份**：所有 SCIP 描述符统一规范化为 `rs-usr:<descriptor>`（包含包名、版本号、模块路径与类型/函数签名描述符）。
+- **多目标重叠去重**：当同一源文件同时被 `lib`、`bin` 或 `test` 目标覆盖时，按 `(scip_symbol, file_path, start_byte, end_byte, role)` 严格去重，并绑定 `variant_fingerprint`。
+
+### 2.2 出现位置索引与完整调用图的诚实边界
+- 纯符号/出现位置导入仅提供定义（`Definition`/`Declaration`）与引用（`Reference`/`TypeReference`/`WriteAccess`），缺乏调用者函数归属与多态分派信息。
+- `claims_complete_call_graph` 恒为 `false`（由 `validate_import_honesty()` 强制验证），且 `into_occurrence_snapshot()` 生成的 `calls` 为空，绝不将符号出现位置索引冒充为完整调用图（完整调用与 trait 分派由 RS-03 专门构建）。
