@@ -749,3 +749,226 @@ impl PythonLexicalScopeTree {
         None
     }
 }
+
+/// Provider key for Python A2 semantic snapshots in the shared store (PY-03, PY-04).
+pub const PYTHON_PROVIDER_KEY: &str = "a2-python-v1";
+
+/// Classification of a Python call site resolution (PY-03).
+/// Strictly forbids guessing targets by bare method/function name when receiver type is dynamic.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PythonCallResolutionKind {
+    DirectFunctionCall {
+        target_usr: String,
+        target_module: String,
+    },
+    BoundMethodCall {
+        target_usr: String,
+        receiver_type_usr: String,
+    },
+    DynamicAttributeUnresolved {
+        receiver_expr: String,
+        attr_name: String,
+        reason: String,
+    },
+    ReflectionOrEvalUnresolved {
+        construct: String,
+        reason: String,
+    },
+    RuntimeMonkeyPatchUnresolved {
+        target_expr: String,
+        reason: String,
+    },
+}
+
+impl PythonCallResolutionKind {
+    /// Maps the Python call resolution into the shared A2 `(Option<target_usr>, dispatch_kind)` pair.
+    pub fn to_shared_call_target(&self) -> (Option<String>, String) {
+        match self {
+            PythonCallResolutionKind::DirectFunctionCall { target_usr, .. } => {
+                (Some(target_usr.clone()), "direct".into())
+            }
+            PythonCallResolutionKind::BoundMethodCall { target_usr, .. } => {
+                (Some(target_usr.clone()), "direct".into())
+            }
+            PythonCallResolutionKind::DynamicAttributeUnresolved { .. } => {
+                (None, "unresolved".into())
+            }
+            PythonCallResolutionKind::ReflectionOrEvalUnresolved { .. } => {
+                (None, "indirect".into())
+            }
+            PythonCallResolutionKind::RuntimeMonkeyPatchUnresolved { .. } => {
+                (None, "unresolved".into())
+            }
+        }
+    }
+}
+
+/// Recorded Python call site with caller, resolution status, and source location (PY-03).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PythonCallFact {
+    pub caller_usr: Option<String>,
+    pub callee_spelling: String,
+    pub resolution: PythonCallResolutionKind,
+    pub location: crate::model::Location,
+}
+
+/// Cross-module symbol, reference, and call resolver for a Python module (PY-03).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PythonModuleSemanticModel {
+    pub unit_id: String,
+    pub module_name: String,
+    pub file_path: String,
+    pub file_hash: String,
+    pub symbols: Vec<crate::model::Symbol>,
+    pub references: Vec<crate::model::Reference>,
+    pub calls: Vec<PythonCallFact>,
+}
+
+impl PythonModuleSemanticModel {
+    pub fn new(unit_id: &str, module_name: &str, file_path: &str, file_hash: &str) -> Self {
+        Self {
+            unit_id: unit_id.to_string(),
+            module_name: module_name.to_string(),
+            file_path: file_path.to_string(),
+            file_hash: file_hash.to_string(),
+            symbols: Vec::new(),
+            references: Vec::new(),
+            calls: Vec::new(),
+        }
+    }
+
+    pub fn add_definition(
+        &mut self,
+        qualname: &str,
+        name: &str,
+        kind: &str,
+        line: u32,
+        column: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> String {
+        let usr = format!("py-usr:{}:{qualname}", self.module_name);
+        self.symbols.push(crate::model::Symbol {
+            id: usr.clone(),
+            name: name.to_string(),
+            kind: kind.to_string(),
+            definition: true,
+            location: crate::model::Location {
+                path: self.file_path.clone(),
+                line,
+                column,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        });
+        usr
+    }
+
+    pub fn add_reference(
+        &mut self,
+        target_usr: &str,
+        name: &str,
+        kind: &str,
+        line: u32,
+        column: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) {
+        self.references.push(crate::model::Reference {
+            target: target_usr.to_string(),
+            name: name.to_string(),
+            kind: kind.to_string(),
+            location: crate::model::Location {
+                path: self.file_path.clone(),
+                line,
+                column,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        });
+    }
+
+    /// Resolves a call site without ever guessing by bare method name when receiver type is unknown.
+    pub fn record_call(
+        &mut self,
+        caller_usr: Option<String>,
+        callee_spelling: &str,
+        resolution: PythonCallResolutionKind,
+        line: u32,
+        column: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) {
+        let location = crate::model::Location {
+            path: self.file_path.clone(),
+            line,
+            column,
+            start_byte,
+            end_byte,
+            expansion: None,
+        };
+        if let (Some(target_usr), _) = resolution.to_shared_call_target() {
+            self.references.push(crate::model::Reference {
+                target: target_usr,
+                name: callee_spelling.to_string(),
+                kind: "call_ref".into(),
+                location: location.clone(),
+            });
+        }
+        self.calls.push(PythonCallFact {
+            caller_usr,
+            callee_spelling: callee_spelling.to_string(),
+            resolution,
+            location,
+        });
+    }
+
+    /// Converts the Python semantic model into a shared A2 `Snapshot` ready for SQLite `Store::publish`.
+    pub fn into_shared_snapshot(
+        self,
+        configuration: &str,
+        compile_hash: &str,
+        dependency_inputs: Vec<crate::model::InputFile>,
+    ) -> crate::model::Snapshot {
+        let mut inputs = vec![crate::model::InputFile {
+            path: self.file_path.clone(),
+            hash: self.file_hash.clone(),
+        }];
+        for dep in dependency_inputs {
+            if !inputs.iter().any(|i| i.path == dep.path) {
+                inputs.push(dep);
+            }
+        }
+        let shared_calls = self
+            .calls
+            .into_iter()
+            .map(|c| {
+                let (target, dispatch) = c.resolution.to_shared_call_target();
+                crate::model::CallSite {
+                    caller: c.caller_usr,
+                    target,
+                    name: c.callee_spelling,
+                    dispatch,
+                    location: c.location,
+                }
+            })
+            .collect();
+
+        crate::model::Snapshot {
+            unit_id: self.unit_id,
+            configuration: configuration.to_string(),
+            main_file: self.file_path,
+            compile_hash: compile_hash.to_string(),
+            provider: PYTHON_PROVIDER_KEY.to_string(),
+            complete: true,
+            diagnostics: Vec::new(),
+            inputs,
+            symbols: self.symbols,
+            references: self.references,
+            calls: shared_calls,
+        }
+    }
+}

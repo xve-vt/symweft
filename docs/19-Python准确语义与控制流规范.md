@@ -27,3 +27,14 @@
   - `Resolved`：成功定位目标模块与导出符号，并记录是否命中 `.pyi` 存根（`via_stub`）；
   - `AmbiguousConflict`：多搜索根存在同名遮蔽冲突时列出全部候选路径（`candidate_paths`）；
   - `MissingDependency`：当相对导入越过顶层包边界（`beyond top-level package`）、第三方依赖未安装或导出符号缺失时，明确记录诊断原因，绝不静默忽略。
+
+## 3. 跨模块定义、引用与调用及动态边界（PY-03）
+
+### 3.1 跨模块绑定与共用 A2 查询体系（`PythonModuleSemanticModel`）
+- 每个 Python 符号拥有稳定的跨模块身份 `py-usr:<module>:<qualname>`（例如 `py-usr:auth:Authenticator.verify`）。
+- 可解析的跨模块函数调用（`DirectFunctionCall`）与已知接收者类型的绑定方法调用（`BoundMethodCall`，包括 `self`、`cls`、构造函数推断或显式类型注解）生成 `dispatch = "direct"` 的 `CallSite` 与 `Reference`，并转换为标准 `crate::model::Snapshot` 写入共用 SQLite `Store`，直接复用 `semantic.at` / `semantic.relations` / `semantic.project.relations` 查询体系。
+
+### 3.2 动态属性、反射与运行时替换诚实边界（绝不同名猜测）
+- **未知接收者动态属性调用（`DynamicAttributeUnresolved`）**：当接收者缺少静态类型或为动态参数（如 `req.verify()`）时，严禁在全库按同名方法 `verify` 猜测绑定目标，调用边标记为 `target = None, dispatch = "unresolved"`。
+- **反射与动态执行（`ReflectionOrEvalUnresolved`）**：`getattr(obj, name)()`、`setattr`、`eval`、`exec`、`globals()[k]()` 统一归类为 `target = None, dispatch = "indirect"`。
+- **运行时猴子补丁（`RuntimeMonkeyPatchUnresolved`）**：运行期动态替换类或模块属性（如 `Service.run = hook`）明确标记为 `unresolved`，不伪造静态调用目标。

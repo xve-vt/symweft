@@ -4043,3 +4043,172 @@ fn py02_legb_scopes_relative_imports_and_conflict_markers() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result<()> {
+    use symweft_semantic::python_semantic::{
+        PYTHON_PROVIDER_KEY, PythonCallResolutionKind, PythonModuleSemanticModel,
+    };
+
+    let f = Fixture::new();
+    let db_path = f.0.join("py_semantics.sqlite3");
+    let mut store = Store::open(&db_path)?;
+
+    // Register two Python modules in a synthetic CompileDatabase so Store tracks their units
+    f.write("auth.py", "class Authenticator:\n    def verify(self, token: str) -> bool: return True\ndef hash_token(t: str) -> str: return t\n");
+    f.write("api.py", "from auth import Authenticator, hash_token\ndef handle(req):\n    h = hash_token(req)\n    auth = Authenticator()\n    auth.verify(h)\n    getattr(req, \"verify\")()\n    req.verify()\n");
+    let compdb = f.commands(&["auth.py", "api.py"])?;
+    store.reconcile(&compdb)?;
+
+    let auth_path = f.0.join("auth.py").to_string_lossy().into_owned();
+    let api_path = f.0.join("api.py").to_string_lossy().into_owned();
+
+    // 1. Build semantic model for `auth` module
+    let mut auth_model = PythonModuleSemanticModel::new(
+        &compdb.commands[0].unit_id,
+        "auth",
+        &auth_path,
+        "hash_auth_v1",
+    );
+    let cls_auth_usr = auth_model.add_definition("Authenticator", "Authenticator", "class", 1, 1, 0, 20);
+    let verify_usr = auth_model.add_definition(
+        "Authenticator.verify",
+        "verify",
+        "method",
+        2,
+        5,
+        25,
+        75,
+    );
+    let hash_token_usr = auth_model.add_definition("hash_token", "hash_token", "function", 3, 1, 76, 115);
+
+    let auth_snap = auth_model.into_shared_snapshot(&compdb.configuration, "cfg_py", Vec::new());
+    store.publish(&auth_snap)?;
+
+    // 2. Build semantic model for `api` module importing `auth`
+    let mut api_model = PythonModuleSemanticModel::new(
+        &compdb.commands[1].unit_id,
+        "api",
+        &api_path,
+        "hash_api_v1",
+    );
+    let handle_usr = api_model.add_definition("handle", "handle", "function", 2, 1, 44, 180);
+
+    // 2a. Resolvable cross-module function call: `hash_token(req)`
+    api_model.record_call(
+        Some(handle_usr.clone()),
+        "hash_token",
+        PythonCallResolutionKind::DirectFunctionCall {
+            target_usr: hash_token_usr.clone(),
+            target_module: "auth".into(),
+        },
+        3,
+        9,
+        68,
+        83,
+    );
+
+    // 2b. Resolvable cross-module bound method call on typed instance `auth.verify(h)`
+    api_model.record_call(
+        Some(handle_usr.clone()),
+        "verify",
+        PythonCallResolutionKind::BoundMethodCall {
+            target_usr: verify_usr.clone(),
+            receiver_type_usr: cls_auth_usr.clone(),
+        },
+        5,
+        5,
+        114,
+        128,
+    );
+
+    // 2c. Reflection call `getattr(req, "verify")()` -> MUST NOT guess `Authenticator.verify`!
+    api_model.record_call(
+        Some(handle_usr.clone()),
+        "getattr:verify",
+        PythonCallResolutionKind::ReflectionOrEvalUnresolved {
+            construct: "getattr".into(),
+            reason: "reflective attribute lookup via getattr cannot be statically bound".into(),
+        },
+        6,
+        5,
+        134,
+        159,
+    );
+
+    // 2d. Dynamic untyped attribute call `req.verify()` -> MUST NOT guess `Authenticator.verify` by same name!
+    api_model.record_call(
+        Some(handle_usr.clone()),
+        "verify",
+        PythonCallResolutionKind::DynamicAttributeUnresolved {
+            receiver_expr: "req".into(),
+            attr_name: "verify".into(),
+            reason: "parameter `req` has no static type annotation; refusing same-name method guess".into(),
+        },
+        7,
+        5,
+        165,
+        177,
+    );
+
+    let api_snap = api_model.into_shared_snapshot(
+        &compdb.configuration,
+        "cfg_py",
+        vec![symweft_semantic::model::InputFile {
+            path: auth_path.clone(),
+            hash: "hash_auth_v1".into(),
+        }],
+    );
+    store.publish(&api_snap)?;
+
+    // 3. Query shared A2 Store for cross-module incoming calls to `Authenticator.verify`
+    let incoming_verify = store.relations(
+        &compdb.configuration,
+        &verify_usr,
+        "incoming",
+        PYTHON_PROVIDER_KEY,
+        10,
+    )?;
+    let verify_rows = incoming_verify["rows"].as_array().unwrap();
+    // Strictly 1 bound call (`auth.verify(h)`), NOT 3 (neither `getattr` nor untyped `req.verify()` polluted it!)
+    assert_eq!(verify_rows.len(), 1);
+    assert_eq!(verify_rows[0]["caller"], handle_usr);
+    assert_eq!(verify_rows[0]["dispatch"], "direct");
+
+    // 4. Query shared A2 Store for cross-module definitions & references of `hash_token`
+    let defs_hash = store.relations(
+        &compdb.configuration,
+        &hash_token_usr,
+        "definitions",
+        PYTHON_PROVIDER_KEY,
+        10,
+    )?;
+    assert_eq!(defs_hash["rows"].as_array().unwrap().len(), 1);
+    assert_eq!(defs_hash["rows"][0]["main_file"], auth_path);
+
+    let refs_hash = store.relations(
+        &compdb.configuration,
+        &hash_token_usr,
+        "references",
+        PYTHON_PROVIDER_KEY,
+        10,
+    )?;
+    assert_eq!(refs_hash["rows"].as_array().unwrap().len(), 1);
+    assert_eq!(refs_hash["rows"][0]["main_file"], api_path);
+
+    // 5. Outgoing calls from `handle` preserve both resolved targets and honest unresolved/indirect edges
+    let outgoing_handle = store.relations(
+        &compdb.configuration,
+        &handle_usr,
+        "outgoing",
+        PYTHON_PROVIDER_KEY,
+        10,
+    )?;
+    let out_rows = outgoing_handle["rows"].as_array().unwrap();
+    assert_eq!(out_rows.len(), 4);
+    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "direct").count(), 2);
+    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "indirect").count(), 1);
+    assert_eq!(out_rows.iter().filter(|r| r["dispatch"] == "unresolved").count(), 1);
+
+    Ok(())
+}
