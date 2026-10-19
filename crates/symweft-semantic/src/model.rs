@@ -58,7 +58,7 @@ pub struct IncluderCoverage {
     pub stale_includers: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub path: String,
     pub offset: u32,

@@ -3267,3 +3267,101 @@ fn cpp06_macros_generated_code_and_preprocessor_variants() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp07_virtual_dispatch_candidates_and_toolchain_boundaries() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{
+        DispatchResolutionKind, ToolchainKind, TypeHierarchyIndex, VirtualDispatchCandidateSet,
+        VirtualOverrideRelation, normalize_toolchain_arguments,
+    };
+
+    // 1. Virtual dispatch candidate set with explicit closed-world scope assumption
+    let mut hierarchy = TypeHierarchyIndex::default();
+    hierarchy.overrides.push(VirtualOverrideRelation {
+        override_method_id: "method:TcpTransport::send".into(),
+        override_method_name: "send".into(),
+        base_method_id: "method:Transport::send".into(),
+        base_method_name: "send".into(),
+    });
+    hierarchy.overrides.push(VirtualOverrideRelation {
+        override_method_id: "method:UdpTransport::send".into(),
+        override_method_name: "send".into(),
+        base_method_id: "method:Transport::send".into(),
+        base_method_name: "send".into(),
+    });
+
+    let candidates = VirtualDispatchCandidateSet::from_hierarchy(
+        "method:Transport::send",
+        &hierarchy,
+        8,
+        10,
+    );
+    assert!(!candidates.is_exact);
+    assert_eq!(candidates.closed_world_scope, "partial_indexed_translation_units");
+    assert!(candidates.assumption_note.contains("8/10 indexed TU(s)"));
+    assert_eq!(
+        candidates.candidate_override_ids,
+        vec![
+            "method:TcpTransport::send".to_string(),
+            "method:UdpTransport::send".to_string()
+        ]
+    );
+
+    // 2. Function pointer & unresolved calls preserve honest markers
+    assert_eq!(
+        DispatchResolutionKind::from_label("direct"),
+        DispatchResolutionKind::Direct
+    );
+    assert!(!DispatchResolutionKind::Direct.is_honest_non_deterministic());
+    assert_eq!(
+        DispatchResolutionKind::from_label("virtual_candidate"),
+        DispatchResolutionKind::VirtualCandidate
+    );
+    assert!(DispatchResolutionKind::VirtualCandidate.is_honest_non_deterministic());
+    assert_eq!(
+        DispatchResolutionKind::from_label("indirect"),
+        DispatchResolutionKind::IndirectFunctionPointer
+    );
+    assert!(DispatchResolutionKind::IndirectFunctionPointer.is_honest_non_deterministic());
+    assert_eq!(
+        DispatchResolutionKind::from_label("unresolved"),
+        DispatchResolutionKind::Unresolved
+    );
+    assert!(DispatchResolutionKind::Unresolved.is_honest_non_deterministic());
+
+    // 3. Clang/GCC flag normalization vs MSVC deferred to WIN-05
+    let gcc_args = vec![
+        "-Iinclude".into(),
+        "-DDEBUG=1".into(),
+        "-std=c++20".into(),
+        "-MMD".into(),
+        "-MF".into(),
+        "out.d".into(),
+        "-fno-canonical-system-headers".into(),
+        "-c".into(),
+        "-o".into(),
+        "main.o".into(),
+    ];
+    let gcc_norm = normalize_toolchain_arguments("aarch64-linux-gnu-g++", &gcc_args);
+    assert_eq!(gcc_norm.toolchain, ToolchainKind::Gcc);
+    assert!(gcc_norm.deferred_reason.is_none());
+    assert_eq!(
+        gcc_norm.retained_arguments,
+        vec!["-Iinclude", "-DDEBUG=1", "-std=c++20"]
+    );
+    assert!(gcc_norm.stripped_driver_flags.contains(&"-MMD".to_string()));
+    assert!(gcc_norm.stripped_driver_flags.contains(&"-fno-canonical-system-headers".to_string()));
+
+    let msvc_args = vec!["/Iinclude".into(), "/DWIN32".into(), "/std:c++20".into()];
+    let msvc_norm = normalize_toolchain_arguments("cl.exe", &msvc_args);
+    assert_eq!(msvc_norm.toolchain, ToolchainKind::MsvcDeferredToWin05);
+    assert!(
+        msvc_norm
+            .deferred_reason
+            .as_deref()
+            .unwrap()
+            .contains("WIN-05")
+    );
+
+    Ok(())
+}

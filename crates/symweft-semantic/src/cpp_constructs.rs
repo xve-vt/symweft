@@ -148,6 +148,22 @@ pub enum TemplateRole {
     ImplicitInstantiation,
 }
 
+impl TemplateRole {
+    pub fn classify_role(
+        cursor_kind: &str,
+        usr: &str,
+        has_primary_template: bool,
+        is_explicit_specialization_decl: bool,
+    ) -> TemplateRole {
+        TemplateInstantiationTracker::classify_role(
+            cursor_kind,
+            usr,
+            has_primary_template,
+            is_explicit_specialization_decl,
+        )
+    }
+}
+
 /// Binding that distinguishes primary template definitions from specializations and instantiations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TemplateSymbolBinding {
@@ -710,5 +726,161 @@ impl InactiveBranchPolicy {
             a1_syntax_retained: true,
             a2_semantic_edges_emitted: false,
         }
+    }
+}
+
+/// Call dispatch resolution classification (CPP-07).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DispatchResolutionKind {
+    Direct,
+    VirtualCandidate,
+    IndirectFunctionPointer,
+    Unresolved,
+}
+
+impl DispatchResolutionKind {
+    pub fn from_label(label: &str) -> Self {
+        match label {
+            "direct" => Self::Direct,
+            "virtual_candidate" => Self::VirtualCandidate,
+            "indirect" => Self::IndirectFunctionPointer,
+            _ => Self::Unresolved,
+        }
+    }
+
+    pub fn is_honest_non_deterministic(self) -> bool {
+        matches!(
+            self,
+            Self::VirtualCandidate | Self::IndirectFunctionPointer | Self::Unresolved
+        )
+    }
+}
+
+/// Candidate set and explicit closed-world scope assumption for virtual method calls (CPP-07).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VirtualDispatchCandidateSet {
+    pub static_base_method_id: String,
+    pub candidate_override_ids: Vec<String>,
+    pub closed_world_scope: String,
+    pub assumption_note: String,
+    pub is_exact: bool,
+}
+
+impl VirtualDispatchCandidateSet {
+    pub fn from_hierarchy(
+        base_method_id: &str,
+        hierarchy: &TypeHierarchyIndex,
+        indexed_units: usize,
+        total_units: usize,
+    ) -> Self {
+        let mut candidate_override_ids: Vec<String> = hierarchy
+            .overrides_of(base_method_id)
+            .into_iter()
+            .map(|rel| rel.override_method_id.clone())
+            .collect();
+        candidate_override_ids.sort();
+        candidate_override_ids.dedup();
+        let closed_world_scope = if indexed_units == total_units && total_units > 0 {
+            "all_known_compdb_units_indexed".to_string()
+        } else {
+            "partial_indexed_translation_units".to_string()
+        };
+        let assumption_note = format!(
+            "closed-world candidate set over {indexed_units}/{total_units} indexed TU(s); dynamic dlopen or unindexed TUs may introduce additional overrides"
+        );
+        Self {
+            static_base_method_id: base_method_id.to_string(),
+            candidate_override_ids,
+            closed_world_scope,
+            assumption_note,
+            is_exact: false,
+        }
+    }
+}
+
+/// Supported vs deferred compiler toolchain family (CPP-07).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolchainKind {
+    Clang,
+    Gcc,
+    MsvcDeferredToWin05,
+}
+
+/// Normalized compiler argument boundary for libclang semantic analysis (CPP-07).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolchainArgumentFilterResult {
+    pub toolchain: ToolchainKind,
+    pub retained_arguments: Vec<String>,
+    pub stripped_driver_flags: Vec<String>,
+    pub deferred_reason: Option<String>,
+}
+
+/// Classify the compiler driver and filter GCC/Clang flags to the well-defined libclang boundary,
+/// explicitly deferring MSVC `cl.exe` / `clang-cl` flag translation to `WIN-05` (CPP-07).
+pub fn normalize_toolchain_arguments(
+    compiler_driver: &str,
+    arguments: &[String],
+) -> ToolchainArgumentFilterResult {
+    let driver_lower = compiler_driver.to_ascii_lowercase();
+    let is_msvc = driver_lower.ends_with("cl.exe")
+        || driver_lower == "cl"
+        || driver_lower.contains("clang-cl")
+        || arguments
+            .iter()
+            .any(|arg| arg.starts_with("/I") || arg.starts_with("/D") || arg.starts_with("/std:"));
+    if is_msvc {
+        return ToolchainArgumentFilterResult {
+            toolchain: ToolchainKind::MsvcDeferredToWin05,
+            retained_arguments: Vec::new(),
+            stripped_driver_flags: arguments.to_vec(),
+            deferred_reason: Some(
+                "MSVC cl.exe / clang-cl slash-flag semantics are deferred to WIN-05".into(),
+            ),
+        };
+    }
+
+    let toolchain = if driver_lower.contains("gcc") || driver_lower.contains("g++") {
+        ToolchainKind::Gcc
+    } else {
+        ToolchainKind::Clang
+    };
+
+    let mut retained_arguments = Vec::new();
+    let mut stripped_driver_flags = Vec::new();
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if matches!(arg.as_str(), "-MF" | "-MT" | "-MQ" | "-o") {
+            stripped_driver_flags.push(arg.clone());
+            if let Some(target_arg) = iter.next() {
+                stripped_driver_flags.push(target_arg.clone());
+            }
+            continue;
+        }
+        if matches!(
+            arg.as_str(),
+            "-M" | "-MM"
+                | "-MD"
+                | "-MMD"
+                | "-MP"
+                | "-c"
+                | "-fno-canonical-system-headers"
+                | "-fdiagnostics-color"
+                | "-fdiagnostics-color=always"
+        ) || arg.starts_with("-Wa,")
+            || arg.starts_with("-Wl,")
+        {
+            stripped_driver_flags.push(arg.clone());
+            continue;
+        }
+        retained_arguments.push(arg.clone());
+    }
+
+    ToolchainArgumentFilterResult {
+        toolchain,
+        retained_arguments,
+        stripped_driver_flags,
+        deferred_reason: None,
     }
 }

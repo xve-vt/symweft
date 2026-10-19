@@ -94,3 +94,14 @@
   - 同一源码文件在不同 `-D`/`-U` 编译宏组合下拥有独立的 `unit_id`（`variant_unit_id`），在 SQLite 中按 `(unit_id, configuration)` 独立存储并在查询时标注变体来源，绝不相互覆盖。
 - **未激活预处理分支策略（`InactiveBranchPolicy`）**：
   - 对于当前 TU 未激活的 `#ifdef` / `#if 0` 分支，保留 A1 词法/结构大纲供阅读，绝不凭空猜测或伪造 A2 编译器语义边（`a2_semantic_edges_emitted = false`）。
+
+## 7. 分派候选与工具链边界（CPP-07）
+
+- **虚调用候选集与闭合世界假设（`VirtualDispatchCandidateSet`）**：
+  - 虚调用在编译期记录为 `resolution: "virtual_candidate"`，通过 `VirtualDispatchCandidateSet::from_hierarchy` 聚合所有已知子类重写方法（`candidate_override_ids`）。
+  - 强制附带 `is_exact = false`、`closed_world_scope`（`all_known_compdb_units_indexed` 或 `partial_indexed_translation_units`）及显式的 `assumption_note`（声明当前候选集基于 `M/N` 已索引 TU 的闭合范围假设，动态加载或未索引单元可能包含额外重写），绝不将虚分派候选冒充为唯一确定性目标。
+- **函数指针与未解析调用诚实标注（`DispatchResolutionKind`）**：
+  - 函数指针、成员函数指针与回调变量调用始终保持 `resolution: "indirect"`（`IndirectFunctionPointer`），无法解析的依赖表达式保持 `resolution: "unresolved"`（`Unresolved`），绝不通过名称猜测目标函数。
+- **Clang/GCC 与 MSVC 工具链参数边界（`normalize_toolchain_arguments`）**：
+  - **Clang / GCC 支持范围**：完整保留头文件搜索路径（`-I`、`-isystem`、`-iquote`、`--sysroot`、`-isysroot`）、宏与强制包含（`-D`、`-U`、`-include`）、语言标准与目标特性（`-std=`、`-f...`、`-m...`、`-pthread`、`-x`）；自动剥离仅用于生成构建依赖或 GCC 驱动专有的干扰参数（`-MMD`、`-MP`、`-MF <file>`、`-MT <target>`、`-fno-canonical-system-headers`、`-Wa,...`、`-Wl,...`、`-c`、`-o <file>`）。
+  - **MSVC 边界**：识别 `cl.exe` / `clang-cl` 及 `/I`、`/D`、`/std:` 风格参数时明确标记为 `ToolchainKind::MsvcDeferredToWin05`，将 MSVC 命令行与编译数据库适配留给 `WIN-05` 阶段独立验收。
