@@ -2784,3 +2784,44 @@ fn heat06_synthetic_replay_trace_comparison_and_zero_user_pollution() -> Result<
 
     Ok(())
 }
+
+#[test]
+fn cpp01_construct_capability_matrix_and_golden_samples() -> Result<()> {
+    use symweft_semantic::cpp_constructs::{construct_capability_matrix, ConstructSupportStatus};
+
+    let matrix = construct_capability_matrix();
+    assert!(matrix.len() >= 8, "capability matrix must cover all core C/C++ construct categories");
+
+    // Verify all required categories are present and have non-empty golden samples & rules
+    let categories: HashSet<_> = matrix.iter().map(|e| e.category.as_str()).collect();
+    for expected in [
+        "functions",
+        "templates",
+        "implicit_and_operators",
+        "types_and_inheritance",
+        "variables",
+        "preprocessor",
+        "dispatch",
+    ] {
+        assert!(categories.contains(expected), "missing category: {expected}");
+    }
+
+    for entry in &matrix {
+        assert!(!entry.construct_id.is_empty());
+        assert!(!entry.binding_identity_rule.is_empty());
+        assert!(!entry.location_anchor_rule.is_empty());
+        assert!(!entry.variant_isolation_rule.is_empty());
+        assert!(!entry.error_boundary_rule.is_empty());
+        assert!(!entry.compiler_flags.is_empty());
+        assert!(!entry.golden_sample.is_empty());
+    }
+
+    // Verify dispatch distinctions: virtual_dispatch is Candidate, function_pointers is Unknown
+    let virt = matrix.iter().find(|e| e.construct_id == "cpp_virtual_dispatch_candidates").unwrap();
+    assert_eq!(virt.status, ConstructSupportStatus::Candidate);
+
+    let fn_ptr = matrix.iter().find(|e| e.construct_id == "c_cpp_function_pointers_and_indirect_calls").unwrap();
+    assert_eq!(fn_ptr.status, ConstructSupportStatus::Unknown);
+
+    Ok(())
+}

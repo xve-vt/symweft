@@ -1,6 +1,7 @@
 //! Compiler-backed C/C++ facts, separate from A1 syntax and its cache schema.
 pub mod adaptive;
 pub mod compdb;
+pub mod cpp_constructs;
 pub mod fingerprint;
 pub mod heat;
 pub mod hot_pool;
