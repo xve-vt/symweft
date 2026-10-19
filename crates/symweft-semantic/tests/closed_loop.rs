@@ -3365,3 +3365,40 @@ fn cpp07_virtual_dispatch_candidates_and_toolchain_boundaries() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val01_frozen_scale_validation_input_and_drift_detection() -> Result<()> {
+    use symweft_semantic::scale_validation::QemuFrozenInputManifest;
+
+    let baseline = QemuFrozenInputManifest::canonical_qemu_baseline();
+    assert_eq!(baseline.project_name, "qemu");
+    assert_eq!(baseline.git_commit, "2df3db357e2d59b7e56c8fa9b97cd035e67d473b");
+    assert_eq!(baseline.total_tu_count, 2855);
+    assert_eq!(baseline.resource_tiers.len(), 3);
+    assert!(!baseline.generated_dependencies.is_empty());
+
+    // Identical manifest is eligible for direct performance comparison
+    let same = baseline.compare_against(&baseline.clone());
+    assert!(same.is_identical_sample);
+    assert!(same.is_identical_environment);
+    assert!(same.eligible_for_performance_comparison);
+    assert!(same.drift_reasons.is_empty());
+
+    // Modified TU count or commit is flagged as sample drift
+    let mut drifted_sample = baseline.clone();
+    drifted_sample.total_tu_count = 2860;
+    let cmp_sample = baseline.compare_against(&drifted_sample);
+    assert!(!cmp_sample.is_identical_sample);
+    assert!(!cmp_sample.eligible_for_performance_comparison);
+    assert!(cmp_sample.drift_reasons[0].contains("2855 -> 2860"));
+
+    // Modified SDK/compiler is flagged as environment drift
+    let mut drifted_env = baseline.clone();
+    drifted_env.compiler_version = "Apple clang version 22.0.0".into();
+    let cmp_env = baseline.compare_against(&drifted_env);
+    assert!(cmp_env.is_identical_sample);
+    assert!(!cmp_env.is_identical_environment);
+    assert!(!cmp_env.eligible_for_performance_comparison);
+
+    Ok(())
+}

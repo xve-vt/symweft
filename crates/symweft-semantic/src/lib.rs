@@ -12,6 +12,7 @@ pub mod prefetch;
 pub mod profile;
 pub mod provider;
 pub mod query_index;
+pub mod scale_validation;
 pub mod service;
 pub mod store;
 pub mod transport;
