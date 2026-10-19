@@ -15,7 +15,7 @@
   - `crates_with_skipped_proc_macros`：未加载的 `proc-macro` crate 列表；
   - `unexpanded_derive_and_attr_macros`：未展开的 `#[derive(...)]` 与属性宏调用；
   - `missing_out_dir_includes`：依赖 `env!("OUT_DIR")` 生成源码的 `include!` 缺口；
-  - 并在 `pubcompleteness_note` 中如实声明缺口数量，绝不将未展开宏或缺失生成文件的分析结果伪装成完整编译语义。
+  - 并在 `completeness_note` 中如实声明缺口数量，绝不将未展开宏或缺失生成文件的分析结果伪装成完整编译语义。
 
 ## 2. 符号与出现位置导入（RS-02）
 
@@ -60,3 +60,19 @@
 
 ### 5.2 源码 CFG 与 MIR / Drop / Unwind 的诚实边界
 - `claims_mir_drop_or_unwind_semantics` 恒为 `false`（由 `validate_rust_cfg_contract()` 强制把关）：明确声明本图为源码级结构控制流，不声称已导出 `rustc` 内部 MIR、隐式 `Drop::drop` 析构胶水或 panic 栈展开（unwind）边。
+
+## 6. 资源管理与工具链回归验收（RS-06）
+
+### 6.1 闲置服务回收与工具链降级契约（`RustSemanticServiceManager`）
+- **统一资源账本与闲置回收**：后台 Rust 语义服务受 `max_memory_budget_bytes` 与 `idle_timeout_secs` 约束；当空闲时长达到阈值时，`check_and_reclaim_idle_service()` 主动回收后台分析服务进程（`service_running = false`，`charged_service_rss_bytes = 0`），同时完整保留已落盘 SQLite 与有效 crate 快照缓存。
+- **版本不兼容明确降级（`DegradedToA1SyntaxFallback`）**：当 `rustc` 工具链版本过旧或 `rust-analyzer`/SCIP 协议版本不兼容时，明确降级为 A1 语法级分析（标注 `fallback_evidence_label = "tree_sitter_syntactic_fallback"`），绝不伪装成 `a2-rust-scip-v1` 准确语义。
+
+### 6.2 固定 Cargo 工作空间与 Features 回归基准（`RustWorkspaceRegressionReport`）
+
+| 验收维度 | 固定工作空间实测值 (`symweft-4crate-workspace`) | 判定结果 |
+|---|---:|---|
+| 固定工作空间与变体规模 | 4 Crates (`index` / `analysis` / `semantic` / `core`)，固定 `Cargo.lock` 与 `features = ["default"]` | 通过 |
+| 首次冷启动耗时 / 峰值内存 | `85 ms` / `54 MiB` (`<= 64 MiB` 预算) | 通过 |
+| 单 Crate (`symweft-semantic`) 增量波及 / 保留缓存 | 仅失效 `2` 个 (`semantic` + `core`)，完整保留 `2` 个干净 Crate (`index` + `analysis`)，耗时 `12 ms` | 通过 |
+| 闲置超时服务回收 (`>= 60s`) | `service_running = false`，服务常驻内存归零 (`0 B`) | 通过 |
+| 不兼容工具链 / SCIP 协议降级 | 自动切换至 `DegradedToA1SyntaxFallback` (`tree_sitter_syntactic_fallback`) | 通过 |

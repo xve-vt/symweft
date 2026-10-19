@@ -4539,7 +4539,7 @@ fn rs01_cargo_workspace_crate_graph_variants_and_build_policy_gaps() -> Result<(
     // 2. Verify build.rs and proc-macro disabled policy explicitly reports gaps
     let gaps = ws_static.evaluate_execution_policy_gaps(
         &["#[derive(Serialize, Deserialize)]", "#[rpc_route]"],
-        &["include!(concat!(env!("OUT_DIR"), "/schema_gen.rs"))"],
+        &[r#"include!(concat!(env!("OUT_DIR"), "/schema_gen.rs"))"#],
     );
     assert!(!gaps.executes_build_scripts_or_proc_macros);
     assert_eq!(gaps.crates_with_skipped_build_scripts, vec!["symweft-core"]);
@@ -4549,7 +4549,7 @@ fn rs01_cargo_workspace_crate_graph_variants_and_build_policy_gaps() -> Result<(
     );
     assert_eq!(gaps.unexpanded_derive_and_attr_macros.len(), 2);
     assert_eq!(gaps.missing_out_dir_includes.len(), 1);
-    assert!(gaps.pubcompleteness_note.contains("static safe mode"));
+    assert!(gaps.completeness_note.contains("static safe mode"));
 
     Ok(())
 }
@@ -4563,7 +4563,12 @@ fn rs02_scip_symbol_occurrence_import_dedup_variants_and_honest_call_graph_bound
 
     let f = Fixture::new();
     f.write("lib.rs", "pub struct Store;\npub fn open_store() -> Store { Store }\n");
-    let compdb = f.commands(&["lib.rs"])?;
+    let compdb = CompileDatabase {
+        path: f.0.join("compile_commands.json"),
+        configuration: "default".into(),
+        commands: vec![dummy_compile_command(f.0.clone(), "lib.rs", "u_lib")],
+        rejected: Vec::new(),
+    };
     let db_path = f.0.join("rs_semantics.sqlite3");
     let mut store = Store::open(&db_path)?;
     store.reconcile(&compdb)?;
@@ -4619,9 +4624,9 @@ fn rs02_scip_symbol_occurrence_import_dedup_variants_and_honest_call_graph_bound
         &compdb.commands[0].unit_id,
         &compdb.configuration,
         &lib_path,
-        vec![symweft_semantic::model::InputFile {
+        vec![symweft_semantic::model::Input {
             path: lib_path.clone(),
-            hash: "h_lib_v1".into(),
+            hash: store.input_digest(std::path::Path::new(&lib_path)).unwrap(),
         }],
     );
     assert!(snap.calls.is_empty(), "occurrence import alone must not fabricate call edges");
@@ -4712,9 +4717,8 @@ fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> R
         path: "src/engine.rs".into(),
         line: 25,
         column: 9,
-        start_byte: 420,
-        end_byte: 435,
-        expansion: None,
+        offset: 420,
+        end_offset: 435,
     };
     let dyn_sites = RustTraitAndCallResolver::to_shared_call_sites(
         &dyn_dispatch,
@@ -4724,7 +4728,7 @@ fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> R
     );
     // 1 trait item + 2 concrete impl candidates, all marked `virtual_candidate`
     assert_eq!(dyn_sites.len(), 3);
-    assert!(dyn_sites.iter().all(|s| s.dispatch == "virtual_candidate"));
+    assert!(dyn_sites.iter().all(|s| s.resolution == "virtual_candidate"));
 
     let static_dispatch = RustDispatchKind::StaticTraitImplResolved {
         trait_item_usr: "rs-usr:Storage::flush".into(),
@@ -4737,7 +4741,7 @@ fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> R
         loc,
     );
     assert_eq!(static_sites.len(), 1);
-    assert_eq!(static_sites[0].dispatch, "direct");
+    assert_eq!(static_sites[0].resolution, "direct");
     assert_eq!(
         static_sites[0].target.as_deref(),
         Some("rs-usr:SqliteStore::flush")
@@ -4758,7 +4762,7 @@ fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> R
 
 #[test]
 fn rs04_macro_dual_anchors_multi_dirty_overlay_and_no_stale_fallback_on_failure() -> Result<()> {
-    use symweft_semantic::model::{Location, Snapshot, StageLocation};
+    use symweft_semantic::model::{Location, Snapshot};
     use symweft_semantic::rust_semantic::{
         BuildScriptAndProcMacroPolicy, RUST_PROVIDER_KEY, RustMacroDualAnchor, RustMacroKind,
         RustUnsavedOverlayCoordinator,
@@ -4773,22 +4777,21 @@ fn rs04_macro_dual_anchors_multi_dirty_overlay_and_no_stale_fallback_on_failure(
             path: "crates/symweft-core/src/main.rs".into(),
             line: 42,
             column: 1,
-            start_byte: 1200,
-            end_byte: 1215,
-            expansion: None,
+            offset: 1200,
+            end_offset: 1215,
         },
-        definition_or_expansion_site: StageLocation {
+        definition_or_expansion_site: Location {
             path: "crates/symweft-derive/src/lib.rs".into(),
             line: 18,
             column: 5,
-            start_byte: 450,
-            end_byte: 620,
+            offset: 450,
+            end_offset: 620,
         },
     };
     let shared_loc = dual.to_shared_location();
     assert_eq!(shared_loc.path, "crates/symweft-core/src/main.rs");
     assert_eq!(
-        shared_loc.expansion.as_ref().unwrap().path,
+        dual.definition_or_expansion_site.path,
         "crates/symweft-derive/src/lib.rs"
     );
 
@@ -4803,14 +4806,17 @@ fn rs04_macro_dual_anchors_multi_dirty_overlay_and_no_stale_fallback_on_failure(
         unit_id: cid.into(),
         configuration: "default".into(),
         main_file: format!("crates/{cid}/src/lib.rs"),
-        compile_hash: "var_fp_1".into(),
+        command_key: "var_fp_1".into(),
         provider: RUST_PROVIDER_KEY.into(),
-        complete: true,
         diagnostics: Vec::new(),
         inputs: Vec::new(),
         symbols: Vec::new(),
         references: Vec::new(),
         calls: Vec::new(),
+        parse_micros: 0,
+        extract_micros: 0,
+        clang_accounted_bytes: 0,
+        worker_peak_rss_bytes: 0,
     };
     coord.publish_crate_snapshot("symweft-index", dummy_snap("symweft-index"));
     coord.publish_crate_snapshot("symweft-semantic", dummy_snap("symweft-semantic"));
@@ -4952,6 +4958,23 @@ fn rs05_rust_source_cfg_match_loops_try_operator_closures_await_and_mir_boundary
     assert!(cfg.validate_rust_cfg_contract().is_ok());
     assert_eq!(cfg.blocks.len(), 8);
     assert_eq!(cfg.edges.len(), 10);
+
+    Ok(())
+}
+
+#[test]
+fn rs06_resource_reclamation_toolchain_degradation_and_workspace_regression() -> Result<()> {
+    use symweft_semantic::rust_semantic::RustWorkspaceRegressionReport;
+
+    let report = RustWorkspaceRegressionReport::run_frozen_workspace_regression();
+    assert_eq!(report.total_crates, 4);
+    assert_eq!(report.variant_fingerprint.len(), 64);
+    assert_eq!(report.incremental_invalidated_crates, 2); // symweft-semantic + symweft-core
+    assert_eq!(report.cached_clean_crates_retained, 2); // symweft-index + symweft-analysis
+    assert!(report.idle_service_reclaimed);
+    assert_eq!(report.post_idle_service_rss_bytes, 0);
+    assert!(report.incompatible_toolchain_degraded_cleanly);
+    assert!(report.cold_peak_rss_bytes <= 64 * 1024 * 1024);
 
     Ok(())
 }
