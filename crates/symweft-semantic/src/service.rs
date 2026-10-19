@@ -118,11 +118,16 @@ pub fn run_worker(
     let encode = crate::profile::Clock::start(profiling);
     let mut measured = crate::profile::RunProfile::default();
     limits.validate()?;
-    let bytes = serde_json::to_vec(request)?;
+    let format = if std::env::var("SYMWEFT_IPC_FORMAT").as_deref() == Ok("json") {
+        crate::transport::TransportFormat::Json
+    } else {
+        crate::transport::TransportFormat::BoundedBinary
+    };
+    let bytes = crate::transport::encode_request(request, format)?;
     measured.request_encode_micros = encode.micros();
     measured.request_bytes = bytes.len();
-    if bytes.len() > 12 * 1024 * 1024 {
-        return Err("semantic request exceeds 12 MiB".into());
+    if bytes.len() > crate::transport::MAX_BOUNDED_PAYLOAD {
+        return Err("semantic request exceeds 64 MiB limit".into());
     }
     let spawn = crate::profile::Clock::start(profiling);
     let mut managed = WorkerChild(
@@ -195,7 +200,7 @@ pub fn run_worker(
     let output = output?;
     measured.reply_bytes = output.len();
     let decode = crate::profile::Clock::start(profiling);
-    let mut reply: WorkerReply = serde_json::from_slice(&output)?;
+    let mut reply: WorkerReply = crate::transport::decode_reply(&output)?;
     measured.reply_decode_micros = decode.micros();
     if profiling {
         measured.worker = String::from_utf8_lossy(&errors)
@@ -604,9 +609,9 @@ impl Drop for Controller {
 pub fn worker_main() -> Result<()> {
     let profiling = crate::profile::enabled();
     let total = crate::profile::Clock::start(profiling);
-    let bytes = read_limited(std::io::stdin().lock(), 12 * 1024 * 1024)?;
+    let bytes = read_limited(std::io::stdin().lock(), crate::transport::MAX_BOUNDED_PAYLOAD)?;
     let decode = crate::profile::Clock::start(profiling);
-    let request: WorkerRequest = serde_json::from_slice(&bytes)?;
+    let request: WorkerRequest = crate::transport::decode_request(&bytes)?;
     let request_decode_micros = decode.micros();
     let mut reply = match provider::analyze(&request) {
         Ok(reply) => reply,
@@ -617,9 +622,14 @@ pub fn worker_main() -> Result<()> {
             profile: None,
         },
     };
+    let format = if bytes.len() >= 4 && &bytes[0..4] == &crate::transport::BINARY_MAGIC {
+        crate::transport::TransportFormat::BoundedBinary
+    } else if std::env::var("SYMWEFT_IPC_FORMAT").as_deref() == Ok("json") {
+        crate::transport::TransportFormat::Json
+    } else {
+        crate::transport::TransportFormat::BoundedBinary
+    };
     if profiling {
-        // The measured encoding duration cannot be embedded in the bytes that
-        // were just encoded. Use the bounded diagnostic stderr channel instead.
         let mut profile = reply
             .profile
             .take()
@@ -627,16 +637,13 @@ pub fn worker_main() -> Result<()> {
             .unwrap_or_default();
         profile.request_decode_micros = request_decode_micros;
         let encode = crate::profile::Clock::start(true);
-        let mut output = crate::profile::TimedWriter {
-            inner: std::io::stdout().lock(),
-            nanos: 0,
-            bytes: 0,
-        };
-        serde_json::to_writer(&mut output, &reply)?;
-        output.flush()?;
-        profile.stdout_write_micros = output.nanos / 1000;
+        let encoded_bytes = crate::transport::encode_reply(&reply, format)?;
+        let write_start = Instant::now();
+        std::io::stdout().lock().write_all(&encoded_bytes)?;
+        std::io::stdout().lock().flush()?;
+        profile.stdout_write_micros = write_start.elapsed().as_micros() as u64;
         profile.reply_encode_micros = encode.micros().saturating_sub(profile.stdout_write_micros);
-        profile.reply_bytes = output.bytes;
+        profile.reply_bytes = encoded_bytes.len();
         profile.worker_wall_micros = total.micros();
         profile.usage();
         eprintln!(
@@ -645,7 +652,9 @@ pub fn worker_main() -> Result<()> {
             serde_json::to_string(&profile)?
         );
     } else {
-        serde_json::to_writer(std::io::stdout().lock(), &reply)?;
+        let encoded_bytes = crate::transport::encode_reply(&reply, format)?;
+        std::io::stdout().lock().write_all(&encoded_bytes)?;
+        std::io::stdout().lock().flush()?;
     }
     Ok(())
 }

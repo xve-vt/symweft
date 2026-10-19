@@ -100,7 +100,10 @@ final class WorkspaceStore: ObservableObject {
                    let analysis = self.analysis {
                     try? await self.core.recordUsage(path: analysis.path, revision: analysis.revision, localID: self.currentSymbol?.localId, activeMS: elapsed, opened: false)
                 }
-                self.cacheStatus = try? await self.core.cacheStatus()
+                let newStatus = try? await self.core.cacheStatus()
+                if self.cacheStatus != newStatus {
+                    self.cacheStatus = newStatus
+                }
             }
         }
     }

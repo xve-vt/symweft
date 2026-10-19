@@ -149,6 +149,6 @@ pub struct WorkerReply {
     pub snapshot: Option<Snapshot>,
     pub error: Option<String>,
     pub diagnostics: Vec<Diagnostic>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub profile: Option<crate::profile::RunProfile>,
 }

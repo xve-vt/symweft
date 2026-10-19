@@ -20,6 +20,7 @@ impl Clock {
 }
 /// Preserve the streaming serializer and its buffering. Writer time includes
 /// buffer copies and pipe backpressure, not just kernel transfer time.
+#[allow(dead_code)]
 pub(crate) struct TimedWriter<W> {
     pub inner: W,
     pub nanos: u64,

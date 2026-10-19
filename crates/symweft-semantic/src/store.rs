@@ -169,6 +169,7 @@ fn bump_baseline(transaction: &Transaction<'_>) -> Result<()> {
 pub struct Store {
     pub connection: Connection,
     fingerprints: RefCell<crate::fingerprint::Fingerprints>,
+    attention_enabled: std::sync::atomic::AtomicBool,
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
@@ -190,6 +191,7 @@ impl Store {
         Ok(Self {
             connection,
             fingerprints: RefCell::new(crate::fingerprint::Fingerprints::default()),
+            attention_enabled: std::sync::atomic::AtomicBool::new(true),
         })
     }
     pub fn disk_baseline(&self) -> Result<DiskBaseline> {
@@ -837,4 +839,170 @@ impl Store {
         self.connection.execute_batch("DELETE FROM facts WHERE NOT EXISTS(SELECT 1 FROM symbols WHERE symbols.fact=facts.pk) AND NOT EXISTS(SELECT 1 FROM refs WHERE refs.fact=facts.pk) AND NOT EXISTS(SELECT 1 FROM calls WHERE calls.fact=facts.pk);PRAGMA wal_checkpoint(TRUNCATE)")?;
         Ok(())
     }
+
+    pub fn garbage_collect(&mut self) -> Result<GarbageCollectionReport> {
+        let start = Instant::now();
+        let tx = self.connection.transaction()?;
+
+        let stale_units_purged = tx.execute(
+            "DELETE FROM units WHERE state='retired'",
+            [],
+        )?;
+
+        let unreferenced_facts_removed = tx.execute(
+            "DELETE FROM facts WHERE NOT EXISTS(SELECT 1 FROM symbols WHERE symbols.fact=facts.pk) AND NOT EXISTS(SELECT 1 FROM refs WHERE refs.fact=facts.pk) AND NOT EXISTS(SELECT 1 FROM calls WHERE calls.fact=facts.pk)",
+            [],
+        )?;
+
+        let orphaned_entities_removed = tx.execute(
+            "DELETE FROM entities WHERE NOT EXISTS(SELECT 1 FROM symbols WHERE symbols.entity=entities.pk) AND NOT EXISTS(SELECT 1 FROM refs WHERE refs.target=entities.pk) AND NOT EXISTS(SELECT 1 FROM calls WHERE calls.caller=entities.pk OR calls.target=entities.pk)",
+            [],
+        )?;
+
+        let orphaned_paths_removed = tx.execute(
+            "DELETE FROM paths WHERE NOT EXISTS(SELECT 1 FROM symbols WHERE symbols.path=paths.pk) AND NOT EXISTS(SELECT 1 FROM refs WHERE refs.path=paths.pk) AND NOT EXISTS(SELECT 1 FROM calls WHERE calls.path=paths.pk)",
+            [],
+        )?;
+
+        tx.commit()?;
+
+        let wal_checkpoint_frames: i32 = self
+            .connection
+            .query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| r.get(1))
+            .unwrap_or(0);
+
+        Ok(GarbageCollectionReport {
+            unreferenced_facts_removed,
+            orphaned_entities_removed,
+            orphaned_paths_removed,
+            stale_units_purged,
+            wal_checkpoint_frames,
+            wall_ms: start.elapsed().as_millis(),
+        })
+    }
+    pub fn entity_structural_heat(
+        &self,
+        configuration: &str,
+        entity_key: &str,
+    ) -> Result<Option<crate::heat::EntityStructuralHeat>> {
+        crate::heat::compute_entity_structural_heat(&self.connection, configuration, entity_key)
+    }
+
+    pub fn top_structural_heat(
+        &self,
+        configuration: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::heat::EntityStructuralHeat>> {
+        crate::heat::compute_all_structural_heat(&self.connection, configuration, limit)
+    }
+
+    pub fn file_structural_heat(
+        &self,
+        configuration: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::heat::FileStructuralHeat>> {
+        crate::heat::compute_file_structural_heat(&self.connection, configuration, limit)
+    }
+    pub fn set_attention_enabled(&self, enabled: bool) {
+        self.attention_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn is_attention_enabled(&self) -> bool {
+        self.attention_enabled.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn clear_attention(&self, configuration: Option<&str>) -> Result<usize> {
+        crate::heat::clear_semantic_attention(&self.connection, configuration)
+    }
+
+    pub fn record_attention(
+        &self,
+        configuration: &str,
+        path: &str,
+        usr: &str,
+        name: &str,
+        active_ms: u64,
+        opened: bool,
+        now: f64,
+    ) -> Result<()> {
+        if !self.is_attention_enabled() {
+            return Ok(());
+        }
+        crate::heat::record_semantic_attention(
+            &self.connection,
+            configuration,
+            path,
+            usr,
+            name,
+            active_ms,
+            opened,
+            now,
+        )
+    }
+
+    pub fn get_attention(
+        &self,
+        configuration: &str,
+        path: &str,
+        usr: &str,
+    ) -> Result<Option<crate::heat::SymbolAttention>> {
+        crate::heat::get_semantic_attention(&self.connection, configuration, path, usr)
+    }
+
+    pub fn migrate_attention(
+        &self,
+        configuration: &str,
+        from_path: &str,
+        from_usr: &str,
+        to_path: &str,
+        to_usr: &str,
+        new_name: &str,
+    ) -> Result<bool> {
+        crate::heat::migrate_semantic_attention(
+            &self.connection,
+            configuration,
+            from_path,
+            from_usr,
+            to_path,
+            to_usr,
+            new_name,
+        )
+    }
+
+    pub fn top_attention(
+        &self,
+        configuration: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::heat::SymbolAttention>> {
+        crate::heat::list_semantic_attention(&self.connection, configuration, limit)
+    }
+    pub fn export_heat(
+        &self,
+        configuration: &str,
+        kind: &str,
+        sort: &str,
+        format: &str,
+        limit: usize,
+        now: f64,
+    ) -> Result<serde_json::Value> {
+        crate::heat::export_heat_report(
+            &self.connection,
+            configuration,
+            kind,
+            sort,
+            format,
+            limit,
+            now,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GarbageCollectionReport {
+    pub unreferenced_facts_removed: usize,
+    pub orphaned_entities_removed: usize,
+    pub orphaned_paths_removed: usize,
+    pub stale_units_purged: usize,
+    pub wal_checkpoint_frames: i32,
+    pub wall_ms: u128,
 }

@@ -81,21 +81,21 @@ struct SemanticRows<T: Codable & Sendable>: Codable, Sendable {
     let truncated: Bool?
     let truncationReason: String?
 }
-struct SemanticFailure: Codable, Sendable { let file: String?; let error: String? }
-struct SemanticJob: Codable, Sendable {
+struct SemanticFailure: Codable, Sendable, Equatable { let file: String?; let error: String? }
+struct SemanticJob: Codable, Sendable, Equatable {
     let state: String; let total: Int?; let completed: Int?; let analyzed: Int?; let reused: Int?
     let failures: [SemanticFailure]?
     let trigger: String?
     let wallMs: UInt64?
 }
-struct SemanticWatch: Codable, Sendable {
+struct SemanticWatch: Codable, Sendable, Equatable {
     let enabled: Bool; let autoRefresh: Bool; let metadataCache: Bool
     let pendingUnits: Int; let paused: Bool; let pressurePaused: Bool; let revision: Int
     let manualRefreshRequired: Bool; let configurationRequired: Bool; let error: String?
     let fingerprints: SemanticFingerprints?; let configurationFingerprints: SemanticFingerprints?
     let autoJobs: UInt64?
 }
-struct SemanticFingerprints: Codable, Sendable {
+struct SemanticFingerprints: Codable, Sendable, Equatable {
     let hashes: UInt64; let bytesRead: UInt64
 }
 struct SemanticProgress: Codable, Sendable {

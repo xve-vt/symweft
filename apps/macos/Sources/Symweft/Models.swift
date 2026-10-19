@@ -101,12 +101,12 @@ struct OpenDocument: Decodable, Sendable {
 
 struct StorageInfo: Decodable, Sendable { let source: String; let loadMicros: UInt64; let persistence: String }
 struct CoreAck: Decodable, Sendable { let queued: Bool?; let accepted: Bool?; let flushed: Bool? }
-struct CacheSettingsInfo: Decodable, Sendable { let mode: String; let maxBytes: Int; let prefetch: Bool }
-struct CacheMetrics: Decodable, Sendable {
+struct CacheSettingsInfo: Decodable, Sendable, Equatable { let mode: String; let maxBytes: Int; let prefetch: Bool }
+struct CacheMetrics: Decodable, Sendable, Equatable {
     let effectiveBytes: Int; let factLimitBytes: Int; let usedBytes: Int; let entries: Int
     let hits: UInt64; let misses: UInt64; let prefetchAdmitted: UInt64; let prefetchUseful: UInt64; let pressure: String
 }
-struct CacheStatus: Decodable, Sendable { let settings: CacheSettingsInfo; let cache: CacheMetrics; let sqliteVersion: String }
+struct CacheStatus: Decodable, Sendable, Equatable { let settings: CacheSettingsInfo; let cache: CacheMetrics; let sqliteVersion: String }
 
 struct AnalysisResult: Decodable, Sendable {
     let analysis: DocumentAnalysis

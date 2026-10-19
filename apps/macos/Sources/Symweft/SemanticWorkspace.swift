@@ -99,25 +99,38 @@ extension WorkspaceStore {
         let generation = semanticGeneration
         semanticPoll = Task {
             while !Task.isCancelled, generation == semanticGeneration {
+                var isIdle = true
                 do {
                     let status = try await core.semanticProgress()
                     guard !Task.isCancelled, generation == semanticGeneration else { return }
                     let wasRunning = semanticRunning
-                    semanticRunning = status.job?.state == "running"
+                    let newRunning = status.job?.state == "running"
+                    if semanticRunning != newRunning {
+                        semanticRunning = newRunning
+                    }
+                    isIdle = !newRunning && (status.watch?.pendingUnits ?? 0) == 0
                     let changed = status.watch?.revision != semanticWatch?.revision
-                    semanticWatch = status.watch
+                    if semanticWatch != status.watch {
+                        semanticWatch = status.watch
+                    }
+                    var newNotice: String? = nil
                     if status.watch?.configurationRequired == true {
-                        semanticNotice = "编译配置已变化，请重新导入。"
+                        newNotice = "编译配置已变化，请重新导入。"
                     } else if status.watch?.manualRefreshRequired == true {
-                        semanticNotice = "变更影响范围超过自动预算，旧关系已失效，请手动刷新。"
+                        newNotice = "变更影响范围超过自动预算，旧关系已失效，请手动刷新。"
                     } else if status.watch?.pressurePaused == true {
-                        semanticNotice = "内存压力较高，已暂停后台语义更新。"
+                        newNotice = "内存压力较高，已暂停后台语义更新。"
                     } else if let error = status.watch?.error {
-                        semanticNotice = error
-                    } else if semanticRunning {
-                        semanticNotice = "正在分析 \(status.job?.completed ?? 0)/\(status.job?.total ?? 0) 个编译单元…"
+                        newNotice = error
+                    } else if newRunning {
+                        newNotice = "正在分析 \(status.job?.completed ?? 0)/\(status.job?.total ?? 0) 个编译单元…"
                     } else if wasRunning {
-                        semanticNotice = status.job?.failures?.first?.error ?? (status.job?.state == "cancelled" ? "分析已取消。" : "语义索引已更新。")
+                        newNotice = status.job?.failures?.first?.error ?? (status.job?.state == "cancelled" ? "分析已取消。" : "语义索引已更新。")
+                    } else {
+                        newNotice = semanticNotice
+                    }
+                    if semanticNotice != newNotice {
+                        semanticNotice = newNotice
                     }
                     if !semanticRunning, semanticWatchSettingsPending { await applySemanticWatchSettings() }
                     if changed || (wasRunning && !semanticRunning) {
@@ -127,8 +140,13 @@ extension WorkspaceStore {
                         await reloadExternalSemanticDocument()
                         queueSemanticContext()
                     }
-                } catch { if generation == semanticGeneration { semanticNotice = error.localizedDescription } }
-                try? await Task.sleep(for: .milliseconds(750))
+                } catch {
+                    if generation == semanticGeneration, semanticNotice != error.localizedDescription {
+                        semanticNotice = error.localizedDescription
+                    }
+                }
+                let delayMs = isIdle ? 2500 : 750
+                try? await Task.sleep(for: .milliseconds(delayMs))
             }
         }
     }

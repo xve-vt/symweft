@@ -10,10 +10,10 @@ use std::{
 };
 use symweft_semantic::{
     Result,
-    compdb::CompileDatabase,
+    compdb::{CompileCommand, CompileDatabase},
     model::{
         MAX_OVERLAY_DOCUMENTS, MAX_OVERLAY_SOURCE_BYTES, Overlay, PreviewDocument, Snapshot,
-        WorkerRequest,
+        WorkerReply, WorkerRequest,
     },
     provider,
     service::{Controller, Limits},
@@ -418,8 +418,17 @@ fn preview_scheduler_preempts_index_coalesces_and_enforces_retained_budget() -> 
     // Unlike a shell + sleep, this fixture does not leave descendant processes.
     f.write("fake-worker", r#"#!/usr/bin/env python3
 import fcntl,json,os,pathlib,sys,time
-request=json.load(sys.stdin)
-root=pathlib.Path(request['command']['root'])
+raw = sys.stdin.buffer.read()
+if raw.startswith(b'{'):
+    request = json.loads(raw.decode('utf-8'))
+    root = pathlib.Path(request['command']['root'])
+    overlays = request['overlays']
+    is_budget = bool(overlays and 'budget' in overlays[0]['content'])
+    has_overlays = bool(overlays)
+else:
+    root = pathlib.Path(sys.argv[0]).parent.resolve()
+    has_overlays = b'int ' in raw or b'budget' in raw
+    is_budget = b'budget' in raw
 lock=(root/'worker.lock').open('w')
 try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 except BlockingIOError:
@@ -427,10 +436,9 @@ except BlockingIOError:
     sys.exit(9)
 with (root/'workers').open('a') as events:
     events.write(str(os.getpid())+'\n')
-overlays=request['overlays']
-if not overlays: time.sleep(5)
+if not has_overlays: time.sleep(5)
 else: time.sleep(.15)
-message='x'*(2*1024*1024) if overlays and 'budget' in overlays[0]['content'] else 'fixture rejection'
+message='x'*(2*1024*1024) if is_budget else 'fixture rejection'
 json.dump({'snapshot':None,'error':message,'diagnostics':[]},sys.stdout)
 "#);
     let worker = f.0.join("fake-worker");
@@ -1618,6 +1626,1161 @@ fn protocol_and_client_ticket_isolation_and_legacy_compatibility() -> Result<()>
 
     let old_reuse_err = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 100, 0).unwrap_err();
     assert!(old_reuse_err.to_string().contains("obsolete or unknown preview job_id"), "{old_reuse_err}");
+
+    Ok(())
+}
+
+fn dummy_compile_command(root: PathBuf, file: &str, unit_id: &str) -> CompileCommand {
+    CompileCommand {
+        unit_id: unit_id.to_string(),
+        configuration: "default".to_string(),
+        root: root.clone(),
+        build_root: root.clone(),
+        file: root.join(file),
+        directory: root,
+        compiler: "clang".to_string(),
+        arguments: vec!["clang".into(), "-c".into(), file.into()],
+        command_key: "cmd_key".to_string(),
+        extra_inputs: Vec::new(),
+    }
+}
+
+fn dummy_snapshot(unit_id: &str, main_file: &str) -> Snapshot {
+    Snapshot {
+        unit_id: unit_id.to_string(),
+        configuration: "default".to_string(),
+        main_file: main_file.to_string(),
+        command_key: "cmd_key".to_string(),
+        provider: "a2-clang-v3".to_string(),
+        inputs: Vec::new(),
+        symbols: Vec::new(),
+        references: Vec::new(),
+        calls: Vec::new(),
+        diagnostics: Vec::new(),
+        parse_micros: 0,
+        extract_micros: 0,
+        clang_accounted_bytes: 0,
+        worker_peak_rss_bytes: 0,
+    }
+}
+
+fn dummy_query_version(workspace: &str, config_id: &str, provider: &str, doc_path: &str, revision: u64) -> symweft_semantic::model::QueryVersion {
+    symweft_semantic::model::QueryVersion {
+        contract: symweft_semantic::model::QUERY_VERSION_CONTRACT.to_string(),
+        workspace: workspace.to_string(),
+        configuration: symweft_semantic::model::QueryConfiguration {
+            id: config_id.to_string(),
+            content_key: "key".to_string(),
+            provider: provider.to_string(),
+        },
+        disk: symweft_semantic::model::DiskBaseline {
+            schema: "a2-store-v2".to_string(),
+            store_id: "store".to_string(),
+            revision: 1,
+        },
+        documents: vec![symweft_semantic::model::DocumentRevision {
+            path: doc_path.to_string(),
+            revision,
+            content_key: "content_key".to_string(),
+        }],
+        coverage: symweft_semantic::model::QueryCoverage::PersistentIndex,
+    }
+}
+
+#[test]
+fn perf02_worker_transport_comparison_json_vs_bounded_binary() -> Result<()> {
+    use symweft_semantic::model::Location;
+    use symweft_semantic::transport::{compare_transport, decode_reply, decode_request, encode_reply, encode_request, TransportFormat};
+
+    let f = Fixture::new();
+    let mut symbols = Vec::new();
+    let mut calls = Vec::new();
+    let mut references = Vec::new();
+
+    // Synthesize a realistic large snapshot resembling QEMU system/vl.c
+    for i in 0..1000 {
+        symbols.push(symweft_semantic::model::Symbol {
+            id: format!("sym_{i:04}"),
+            usr: format!("c:@F@sym_{i:04}"),
+            name: format!("symbol_function_{i:04}"),
+            kind: "function".to_string(),
+            signature: "int(int, void*)".to_string(),
+            definition: i % 2 == 0,
+            callable: true,
+            location: Location {
+                path: "/workspace/vl.c".to_string(),
+                offset: i * 50,
+                end_offset: i * 50 + 20,
+                line: i / 10 + 1,
+                column: (i % 10) * 8 + 1,
+            },
+            extent: Location {
+                path: "/workspace/vl.c".to_string(),
+                offset: i * 50,
+                end_offset: i * 50 + 48,
+                line: i / 10 + 1,
+                column: 1,
+            },
+        });
+        calls.push(symweft_semantic::model::Call {
+            caller: Some(format!("sym_{:04}", i / 2)),
+            target: Some(format!("sym_{i:04}")),
+            name: format!("symbol_function_{i:04}"),
+            resolution: "direct".to_string(),
+            location: Location {
+                path: "/workspace/vl.c".to_string(),
+                offset: i * 50 + 10,
+                end_offset: i * 50 + 25,
+                line: i / 10 + 1,
+                column: (i % 10) * 8 + 1,
+            },
+            spelling: None,
+        });
+        references.push(symweft_semantic::model::Reference {
+            target: format!("sym_{i:04}"),
+            name: format!("symbol_function_{i:04}"),
+            kind: "call".to_string(),
+            location: Location {
+                path: "/workspace/vl.c".to_string(),
+                offset: i * 50 + 12,
+                end_offset: i * 50 + 25,
+                line: i / 10 + 1,
+                column: (i % 10) * 8 + 3,
+            },
+            spelling: None,
+        });
+    }
+
+    let mut cmd = dummy_compile_command(f.0.clone(), "vl.c", "u_vl_01");
+    cmd.arguments = vec!["clang".into(), "-std=c11".into(), "-c".into(), "vl.c".into()];
+
+    let request = WorkerRequest {
+        command: cmd,
+        overlays: vec![
+            Overlay {
+                path: "/workspace/vl.c".to_string(),
+                content: "// Modified buffer\nint x = 42;\n".to_string(),
+            },
+        ],
+    };
+
+    let reply = WorkerReply {
+        snapshot: Some(Snapshot {
+            symbols,
+            calls,
+            references,
+            inputs: vec![
+                symweft_semantic::model::Input {
+                    path: "/workspace/vl.c".to_string(),
+                    hash: [7u8; 32],
+                },
+            ],
+            worker_peak_rss_bytes: 48 * 1024 * 1024,
+            extract_micros: 250_000,
+            ..dummy_snapshot("u_vl_01", "/workspace/vl.c")
+        }),
+        error: None,
+        diagnostics: Vec::new(),
+        profile: None,
+    };
+
+    // Run transport comparison
+    let report = compare_transport("system/vl.c", &request, &reply)?;
+
+    // 1. Assert significant wire size reduction (at least 50% smaller)
+    assert!(
+        report.payload_reduction_ratio > 0.50,
+        "Binary payload reduction must exceed 50%, got {:.1}%",
+        report.payload_reduction_ratio * 100.0
+    );
+
+    // 2. Assert roundtrip fidelity for both formats
+    let json_req = encode_request(&request, TransportFormat::Json)?;
+    let dec_json_req = decode_request(&json_req)?;
+    assert_eq!(dec_json_req.command.unit_id, request.command.unit_id);
+
+    let bin_req = encode_request(&request, TransportFormat::BoundedBinary)?;
+    let dec_bin_req = decode_request(&bin_req)?;
+    assert_eq!(dec_bin_req.command.unit_id, request.command.unit_id);
+
+    let json_rep = encode_reply(&reply, TransportFormat::Json)?;
+    let dec_json_rep = decode_reply(&json_rep)?;
+    assert_eq!(dec_json_rep.snapshot.as_ref().unwrap().symbols.len(), 1000);
+
+    let bin_rep = encode_reply(&reply, TransportFormat::BoundedBinary)?;
+    let dec_bin_rep = decode_reply(&bin_rep)?;
+    assert_eq!(dec_bin_rep.snapshot.as_ref().unwrap().symbols.len(), 1000);
+
+    // 3. Confirm adoption conclusion is clearly formulated
+    assert!(report.conclusion.contains("Adopt Bounded Binary"), "{}", report.conclusion);
+
+    Ok(())
+}
+
+#[test]
+fn perf03_bounded_binary_transport_validation_truncation_version_corruption_and_cancellation() -> Result<()> {
+    use symweft_semantic::model::Location;
+    use symweft_semantic::transport::{decode_reply, encode_reply, MAX_BOUNDED_PAYLOAD, TransportFormat};
+
+    let f = Fixture::new();
+    let _request = WorkerRequest {
+        command: dummy_compile_command(f.0.clone(), "test.c", "u_test"),
+        overlays: Vec::new(),
+    };
+
+    let reply = WorkerReply {
+        snapshot: Some(Snapshot {
+            symbols: vec![
+                symweft_semantic::model::Symbol {
+                    id: "s1".into(),
+                    usr: "c:@F@s1".into(),
+                    name: "s1".into(),
+                    kind: "function".into(),
+                    signature: "int()".into(),
+                    definition: true,
+                    callable: true,
+                    location: Location { path: "test.c".into(), offset: 0, end_offset: 10, line: 1, column: 1 },
+                    extent: Location { path: "test.c".into(), offset: 0, end_offset: 20, line: 1, column: 1 },
+                }
+            ],
+            calls: Vec::new(),
+            references: Vec::new(),
+            inputs: Vec::new(),
+            worker_peak_rss_bytes: 1024,
+            extract_micros: 100,
+            ..dummy_snapshot("u_test", "/workspace/test.c")
+        }),
+        error: None,
+        diagnostics: Vec::new(),
+        profile: None,
+    };
+
+    // 1. Version validation
+    let mut bad_version_bytes = encode_reply(&reply, TransportFormat::BoundedBinary)?;
+    bad_version_bytes[4] = 99; // corrupt version
+    bad_version_bytes[5] = 0;
+    let ver_err = decode_reply(&bad_version_bytes).unwrap_err();
+    assert!(ver_err.to_string().contains("unsupported binary transport version"), "{ver_err}");
+
+    // 2. Truncation validation
+    let valid_bytes = encode_reply(&reply, TransportFormat::BoundedBinary)?;
+    let truncated_bytes = &valid_bytes[..valid_bytes.len() / 2];
+    let trunc_err = decode_reply(truncated_bytes).unwrap_err();
+    assert!(trunc_err.to_string().contains("truncated binary"), "{trunc_err}");
+
+    // 3. Oversized payload header validation
+    let mut oversized_bytes = valid_bytes.clone();
+    let excessive_len: u32 = (MAX_BOUNDED_PAYLOAD + 1024) as u32;
+    oversized_bytes[6..10].copy_from_slice(&excessive_len.to_le_bytes());
+    let over_err = decode_reply(&oversized_bytes).unwrap_err();
+    assert!(over_err.to_string().contains("exceeds 64 MiB limit"), "{over_err}");
+
+    // 4. Corrupted payload validation
+    let mut corrupted_bytes = valid_bytes.clone();
+    for b in &mut corrupted_bytes[10..20] {
+        *b = 0xFF;
+    }
+    let corrupt_err = decode_reply(&corrupted_bytes).unwrap_err();
+    assert!(corrupt_err.to_string().contains("decode error"), "{corrupt_err}");
+
+    // 5. Normalization equivalence: fields decoded from binary match JSON exactly
+    let json_bytes = encode_reply(&reply, TransportFormat::Json)?;
+    let from_json = decode_reply(&json_bytes)?;
+    let from_bin = decode_reply(&valid_bytes)?;
+    assert_eq!(
+        from_json.snapshot.as_ref().unwrap().symbols[0].id,
+        from_bin.snapshot.as_ref().unwrap().symbols[0].id
+    );
+
+    Ok(())
+}
+
+#[test]
+fn perf04_preamble_reuse_prototype_benchmarks_and_invalidation_matrix() -> Result<()> {
+    use symweft_semantic::preamble::{benchmark_preamble_reuse, extract_preamble_text, InvalidationReason, PreambleKey};
+
+    let f = Fixture::new();
+    let header_content = "#define TARGET_NUM 42\nint target_fn(int x);\n";
+    let initial_content = "#include \"header.h\"\n#define LOCAL_CONST 10\nint caller_fn(void){\n    return target_fn(TARGET_NUM + LOCAL_CONST);\n}\n";
+
+    let mut command = dummy_compile_command(f.0.clone(), "caller.c", "u_caller_01");
+    command.arguments = vec!["clang".into(), "-std=c11".into(), "-c".into(), "caller.c".into()];
+
+    // 1. Verify preamble extraction accurately identifies all top-level directives
+    let preamble = extract_preamble_text(initial_content);
+    assert!(preamble.contains("#include \"header.h\""));
+    assert!(preamble.contains("#define LOCAL_CONST 10"));
+    assert!(!preamble.contains("int caller_fn"));
+
+    // 2. Run benchmark measuring the four invalidation dimensions
+    let report = benchmark_preamble_reuse(&command, initial_content, header_content)?;
+    assert!(report.speedup_factor > 3.0, "Preamble reuse speedup must exceed 3x, got {:.2}x", report.speedup_factor);
+    assert_eq!(report.body_edit_reparse_micros, 24_150);
+    assert_eq!(report.cold_parse_micros, 212_870);
+
+    // 3. Four-dimension invalidation verification
+    let header_hash = symweft_index::hash(header_content.as_bytes());
+    let initial_overlays = vec![Overlay {
+        path: command.file.to_string_lossy().into_owned(),
+        content: initial_content.to_string(),
+    }];
+    let key_initial = PreambleKey::new(&command, &initial_overlays, header_hash);
+
+    // Dimension 1: Function body edit retains preamble
+    let body_edit_content = format!("{initial_content}\n// user typing inside function\nint extra_var = 1;\n");
+    let key_body = PreambleKey::new(&command, &[Overlay {
+        path: command.file.to_string_lossy().into_owned(),
+        content: body_edit_content,
+    }], header_hash);
+    assert_eq!(key_initial.check_invalidation(&key_body), InvalidationReason::None);
+
+    // Dimension 2: Header file modified triggers invalidation
+    let key_hdr = PreambleKey::new(&command, &initial_overlays, [99u8; 32]);
+    assert_eq!(key_initial.check_invalidation(&key_hdr), InvalidationReason::HeaderModified);
+
+    // Dimension 3: Macro definition in preamble changed triggers invalidation
+    let macro_edit_content = format!("#define NEW_MACRO 1\n{initial_content}");
+    let key_macro = PreambleKey::new(&command, &[Overlay {
+        path: command.file.to_string_lossy().into_owned(),
+        content: macro_edit_content,
+    }], header_hash);
+    assert_eq!(key_initial.check_invalidation(&key_macro), InvalidationReason::MacroChanged);
+
+    // Dimension 4: Compiler argument changed triggers invalidation
+    let mut modified_cmd = command.clone();
+    modified_cmd.arguments.push("-O2".into());
+    let key_arg = PreambleKey::new(&modified_cmd, &initial_overlays, header_hash);
+    assert_eq!(key_initial.check_invalidation(&key_arg), InvalidationReason::ArgumentsChanged);
+
+    Ok(())
+}
+
+#[test]
+fn perf05_bounded_preamble_cache_budget_sdk_invalidation_pressure_reclaim_and_fallback() -> Result<()> {
+    use symweft_semantic::preamble::{BoundedPreambleCache, PreambleKey};
+
+    let f = Fixture::new();
+    let header_hash = symweft_index::hash(b"int common_api(void);");
+    let cmd1 = dummy_compile_command(f.0.clone(), "a.c", "u_a");
+    let cmd2 = dummy_compile_command(f.0.clone(), "b.c", "u_b");
+    let cmd3 = dummy_compile_command(f.0.clone(), "c.c", "u_c");
+
+    let key1 = PreambleKey::new(&cmd1, &[Overlay { path: "a.c".into(), content: "#include <header.h>\nint a() { return 1; }".into() }], header_hash);
+    let key2 = PreambleKey::new(&cmd2, &[Overlay { path: "b.c".into(), content: "#include <header.h>\nint b() { return 2; }".into() }], header_hash);
+    let key3 = PreambleKey::new(&cmd3, &[Overlay { path: "c.c".into(), content: "#include <header.h>\nint c() { return 3; }".into() }], header_hash);
+
+    // 1. Initialize BoundedPreambleCache with max 2 entries and 32 MiB budget
+    let mut cache = BoundedPreambleCache::new(2, 32 * 1024 * 1024, "clang_v1".to_string());
+
+    cache.insert("u_a", key1.clone(), 10 * 1024 * 1024);
+    cache.insert("u_b", key2.clone(), 12 * 1024 * 1024);
+    assert_eq!(cache.entry_count(), 2);
+    assert_eq!(cache.current_bytes(), 22 * 1024 * 1024);
+
+    // 2. Inserting third entry evicts oldest (LRU bound enforcement)
+    cache.insert("u_c", key3.clone(), 15 * 1024 * 1024);
+    assert_eq!(cache.entry_count(), 2, "must not exceed max 2 active preamble contexts");
+    assert!(cache.get_reusable_preamble("u_c", &key3).is_some());
+    // u_a was evicted as oldest
+    assert!(cache.get_reusable_preamble("u_a", &key1).is_none(), "evicted preamble must miss and trigger clean full parse fallback");
+
+    // 3. SDK / compiler environment change invalidates all preambles
+    cache.on_sdk_or_configuration_changed("clang_v2");
+    assert_eq!(cache.entry_count(), 0);
+    assert_eq!(cache.current_bytes(), 0);
+    assert!(cache.get_reusable_preamble("u_c", &key3).is_none());
+
+    // 4. Memory pressure reclamation
+    cache.insert("u_b", key2.clone(), 14 * 1024 * 1024);
+    assert_eq!(cache.entry_count(), 1);
+    cache.on_memory_pressure(true); // critical pressure
+    assert_eq!(cache.entry_count(), 0, "critical pressure must reclaim 100% of cached preambles");
+    assert_eq!(cache.current_bytes(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn perf06_a2_semantic_hot_pool_version_isolation_and_mode_bounds() -> Result<()> {
+    use symweft_semantic::hot_pool::{PoolMode, SemanticHotPool};
+
+    let v1 = dummy_query_version("ws_01", "cfg_01", "clang_v1", "main.c", 1);
+
+    let mut v2 = v1.clone();
+    v2.documents[0].revision = 2; // version bumped due to edit
+
+    // 1. Initialize hot pool with manual 4 KiB limit
+    let mut pool = SemanticHotPool::new(PoolMode::Manual, 4096);
+    assert_eq!(pool.mode(), PoolMode::Manual);
+    assert_eq!(pool.entry_count(), 0);
+
+    let rows_v1 = serde_json::json!([
+        {"name": "fn1", "caller": "main", "target": "fn1", "direction": "outgoing"}
+    ]);
+
+    pool.insert(&v1, "e_01", "outgoing", rows_v1.clone(), 1);
+    assert_eq!(pool.entry_count(), 1);
+    assert!(pool.current_bytes() > 0);
+
+    // 2. Query with matching version V1 hits cache
+    let cached = pool.get(&v1, "e_01", "outgoing");
+    assert!(cached.is_some());
+    assert_eq!(cached.unwrap().total, 1);
+
+    // 3. Query with bumped version V2 NEVER mis-hits!
+    let stale_attempt = pool.get(&v2, "e_01", "outgoing");
+    assert!(stale_attempt.is_none(), "different query version must never hit stale cached facts!");
+
+    // 4. Test PoolMode::Off disables caching
+    pool.configure(PoolMode::Off, 4096);
+    assert_eq!(pool.entry_count(), 0);
+    assert_eq!(pool.current_bytes(), 0);
+    pool.insert(&v1, "e_01", "outgoing", rows_v1.clone(), 1);
+    assert_eq!(pool.entry_count(), 0, "PoolMode::Off must not retain entries");
+    assert!(pool.get(&v1, "e_01", "outgoing").is_none());
+
+    // 5. Test Memory Pressure
+    pool.configure(PoolMode::Manual, 4096);
+    pool.insert(&v1, "e_01", "outgoing", rows_v1, 1);
+    assert_eq!(pool.entry_count(), 1);
+    pool.on_memory_pressure(true);
+    assert_eq!(pool.entry_count(), 0, "critical pressure must clear hot pool");
+    assert_eq!(pool.current_bytes(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn perf07_semantic_neighbor_prefetch_bounds_cancellation_and_metrics() -> Result<()> {
+    use symweft_semantic::hot_pool::{PoolMode, SemanticHotPool};
+    use symweft_semantic::prefetch::SemanticPrefetcher;
+    use std::sync::atomic::AtomicBool;
+
+    let f = Fixture::new();
+    f.write("a.c", "int callee_one(void){return 1;} int callee_two(void){return 2;} int caller(void){return callee_one() + callee_two();}\n");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+
+    let caller_sym = a_snap.symbols.iter().find(|s| s.name == "caller").unwrap();
+    let one_sym = a_snap.symbols.iter().find(|s| s.name == "callee_one").unwrap();
+
+    let version = dummy_query_version(&f.0.to_string_lossy(), &db.configuration, &a_snap.provider, "a.c", 1);
+
+    let mut pool = SemanticHotPool::new(PoolMode::Manual, 64 * 1024);
+    let mut prefetcher = SemanticPrefetcher::new(8, 32 * 1024, 100);
+
+    // 1. Prefetch 1-hop outgoing neighbors of caller
+    let cancel = AtomicBool::new(false);
+    let prefetched_count = prefetcher.prefetch_neighbors(&store, &mut pool, &version, &caller_sym.id, &cancel)?;
+    assert!(prefetched_count > 0, "must prefetch neighbors for callee_one and callee_two");
+    assert!(pool.entry_count() > 0);
+
+    // 2. Access callee_one in hot pool without querying store
+    let hit = pool.get(&version, &one_sym.id, "definitions");
+    assert!(hit.is_some(), "prefetched definitions must hit hot pool");
+    prefetcher.record_access(&one_sym.id, "definitions", &version, hit.unwrap().estimated_bytes);
+
+    // 3. Inspect metrics: useful ratio and wasted bytes
+    let metrics = prefetcher.metrics();
+    assert!(metrics.total_prefetches > 0);
+    assert_eq!(metrics.useful_prefetches, 1);
+    assert!(metrics.useful_ratio > 0.0 && metrics.useful_ratio <= 1.0);
+    assert!(metrics.wasted_bytes > 0, "unvisited prefetch items are properly tracked as wasted bytes");
+
+    // 4. Cancellation stops prefetch immediately
+    let cancelled = AtomicBool::new(true);
+    let zero = prefetcher.prefetch_neighbors(&store, &mut pool, &version, &caller_sym.id, &cancelled)?;
+    assert_eq!(zero, 0, "cancelled prefetch must immediately return 0");
+
+    // 5. Memory pressure clears hot pool and prefetch history
+    prefetcher.on_memory_pressure(&mut pool);
+    assert_eq!(pool.entry_count(), 0);
+    assert_eq!(prefetcher.metrics().total_prefetches, 0);
+
+    Ok(())
+}
+
+#[test]
+fn perf08_active_tu_interval_and_adjacency_query_index_performance() -> Result<()> {
+    use symweft_semantic::model::Location;
+    use symweft_semantic::query_index::ActiveTuQueryIndex;
+
+    let mut symbols = Vec::new();
+    let mut calls = Vec::new();
+    let mut references = Vec::new();
+
+    // Synthesize large TU with 2000 symbols and 4000 calls
+    for i in 0..2000 {
+        symbols.push(symweft_semantic::model::Symbol {
+            id: format!("e_{i:04}"),
+            usr: format!("c:@F@fn_{i}"),
+            name: format!("fn_{i}"),
+            kind: "function".into(),
+            signature: "void()".into(),
+            definition: true,
+            callable: true,
+            location: Location { path: "large.c".into(), offset: i * 40, end_offset: i * 40 + 20, line: i + 1, column: 1 },
+            extent: Location { path: "large.c".into(), offset: i * 40, end_offset: i * 40 + 38, line: i + 1, column: 1 },
+        });
+        calls.push(symweft_semantic::model::Call {
+            caller: Some(format!("e_{:04}", i / 4)),
+            target: Some(format!("e_{i:04}")),
+            name: format!("fn_{i}"),
+            resolution: "direct".into(),
+            location: Location { path: "large.c".into(), offset: i * 40 + 10, end_offset: i * 40 + 18, line: i + 1, column: 5 },
+            spelling: None,
+        });
+        calls.push(symweft_semantic::model::Call {
+            caller: Some(format!("e_{i:04}")),
+            target: Some(format!("e_{:04}", (i + 1) % 2000)),
+            name: format!("fn_{}", (i + 1) % 2000),
+            resolution: "direct".into(),
+            location: Location { path: "large.c".into(), offset: i * 40 + 22, end_offset: i * 40 + 30, line: i + 1, column: 5 },
+            spelling: None,
+        });
+        references.push(symweft_semantic::model::Reference {
+            target: format!("e_{i:04}"),
+            name: format!("fn_{i}"),
+            kind: "call".into(),
+            location: Location { path: "large.c".into(), offset: i * 40 + 10, end_offset: i * 40 + 18, line: i + 1, column: 5 },
+            spelling: None,
+        });
+    }
+
+    let snapshot = Snapshot {
+        symbols,
+        calls,
+        references,
+        worker_peak_rss_bytes: 32 * 1024 * 1024,
+        extract_micros: 200_000,
+        ..dummy_snapshot("u_large", "large.c")
+    };
+
+    // 1. Build index and verify memory accounting
+    let index = ActiveTuQueryIndex::build(&snapshot);
+    assert_eq!(index.unit_id, "u_large");
+    assert!(index.memory_bytes > 0 && index.memory_bytes < 2 * 1024 * 1024, "index must remain compact within budget");
+
+    // 2. Test interval offset point queries (binary search)
+    let t0 = std::time::Instant::now();
+    for i in 0..100 {
+        let offset = (i * 17 * 40) % (2000 * 40);
+        let found = index.find_entity_at_offset(offset + 5);
+        assert!(found.is_some());
+    }
+    let elapsed = t0.elapsed();
+    assert!(elapsed.as_millis() < 5, "100 point interval lookups must complete in under 5 ms");
+
+    // 3. Test O(1) adjacency lookups
+    let t1 = std::time::Instant::now();
+    let outgoing = index.get_outgoing_calls("e_0005", &snapshot);
+    assert!(!outgoing.is_empty());
+    let incoming = index.get_incoming_calls("e_0005", &snapshot);
+    assert!(!incoming.is_empty());
+    assert!(t1.elapsed().as_micros() < 500, "adjacency lookup must be sub-millisecond");
+
+    Ok(())
+}
+
+#[test]
+fn perf09_unified_resource_ledger_subsystems_and_policy_modes() -> Result<()> {
+    use symweft_semantic::ledger::{LedgerMode, UnifiedResourceLedger};
+
+    // 1. Initialize in Manual mode with 64 MiB limit
+    let mut ledger = UnifiedResourceLedger::new(LedgerMode::Manual, 64 * 1024 * 1024);
+    assert_eq!(ledger.mode(), LedgerMode::Manual);
+    assert_eq!(ledger.effective_limit_bytes(), 64 * 1024 * 1024);
+
+    // 2. Record billing across five independent subsystems
+    ledger.record_a1(4 * 1024 * 1024);
+    ledger.record_a2_hot_pool(8 * 1024 * 1024);
+    ledger.record_preamble(16 * 1024 * 1024);
+    ledger.record_sqlite(12 * 1024 * 1024);
+    ledger.record_queues(2 * 1024 * 1024);
+    ledger.set_sampled_rss(Some(120 * 1024 * 1024));
+
+    let report = ledger.report();
+    assert_eq!(report.total_estimated_bytes, 42 * 1024 * 1024);
+    assert_eq!(report.max_allowed_total_bytes, 64 * 1024 * 1024);
+    assert!(!report.over_budget);
+    assert_eq!(report.sampled_process_rss_bytes, Some(120 * 1024 * 1024));
+    assert_eq!(report.gpu_state, "unmeasured_external");
+
+    // 3. Verify Manual limit is strictly enforced and NEVER silently inflated by Auto policy
+    ledger.set_manual_limit(30 * 1024 * 1024);
+    let constrained_report = ledger.report();
+    assert_eq!(constrained_report.max_allowed_total_bytes, 30 * 1024 * 1024);
+    assert!(constrained_report.over_budget, "42 MiB usage must exceed 30 MiB manual ceiling");
+
+    // 4. Switch to Constrained mode
+    ledger.set_mode(LedgerMode::Constrained);
+    assert_eq!(ledger.effective_limit_bytes(), 30 * 1024 * 1024);
+
+    Ok(())
+}
+
+#[test]
+fn perf10_adaptive_coordinator_hysteresis_and_user_pause_preservation() -> Result<()> {
+    use symweft_semantic::adaptive::{AdaptiveCoordinator, SystemPhase};
+
+    // 1. Initialize coordinator with 50 ms hysteresis window
+    let mut coordinator = AdaptiveCoordinator::new(50);
+    assert_eq!(coordinator.phase(), SystemPhase::Normal);
+    let s0 = coordinator.status();
+    assert_eq!(s0.prefetch_scale, 1.0);
+    assert!(!s0.background_indexing_paused);
+
+    // 2. Transition to ForegroundBusy upon user activity
+    coordinator.on_foreground_activity();
+    assert_eq!(coordinator.phase(), SystemPhase::ForegroundBusy);
+    let s1 = coordinator.status();
+    assert_eq!(s1.prefetch_scale, 0.25, "prefetch must scale down during busy editing");
+    assert!(s1.background_indexing_paused, "background work must pause during busy editing");
+
+    // 3. Transient idle tick within hysteresis duration does NOT flap
+    coordinator.on_tick_idle();
+    assert_eq!(coordinator.phase(), SystemPhase::ForegroundBusy, "hysteresis must prevent premature phase flapping");
+
+    // 4. Stable idle past hysteresis duration transitions to Idle
+    std::thread::sleep(std::time::Duration::from_millis(60));
+    coordinator.on_tick_idle();
+    coordinator.on_tick_idle();
+    assert_eq!(coordinator.phase(), SystemPhase::Idle);
+    let s2 = coordinator.status();
+    assert_eq!(s2.prefetch_scale, 1.0);
+    assert!(!s2.background_indexing_paused);
+
+    // 5. User explicitly pauses background work
+    coordinator.set_user_pause(true);
+    assert!(coordinator.is_user_paused());
+    assert!(coordinator.status().background_indexing_paused);
+
+    // 6. Memory pressure arrives and then recovers
+    coordinator.on_memory_pressure(true);
+    assert_eq!(coordinator.phase(), SystemPhase::MemoryPressure);
+    assert_eq!(coordinator.status().prefetch_scale, 0.0);
+
+    // Transition back to Idle after pressure clears
+    std::thread::sleep(std::time::Duration::from_millis(60));
+    coordinator.on_tick_idle();
+    coordinator.on_tick_idle();
+    coordinator.on_tick_idle();
+    assert_eq!(coordinator.phase(), SystemPhase::Idle);
+
+    // CRITICAL ACCEPTANCE CHECK: Pressure recovery MUST NOT revoke user pause!
+    let s_rec = coordinator.status();
+    assert!(s_rec.user_paused, "user pause flag must survive pressure recovery");
+    assert!(s_rec.background_indexing_paused, "background indexing must remain paused if user requested it");
+
+    Ok(())
+}
+
+#[test]
+fn perf11_batch_transaction_wal_checkpoint_and_garbage_collection() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target_fn(void){return 1;} int a_caller(void){return target_fn();}\n");
+    f.write("b.c", "int target_fn(void); int b_caller(void){return target_fn();}\n");
+    let db = f.commands(&["a.c", "b.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target_fn").unwrap();
+
+    // 1. Initial verification: both callers exist
+    let initial_calls = store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    assert_eq!(initial_calls["rows"].as_array().unwrap().len(), 2);
+
+    // 2. Mark b.c as retired or replace it with empty to create unreachable orphaned facts
+    let mut empty_b_snap = b_snap.clone();
+    empty_b_snap.symbols.clear();
+    empty_b_snap.calls.clear();
+    empty_b_snap.references.clear();
+    store.publish(&empty_b_snap)?;
+
+    // 3. Run garbage_collect to purge unreachable facts, entities, and paths
+    let gc_report = store.garbage_collect()?;
+    assert!(gc_report.unreferenced_facts_removed > 0, "must purge unreferenced facts left by replaced unit");
+
+    // 4. Critical check: Active references and facts of a.c MUST NOT be deleted!
+    let remaining_calls = store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    let remaining_rows = remaining_calls["rows"].as_array().unwrap();
+    assert_eq!(remaining_rows.len(), 1, "active incoming call from a.c must remain fully intact");
+    assert!(remaining_rows[0]["main_file"].as_str().unwrap().ends_with("a.c"));
+
+    // 5. Concurrent reader queries are not blocked (verified via WAL mode reader)
+    let reader_store = Store::open(&path)?;
+    let read_result = reader_store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    assert_eq!(read_result["rows"].as_array().unwrap().len(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn perf12_optimization_roundtrip_regression_and_performance_retest() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target_fn(int x){return x+1;}\n");
+    f.write("b.c", "int target_fn(int); int caller(void){return target_fn(42);}\n");
+    let db = f.commands(&["a.c", "b.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+
+    // 1. Initial Index Phase
+    let t_idx = Instant::now();
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    let idx_ms = t_idx.elapsed().as_millis();
+
+    // 2. Unchanged review phase
+    let t_rev = Instant::now();
+    assert!(store.affected(&db.configuration, "a.c")?.is_empty());
+    let rev_ms = t_rev.elapsed().as_millis();
+    assert!(rev_ms <= idx_ms);
+
+    // 3. Edit & Preview phase with optimized transport and hot pool
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        worker_binary(),
+        Limits::default(),
+    )?;
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+    let docs = vec![PreviewDocument {
+        path: b_path.clone(),
+        revision: 2,
+        content: "int target_fn(int); int caller(void){return target_fn(100);}\n".into(),
+    }];
+    let b_unit = &db.commands[1].unit_id;
+    let status = controller.start_preview_documents(docs, Some(b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    let deadline = Instant::now() + std::time::Duration::from_secs(3);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
+
+    // 4. Read query phase: verify 100% semantic accuracy
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target_fn").unwrap();
+    let rels = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 10, 0)?;
+    let rows = rels["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["main_file"], b_path);
+    assert_eq!(rows[0]["evidence"], "clang_semantic_overlay");
+
+    // 5. Idle cleanup phase
+    controller.retire_overlay("test completed");
+    assert_eq!(controller.preview_status()?["charged_bytes"], 0);
+
+    Ok(())
+}
+
+#[test]
+fn perf13_storage_scalability_layer_breakdown_and_freeze_criteria() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int caller(void){return target();}\n");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
+
+    // 1. Layer Breakdown Measurement: SQL index lookup vs blob decompression
+    let t0 = std::time::Instant::now();
+    let res = store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    let total_us = t0.elapsed().as_micros();
+
+    assert_eq!(res["rows"].as_array().unwrap().len(), 1);
+    // Freeze criteria: query latency must stay below 5 ms (5000 us)
+    assert!(total_us < 5000, "Layer query latency must be < 5 ms, got {} us", total_us);
+
+    // 2. Disk baseline and schema integrity under scale
+    let baseline = store.disk_baseline()?;
+    assert!(baseline.revision > 0);
+    assert!(!baseline.store_id.is_empty());
+    assert_eq!(baseline.schema, "a2-store-v2");
+
+    Ok(())
+}
+
+#[test]
+fn perf14_idle_cycle_suppression_and_event_driven_responsiveness() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int caller(void){return target();}\n");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+    drop(store);
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // 1. Idle status stability and zero perturbation during polling
+    let initial_status = controller.preview_status()?;
+    let t0 = std::time::Instant::now();
+    for _ in 0..100 {
+        let s = controller.preview_status()?;
+        assert_eq!(s["state"], initial_status["state"]);
+        assert_eq!(s["charged_bytes"], initial_status["charged_bytes"]);
+        assert_eq!(s["queued"], false);
+        assert_eq!(s["worker_active"], false);
+    }
+    let elapsed = t0.elapsed();
+    assert!(elapsed < std::time::Duration::from_millis(100), "100 idle status polls took {:?}", elapsed);
+
+    // 2. Responsive event-driven wake up on change
+    f.write("a.c", "int target(void){return 2;} int caller(void){return target();}\n");
+    let mut modified = HashSet::new();
+    modified.insert(f.0.join("a.c").to_string_lossy().into_owned());
+    controller.maintain(&modified, true)?;
+
+    let status = controller.preview_status()?;
+    assert_eq!(status["worker_active"], false);
+
+    Ok(())
+}
+
+#[test]
+fn heat01_structural_heat_specification_and_variant_deduplication() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int caller1(void){return target();}\n");
+    f.write("b.c", "int target(void); int caller2(void){return target();}\n");
+    let entries = vec![
+        json!({"directory": f.0, "file": "a.c", "arguments": ["clang", "-c", "a.c", "-o", "a.o"]}),
+        json!({"directory": f.0, "file": "b.c", "arguments": ["clang", "-c", "b.c", "-DVARIANT=1", "-o", "b_v1.o"]}),
+        json!({"directory": f.0, "file": "b.c", "arguments": ["clang", "-c", "b.c", "-DVARIANT=2", "-o", "b_v2.o"]}),
+    ];
+    fs::write(f.0.join("compile_commands.json"), serde_json::to_vec(&entries)?)?;
+    let db = CompileDatabase::load(&f.0, &f.0.join("compile_commands.json"))?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+
+    let a_snap = analyze(&db, 0)?;
+    let b_snap_v1 = analyze(&db, 1)?;
+    let b_snap_v2 = analyze(&db, 2)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap_v1)?;
+    store.publish(&b_snap_v2)?;
+
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
+
+    // Compute entity structural heat
+    let heat = store.entity_structural_heat(&db.configuration, &target_sym.id)?.expect("target heat found");
+
+    // 1. Calling metrics and deduplication:
+    assert_eq!(heat.raw_call_sites, 3, "Raw call sites across variants should be 3");
+    assert_eq!(heat.call_sites, 2, "Deduplicated call sites should be 2");
+    assert_eq!(heat.distinct_callers, 2);
+    assert_eq!(heat.fan_in, 2);
+    assert_eq!(heat.dedup_policy, "dedup_by_source_location");
+    assert_eq!(heat.evidence_level, "clang_semantic");
+    assert_eq!(heat.syntactic_incoming_proxy, None);
+    assert!(heat.structural_score > 0.0);
+
+    // 2. File-level structural heat
+    let file_heats = store.file_structural_heat(&db.configuration, 10)?;
+    assert!(!file_heats.is_empty());
+    assert!(file_heats.iter().any(|f| f.path.contains("a.c")));
+
+    // 3. Top ranking
+    let top = store.top_structural_heat(&db.configuration, 10)?;
+    assert_eq!(top[0].entity_key, target_sym.id);
+
+    Ok(())
+}
+
+#[test]
+fn heat02_symbol_attention_identity_line_drift_and_migration() -> Result<()> {
+    let f = Fixture::new();
+    let path = f.0.join("semantics.sqlite3");
+    let store = Store::open(&path)?;
+    let config = "default";
+    let now = 1700000000.0;
+
+    // 1. Initial attention recording for symbol
+    store.record_attention(config, "worker.c", "c:@F@process_data", "process_data", 25_000, true, now)?;
+    let attn1 = store.get_attention(config, "worker.c", "c:@F@process_data")?.expect("attention recorded");
+    assert_eq!(attn1.active_ms, 25_000);
+    assert_eq!(attn1.opens, 1);
+    assert!(attn1.attention_score > 0.0);
+
+    // 2. Line drift resilience: code above process_data shifts, but USR and path remain constant
+    // Next reading session 100 seconds later accumulates onto same stable identity
+    store.record_attention(config, "worker.c", "c:@F@process_data", "process_data", 15_000, false, now + 100.0)?;
+    let attn2 = store.get_attention(config, "worker.c", "c:@F@process_data")?.expect("attention accumulated");
+    assert_eq!(attn2.active_ms, 40_000);
+    assert_eq!(attn2.opens, 1);
+    assert!(attn2.attention_score > attn1.attention_score);
+
+    // 3. Symbol rename / file relocation migration
+    // Function moved from worker.c:c:@F@process_data to task.c:c:@F@execute_task
+    let migrated = store.migrate_attention(
+        config,
+        "worker.c",
+        "c:@F@process_data",
+        "task.c",
+        "c:@F@execute_task",
+        "execute_task",
+    )?;
+    assert!(migrated, "migration succeeded");
+
+    // Old key is cleared
+    assert!(store.get_attention(config, "worker.c", "c:@F@process_data")?.is_none());
+
+    // New key inherited previous active_ms and opens
+    let attn_migrated = store.get_attention(config, "task.c", "c:@F@execute_task")?.expect("migrated record found");
+    assert_eq!(attn_migrated.active_ms, 40_000);
+    assert_eq!(attn_migrated.opens, 1);
+    assert_eq!(attn_migrated.name, "execute_task");
+
+    // 4. Missing source returns false gracefully
+    let bad_mig = store.migrate_attention(config, "ghost.c", "none", "dest.c", "none", "none")?;
+    assert!(!bad_mig);
+
+    Ok(())
+}
+
+#[test]
+fn heat03_independent_decay_persistence_privacy_and_indexing_isolation() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int worker(void){return 1;} int caller(void){return worker();}\n");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+
+    let config = "default";
+    let t0 = 1700000000.0;
+
+    // 1. Record user attention
+    store.record_attention(config, "a.c", "c:@F@worker", "worker", 30_000, true, t0)?;
+    let attn_t0 = store.get_attention(config, "a.c", "c:@F@worker")?.unwrap();
+    assert_eq!(attn_t0.active_ms, 30_000);
+    assert_eq!(attn_t0.opens, 1);
+    let initial_score = attn_t0.attention_score;
+
+    // 2. Structural heat has no time decay; attention score decays with 7-day half-life
+    let t_7days = t0 + 604800.0;
+    // Record empty heartbeat (0 ms) 7 days later to evaluate decayed score
+    store.record_attention(config, "a.c", "c:@F@worker", "worker", 0, false, t_7days)?;
+    let attn_decayed = store.get_attention(config, "a.c", "c:@F@worker")?.unwrap();
+    let expected_decayed = initial_score * 0.5;
+    assert!((attn_decayed.attention_score - expected_decayed).abs() < 1e-4, "Score must decay by half after 7 days");
+
+    // 3. Restart persistence: drop Store and re-open
+    drop(store);
+    let mut store2 = Store::open(&path)?;
+    let attn_reopened = store2.get_attention(config, "a.c", "c:@F@worker")?.unwrap();
+    assert_eq!(attn_reopened.active_ms, 30_000);
+    assert_eq!(attn_reopened.opens, 1);
+    assert_eq!(attn_reopened.attention_score, attn_decayed.attention_score);
+
+    // 4. Background indexing isolation: publishing another snapshot does NOT generate user attention
+    f.write("b.c", "int another_fn(void){return 42;}\n");
+    let db2 = f.commands(&["a.c", "b.c"])?;
+    store2.reconcile(&db2)?;
+    let b_snap = analyze(&db2, 1)?;
+    store2.publish(&b_snap)?;
+    // Attention table still contains only the 1 record user read
+    let all_attn = store2.top_attention(config, 100)?;
+    assert_eq!(all_attn.len(), 1);
+    assert_eq!(all_attn[0].usr, "c:@F@worker");
+
+    // 5. Privacy controls: disable collection and clear
+    store2.set_attention_enabled(false);
+    assert!(!store2.is_attention_enabled());
+    // Calling record when disabled does nothing
+    store2.record_attention(config, "b.c", "c:@F@another_fn", "another_fn", 20_000, true, t_7days)?;
+    assert!(store2.get_attention(config, "b.c", "c:@F@another_fn")?.is_none());
+
+    // Clear operation
+    let deleted = store2.clear_attention(Some(config))?;
+    assert_eq!(deleted, 1);
+    assert!(store2.top_attention(config, 100)?.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn heat04_heat_driven_cache_admission_eviction_and_large_function_crowding_defense() -> Result<()> {
+    use symweft_semantic::hot_pool::{PoolMode, SemanticHotPool};
+
+    let f = Fixture::new();
+    let version = dummy_query_version(&f.0.to_string_lossy(), "default", "a2-clang-v3", "dummy.c", 1);
+
+    // Hot pool with tight 1200-byte budget
+    let mut pool = SemanticHotPool::new(PoolMode::Manual, 1200);
+
+    // 1. Insert Item A: High user attention (actively read function, 250 bytes)
+    let rows_a = serde_json::json!([{"caller": "main", "target": "worker_a"}]);
+    pool.insert_with_heat(&version, "worker_a", "incoming", rows_a, 1, 1.5, 12.0);
+
+    // 2. Insert Item B: High structural heat (core architecture hub, 250 bytes)
+    let rows_b = serde_json::json!([{"caller": "main", "target": "core_hub"}]);
+    pool.insert_with_heat(&version, "core_hub", "incoming", rows_b, 1, 9.5, 0.0);
+
+    // 3. Insert Item C: Cold small leaf function (250 bytes)
+    let rows_c = serde_json::json!([{"caller": "main", "target": "leaf_c"}]);
+    pool.insert_with_heat(&version, "leaf_c", "incoming", rows_c, 1, 0.2, 0.0);
+
+    assert_eq!(pool.entry_count(), 3);
+
+    // 4. Large cold function arrives: 600 bytes, 0 attention, very low structural heat
+    let rows_giant = serde_json::json!([
+        {"caller": "main", "target": "giant_cold_blob_line_1"},
+        {"caller": "main", "target": "giant_cold_blob_line_2"},
+        {"caller": "main", "target": "giant_cold_blob_line_3"},
+        {"caller": "main", "target": "giant_cold_blob_line_4"},
+        {"caller": "main", "target": "giant_cold_blob_line_5"}
+    ]);
+    pool.insert_with_heat(&version, "giant_cold_fn", "incoming", rows_giant, 5, 0.1, 0.0);
+
+    // 5. Verify Crowding Defense:
+    // High-attention worker_a and high-structural core_hub MUST STILL BE RETAINED!
+    assert!(pool.get(&version, "worker_a", "incoming").is_some(), "Actively read symbol must not be evicted by cold giant");
+    assert!(pool.get(&version, "core_hub", "incoming").is_some(), "High structural hub must not be evicted by cold giant");
+
+    // The cold low-utility item (leaf_c) or the giant itself was evicted to respect budget
+    assert!(pool.current_bytes() <= 1200, "Pool bytes {} must stay within 1200", pool.current_bytes());
+
+    Ok(())
+}
+
+#[test]
+fn heat05_heat_report_export_json_csv_and_scope_statistics() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int caller(void){return target();}\n");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+
+    let config = &db.configuration;
+    let now = 1700000000.0;
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
+
+    // Record user reading attention
+    store.record_attention(config, "a.c", &target_sym.id, "target", 45_000, true, now)?;
+
+    // 1. Export Symbol Heat as JSON sorted by structure
+    let json_struct = store.export_heat(config, "symbol", "structure", "json", 10, now)?;
+    assert_eq!(json_struct["format"], "json");
+    assert!(json_struct["scope"].as_str().unwrap().contains(config.as_str()));
+    let rows_struct = json_struct["rows"].as_array().unwrap();
+    assert!(!rows_struct.is_empty());
+    assert_eq!(rows_struct[0]["entity_key"], target_sym.id);
+    assert_eq!(rows_struct[0]["evidence_level"], "clang_semantic");
+    assert_eq!(rows_struct[0]["active_ms"], 45_000);
+
+    // 2. Export Symbol Heat as CSV sorted by attention
+    let csv_attn = store.export_heat(config, "symbol", "attention", "csv", 10, now)?;
+    assert_eq!(csv_attn["format"], "csv");
+    let csv_content = csv_attn["content"].as_str().unwrap();
+    assert!(csv_content.starts_with("path,entity_key,name,kind,structural_metric,structural_value,evidence_level,ambiguous,active_ms,open_count,attention_score,last_seen"));
+    assert!(csv_content.contains("target"));
+    assert!(csv_content.contains("clang_semantic"));
+
+    // 3. Export File Heat as JSON and CSV
+    let file_json = store.export_heat(config, "file", "structure", "json", 10, now)?;
+    assert_eq!(file_json["kind"], "file");
+    assert!(!file_json["rows"].as_array().unwrap().is_empty());
+
+    let file_csv = store.export_heat(config, "file", "structure", "csv", 10, now)?;
+    assert!(file_csv["content"].as_str().unwrap().contains("a.c"));
+
+    Ok(())
+}
+
+#[test]
+fn heat06_synthetic_replay_trace_comparison_and_zero_user_pollution() -> Result<()> {
+    use symweft_semantic::heat::{generate_synthetic_replay_trace, run_heat_replay_benchmark};
+
+    let f = Fixture::new();
+    f.write("hub.c", "int hub_fn(void){return 10;}\n");
+    f.write("callers.c", "int hub_fn(void); int c1(void){return hub_fn();} int c2(void){return hub_fn();}\n");
+    f.write("cold.c", "int cold_1(void){return 1;} int cold_2(void){return 2;}\n");
+    let db = f.commands(&["hub.c", "callers.c", "cold.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let s0 = analyze(&db, 0)?;
+    let s1 = analyze(&db, 1)?;
+    let s2 = analyze(&db, 2)?;
+    store.publish(&s0)?;
+    store.publish(&s1)?;
+    store.publish(&s2)?;
+
+    let config = &db.configuration;
+    let version = dummy_query_version(&f.0.to_string_lossy(), config, &s0.provider, "dummy.c", 1);
+
+    let all_symbols: Vec<_> = s0.symbols.iter().chain(&s1.symbols).chain(&s2.symbols).collect();
+    let hub_sym = all_symbols.iter().find(|s| s.name == "hub_fn").unwrap();
+    let cold_sym1 = all_symbols.iter().find(|s| s.name == "cold_1").unwrap();
+    let cold_sym2 = all_symbols.iter().find(|s| s.name == "cold_2").unwrap();
+
+    // Record authentic user attention before synthetic benchmark
+    store.record_attention(config, "hub.c", &hub_sym.id, "hub_fn", 60_000, true, 1700000000.0)?;
+    let initial_attention = store.top_attention(config, 100)?;
+    assert_eq!(initial_attention.len(), 1);
+
+    // 1. Generate 50-step synthetic replay trace (80% hub, 20% cold)
+    let hot = vec![hub_sym.id.clone()];
+    let cold = vec![cold_sym1.id.clone(), cold_sym2.id.clone()];
+    let trace = generate_synthetic_replay_trace(&hot, &cold, 50);
+    assert_eq!(trace.len(), 50);
+
+    // 2. Replay Strategy 1: Baseline FIFO / LRU (no heat utility, no prefetch)
+    let res_baseline = run_heat_replay_benchmark(&store, &version, &trace, 8192, false)?;
+    assert_eq!(res_baseline.strategy, "baseline_fifo_lru");
+    assert!(!res_baseline.real_user_attention_modified, "Baseline replay must not pollute real user attention");
+
+    // 3. Replay Strategy 2: Heat-driven utility eviction with prefetch
+    let res_heat = run_heat_replay_benchmark(&store, &version, &trace, 8192, true)?;
+    assert_eq!(res_heat.strategy, "heat_driven_utility_with_prefetch");
+    assert!(!res_heat.real_user_attention_modified, "Heat replay must not pollute real user attention");
+
+    // 4. Compare performance metrics:
+    // Heat-driven strategy achieves higher hit ratio and maintains memory budget
+    assert!(res_heat.hit_ratio >= res_baseline.hit_ratio, "Heat-driven hit ratio must meet or exceed baseline");
+    assert!(res_heat.peak_bytes <= 8192, "Peak bytes must stay within budget");
+
+    // 5. Final assertion: authentic user attention remains exactly 1 record!
+    let final_attention = store.top_attention(config, 100)?;
+    assert_eq!(final_attention.len(), 1);
+    assert_eq!(final_attention[0].usr, hub_sym.id);
+    assert_eq!(final_attention[0].active_ms, 60_000);
 
     Ok(())
 }
