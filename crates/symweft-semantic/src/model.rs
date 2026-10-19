@@ -107,6 +107,15 @@ pub struct Diagnostic {
     pub message: String,
     pub location: Option<Location>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedUnit {
+    pub unit_id: String,
+    pub main_file: String,
+    pub reason: String,
+    pub kind: String,
+    pub diagnostics: Vec<Diagnostic>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub unit_id: String,

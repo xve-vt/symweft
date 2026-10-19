@@ -896,3 +896,85 @@ json.dump({'snapshot':None,'error':'fake-slow','diagnostics':[]},sys.stdout)
 
     Ok(())
 }
+
+#[test]
+fn failed_tu_merge_semantics_masks_old_edges_and_retains_valid_tus() -> Result<()> {
+    let f = Fixture::new();
+    f.write("a.c", "int target(void){return 1;} int a_caller(void){return target();}
+");
+    f.write("b.c", "int target(void); int b_caller(void){return target();}
+");
+    let db = f.commands(&["a.c", "b.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    drop(store);
+
+    let a_unit = db.commands[0].unit_id.clone();
+    let b_unit = db.commands[1].unit_id.clone();
+
+    // 1. Verify initially both a.c and b.c contribute incoming calls to target
+    let store = Store::open(&path)?;
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
+    let initial_calls = store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    let callers = initial_calls["rows"].as_array().unwrap();
+    assert!(callers.iter().any(|r| r["unit_id"] == a_unit));
+    assert!(callers.iter().any(|r| r["unit_id"] == b_unit));
+    drop(store);
+
+    // 2. Edit b.c with syntax error and compile in overlay
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+    let docs = vec![
+        PreviewDocument {
+            path: b_path.clone(),
+            revision: 2,
+            content: "int syntax error !@#$
+".into(),
+        },
+    ];
+    let status = controller.start_preview_documents(docs, Some(&b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    // 3. Check failure and gap location
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "failed" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    let final_status = controller.preview_status()?;
+    assert_eq!(final_status["state"], "failed");
+    assert!(!final_status["failed_units"].as_array().unwrap().is_empty());
+    let failed = &final_status["failed_units"][0];
+    assert_eq!(failed["unit_id"], b_unit);
+    assert_eq!(failed["kind"], "compile_error");
+    assert!(final_status["completeness"].as_str().unwrap().contains("overlay gaps"));
+    assert!(final_status["completeness"].as_str().unwrap().contains("old disk contributions masked"));
+    assert!(final_status["completeness"].as_str().unwrap().contains("other valid TUs retained"));
+
+    // 4. Verify b.c's old contributions DID NOT REAPPEAR, while a.c's valid contributions ARE RETAINED
+    let store = Store::open(&path)?;
+    let after_calls = store.relations(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 10)?;
+    let callers = after_calls["rows"].as_array().unwrap();
+    // b.c old edge is masked and NEVER reappeared
+    assert!(!callers.iter().any(|r| r["unit_id"] == b_unit), "old edge from failed b.c must not reappear!");
+    // a.c edge is retained
+    assert!(callers.iter().any(|r| r["unit_id"] == a_unit), "valid edge from a.c must be retained!");
+
+    Ok(())
+}

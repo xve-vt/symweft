@@ -289,6 +289,10 @@ def main():
             key = start(client, "b.cpp", revision)
             failed = wait(client, key, expected="failed")
             assert failed["diagnostics"] and any(d["severity"] >= 3 for d in failed["diagnostics"]), failed
+            assert failed["failed_units"] and failed["failed_units"][0]["kind"] == "compile_error", failed
+            assert "overlay gaps" in failed["completeness"], failed["completeness"]
+            assert not any(r["main_file"].endswith("b.cpp") for r in client.relations(second, "incoming")), "old edge from failed b.cpp must not reappear"
+            assert any(r["main_file"].endswith("c.c") for r in client.relations(first, "incoming")), "other valid TU c.c must be retained"
             client.rpc("semantic.preview.at", dict(key, byte_offset=0), expect_error=True)
             a_opened = client.rpc("document.open", {"path": "a.c"})
             a_bytes = len((root / "a.c").read_bytes())

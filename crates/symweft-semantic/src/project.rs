@@ -97,10 +97,12 @@ impl Controller {
             .and_then(Value::as_str)
             .unwrap_or(COMPLETENESS);
         let includer_coverage = status.get("includer_coverage").cloned();
+        let failed_units = status.get("failed_units").cloned().unwrap_or_else(|| json!([]));
         Ok(json!({
             "evidence": "clang_semantic_project",
             "completeness": completeness,
             "includer_coverage": includer_coverage,
+            "failed_units": failed_units,
             "entity_id": entity,
             "references": references,
             "declarations": declarations,
@@ -192,10 +194,12 @@ impl Controller {
             .and_then(Value::as_str)
             .unwrap_or(COMPLETENESS);
         let includer_coverage = status.get("includer_coverage").cloned();
+        let failed_units = status.get("failed_units").cloned().unwrap_or_else(|| json!([]));
         Ok(json!({
             "evidence": "clang_semantic_project",
             "completeness": completeness,
             "includer_coverage": includer_coverage,
+            "failed_units": failed_units,
             "entity_id": entity,
             "direction": direction,
             "rows": rows,

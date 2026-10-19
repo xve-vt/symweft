@@ -1,7 +1,7 @@
 //! One transient TU, separate from the persistent disk index. No AST is retained.
 use super::*;
 use crate::model::{
-    Diagnostic, DiskBaseline, DocumentRevision, IncluderCoverage, Location, MAX_OVERLAY_DOCUMENTS,
+    Diagnostic, DiskBaseline, DocumentRevision, FailedUnit, IncluderCoverage, Location, MAX_OVERLAY_DOCUMENTS,
     MAX_OVERLAY_SOURCE_BYTES, PreviewDocument, QueryCoverage, QueryVersion, Snapshot,
 };
 // A delayed cancel must not match a new controller after workspace/configure.
@@ -46,6 +46,8 @@ struct Running {
     cancel: Arc<AtomicBool>,
     handle: JoinHandle<Result<Completed>>,
     job_id: u64,
+    unit_id: String,
+    main_file: String,
 }
 struct Completed {
     reply: WorkerReply,
@@ -62,6 +64,7 @@ pub(super) struct State {
     running: Option<Running>,
     result: Option<Completed>,
     results: std::collections::HashMap<String, Completed>,
+    failed_units: Vec<FailedUnit>,
     state: &'static str,
     reason: Option<String>,
     budget: usize,
@@ -77,6 +80,7 @@ impl State {
         self.queue.clear();
         self.result = None;
         self.results.clear();
+        self.failed_units.clear();
         self.state = state;
         self.reason = Some(reason.into());
     }
@@ -190,6 +194,19 @@ impl Controller {
                 ticket.revision, self.overlay.state
             );
         }
+        if !self.overlay.failed_units.is_empty() {
+            let desc = self
+                .overlay
+                .failed_units
+                .iter()
+                .map(|f| format!("{}: {} ({})", f.unit_id, f.reason, f.kind))
+                .collect::<Vec<_>>()
+                .join("; ");
+            return format!(
+                "overlay gaps: {} failed TU(s) [{desc}]; old disk contributions masked; other valid TUs retained; unindexed units/changes may exist and results are not stable pages",
+                self.overlay.failed_units.len()
+            );
+        }
         match ticket.includer_coverage.scope.as_str() {
             "none" => "no known includers found for edited headers; 0 includer units affected; unindexed units/changes may exist and results are not stable pages".to_string(),
             "partial" => format!(
@@ -214,11 +231,13 @@ impl Controller {
         let includer_coverage = overlay.ticket.as_ref().map(|t| &t.includer_coverage);
         let queued_units: Vec<_> = overlay.queue.iter().map(|p| p.ticket.unit_id.clone()).collect();
         let queue_len = overlay.queue.len();
+        let failed_units = &self.overlay.failed_units;
         Ok(
             json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
             "ticket":overlay.ticket,"reason":overlay.reason,
             "worker_active":overlay.running.is_some(),"queued":!overlay.queue.is_empty(),
             "queue_len":queue_len,"queued_units":queued_units,
+            "failed_units":failed_units,
             "overlay":true,"persisted":false,"memory_budget_bytes":overlay.budget,
             "charged_bytes":result.map_or(0,|r|r.charged),
             "wall_ms":result.map(|r|r.wall_ms),
@@ -333,11 +352,10 @@ impl Controller {
             };
             (scope, updated, stale)
         };
-        if !stale_includers.is_empty() {
-            let stale_set: HashSet<_> = stale_includers.iter().cloned().collect();
-            self.query_store
-                .invalidate_units(&self.database.configuration, &stale_set)?;
-        }
+        let mut all_set: HashSet<_> = all_affected.iter().cloned().collect();
+        all_set.insert(command.unit_id.clone());
+        self.query_store
+            .invalidate_units(&self.database.configuration, &all_set)?;
         let includer_coverage = IncluderCoverage {
             scope,
             known_includers: all_affected.into_iter().collect(),
@@ -523,42 +541,70 @@ impl Controller {
                 .handle
                 .join()
                 .unwrap_or_else(|_| Err("preview thread panicked".into()));
-            if let Ok(res) = &result {
-                if let Some(snapshot) = &res.reply.snapshot {
-                    self.overlay.results.insert(snapshot.unit_id.clone(), res.clone());
-                    if let Some(ticket) = self.overlay.ticket.as_mut() {
-                        if let Some(pos) = ticket.includer_coverage.stale_includers.iter().position(|id| id == &snapshot.unit_id) {
-                            let id = ticket.includer_coverage.stale_includers.remove(pos);
-                            if !ticket.includer_coverage.updated_includers.contains(&id) {
-                                ticket.includer_coverage.updated_includers.push(id);
+            let current_job_id = self.overlay.ticket.as_ref().map(|t| t.job_id);
+            match result {
+                Ok(res) => {
+                    if let Some(snapshot) = &res.reply.snapshot {
+                        let matches_current = self.overlay.ticket.as_ref().map_or(false, |t| {
+                            t.epoch == self.source_epoch.load(Ordering::SeqCst)
+                                && t.documents.iter().all(|doc| {
+                                    snapshot.inputs.iter().any(|inp| inp.path == doc.path && inp.hash == doc.hash)
+                                })
+                        });
+                        if matches_current {
+                            self.overlay.results.insert(snapshot.unit_id.clone(), res.clone());
+                            if let Some(ticket) = self.overlay.ticket.as_mut() {
+                                if let Some(pos) = ticket.includer_coverage.stale_includers.iter().position(|id| id == &snapshot.unit_id) {
+                                    let id = ticket.includer_coverage.stale_includers.remove(pos);
+                                    if !ticket.includer_coverage.updated_includers.contains(&id) {
+                                        ticket.includer_coverage.updated_includers.push(id);
+                                    }
+                                    if ticket.includer_coverage.stale_includers.is_empty() {
+                                        ticket.includer_coverage.scope = "full".to_string();
+                                    }
+                                }
                             }
-                            if ticket.includer_coverage.stale_includers.is_empty() {
-                                ticket.includer_coverage.scope = "full".to_string();
-                            }
+                        }
+                        if current_job_id == Some(running.job_id) && self.overlay.state == "running" {
+                            self.overlay.state = "ready";
+                            self.overlay.reason = res.reply.error.as_ref().map(|s| excerpt(s, 2048));
+                            self.overlay.result = Some(res);
+                        }
+                    } else {
+                        let err_msg = res.reply.error.as_deref().unwrap_or("compiler errors; no current semantic snapshot published");
+                        self.overlay.failed_units.push(FailedUnit {
+                            unit_id: running.unit_id.clone(),
+                            main_file: running.main_file.clone(),
+                            reason: err_msg.to_string(),
+                            kind: "compile_error".to_string(),
+                            diagnostics: res.reply.diagnostics.clone(),
+                        });
+                        if current_job_id == Some(running.job_id) && self.overlay.state == "running" {
+                            self.overlay.state = "failed";
+                            self.overlay.reason = Some(excerpt(err_msg, 2048));
+                            self.overlay.result = Some(res);
                         }
                     }
                 }
-            }
-            if self
-                .overlay
-                .ticket
-                .as_ref()
-                .is_some_and(|t| t.job_id == running.job_id)
-                && self.overlay.state == "running"
-            {
-                match result {
-                    Ok(result) => {
-                        self.overlay.state = if result.reply.snapshot.is_some() {
-                            "ready"
-                        } else {
-                            "failed"
-                        };
-                        self.overlay.reason = result.reply.error.as_ref().map(|s| excerpt(s, 2048));
-                        self.overlay.result = Some(result);
-                    }
-                    Err(error) => {
+                Err(error) => {
+                    let err_str = error.to_string();
+                    let kind = if err_str.contains("timeout") {
+                        "timeout"
+                    } else if err_str.contains("budget exceeded") {
+                        "budget_exceeded"
+                    } else {
+                        "worker_error"
+                    };
+                    self.overlay.failed_units.push(FailedUnit {
+                        unit_id: running.unit_id.clone(),
+                        main_file: running.main_file.clone(),
+                        reason: err_str.clone(),
+                        kind: kind.to_string(),
+                        diagnostics: Vec::new(),
+                    });
+                    if current_job_id == Some(running.job_id) && self.overlay.state == "running" {
                         self.overlay.state = "failed";
-                        self.overlay.reason = Some(excerpt(&error.to_string(), 2048));
+                        self.overlay.reason = Some(excerpt(&err_str, 2048));
                     }
                 }
             }
@@ -582,6 +628,8 @@ impl Controller {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = Arc::clone(&cancel);
         let job_id = pending.ticket.job_id;
+        let unit_id = pending.ticket.unit_id.clone();
+        let main_file = pending.request.command.file.to_string_lossy().into_owned();
         let handle = thread::spawn(move || {
             let started = Instant::now();
             let reply = run_worker(&exe, &pending.request, &limits, &worker_cancel)?;
@@ -648,6 +696,8 @@ impl Controller {
             cancel,
             handle,
             job_id,
+            unit_id,
+            main_file,
         });
         self.overlay.state = "running";
     }
