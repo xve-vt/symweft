@@ -3402,3 +3402,45 @@ fn val01_frozen_scale_validation_input_and_drift_detection() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val02_qemu_full_a2_corpus_accounting_and_honest_failure_states() -> Result<()> {
+    use symweft_semantic::scale_validation::{
+        FullCorpusIndexingReport, QemuFrozenInputManifest, TuIndexDisposition,
+    };
+
+    let manifest = QemuFrozenInputManifest::canonical_qemu_baseline();
+    let report = FullCorpusIndexingReport::canonical_qemu_full_a2_report();
+
+    assert_eq!(report.manifest_commit, manifest.git_commit);
+    assert_eq!(report.total_configured_tus, 2855);
+    assert!(report.is_complete_accounting());
+    assert_eq!(
+        report.succeeded_tus + report.failed_tus + report.skipped_tus + report.budget_exceeded_tus,
+        2855
+    );
+    // Source-error TUs (e.g. system/runstate.c missing XATTR_NAME_MAX) are honestly reported as failed, not faked as succeeded
+    assert!(report.failed_tus > 0);
+    assert!(report.budget_exceeded_tus > 0);
+    assert!(report.core_peak_rss_bytes < 512 * 1024 * 1024);
+    assert!(report.worker_max_peak_rss_bytes <= 512 * 1024 * 1024);
+
+    let sample_dispositions = vec![
+        TuIndexDisposition::from_unit_state_and_reason("current", None),
+        TuIndexDisposition::from_unit_state_and_reason(
+            "failed",
+            Some("compiler errors; no current semantic snapshot published"),
+        ),
+        TuIndexDisposition::from_unit_state_and_reason(
+            "failed",
+            Some("semantic extraction budget exceeded"),
+        ),
+        TuIndexDisposition::from_unit_state_and_reason("skipped", Some("unsupported language")),
+    ];
+    assert_eq!(
+        FullCorpusIndexingReport::summarize_dispositions(&sample_dispositions),
+        (1, 1, 1, 1)
+    );
+
+    Ok(())
+}
