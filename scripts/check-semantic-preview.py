@@ -119,6 +119,33 @@ def check_multiple_buffers(output):
             for r in project_rels["rows"]:
                 if r["evidence"] == "clang_semantic_overlay":
                     assert r["revision"] == main_revision, (r, main_revision)
+
+            # OVL-10: Bounded pagination across stable query versions
+            p_in1 = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming", limit=1, offset=0))
+            assert p_in1["limit"] == 1 and p_in1["offset"] == 0, p_in1
+            assert p_in1["total"] >= 2, p_in1
+            assert p_in1["has_more"] == True and p_in1["truncated"] == True, p_in1
+            assert "results truncated at page limit 1" in p_in1["truncation_reason"], p_in1
+            assert "page 1 of" in p_in1["completeness"], p_in1
+            pv1 = p_in1["query_version"]
+
+            # Page 2 carries stable query version
+            p_in2 = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming", limit=1, offset=1, query_version=pv1))
+            assert p_in2["limit"] == 1 and p_in2["offset"] == 1, p_in2
+            assert p_in2["total"] == p_in1["total"], p_in2
+            assert p_in2["query_version"] == pv1, p_in2
+            assert p_in1["rows"][0] != p_in2["rows"][0], "pages must deliver distinct items"
+
+            # Offset > 0 without query_version rejected
+            no_ver_err = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming", limit=1, offset=1), expect_error=True)
+            assert no_ver_err["code"] == "missing_query_version", no_ver_err
+
+            # Stale query_version rejected across page boundaries
+            stale_v = copy.deepcopy(pv1)
+            stale_v["documents"][0]["revision"] += 999
+            stale_err = client.rpc("semantic.project.relations", dict(project(key), entity_id=second, direction="incoming", limit=1, offset=1, query_version=stale_v), expect_error=True)
+            assert stale_err["code"] == "stale_query_version", stale_err
+
             assert (root / "api.h").read_text() == header
             assert (root / "b.cpp").read_text() == source
 

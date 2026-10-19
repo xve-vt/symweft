@@ -274,29 +274,45 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
         }
         "semantic.symbols" => {
             let expected = query_version_parameter(params)?;
+            let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+            if offset > 0 && expected.is_none() {
+                return Err(CoreError::new(
+                    "missing_query_version",
+                    "Paging with offset > 0 requires a stable query_version from previous page.",
+                ));
+            }
             let result = semantic
                 .store()
                 .map_err(index_error)?
-                .symbols(
+                .symbols_page(
                     &semantic.database.configuration,
                     parameter(params, "name")?,
                     &semantic.provider,
                     limit,
+                    offset,
                 )
                 .map_err(index_error)?;
             finish_disk_query(semantic, result, expected.as_ref())
         }
         "semantic.relations" => {
             let expected = query_version_parameter(params)?;
+            let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+            if offset > 0 && expected.is_none() {
+                return Err(CoreError::new(
+                    "missing_query_version",
+                    "Paging with offset > 0 requires a stable query_version from previous page.",
+                ));
+            }
             let result = semantic
                 .store()
                 .map_err(index_error)?
-                .relations(
+                .relations_page(
                     &semantic.database.configuration,
                     parameter(params, "entity_id")?,
                     parameter(params, "direction")?,
                     &semantic.provider,
                     limit,
+                    offset,
                 )
                 .map_err(index_error)?;
             finish_disk_query(semantic, result, expected.as_ref())
@@ -421,26 +437,46 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                             .map_err(index_error)?
                     }
                 }
-                "semantic.preview.relations" => semantic
-                    .preview_relations(
-                        job_id,
-                        path,
-                        revision,
-                        parameter(params, "entity_id")?,
-                        parameter(params, "direction")?,
-                        limit,
-                    )
-                    .map_err(index_error)?,
-                "semantic.project.relations" => semantic
-                    .project_relations(
-                        job_id,
-                        path,
-                        revision,
-                        parameter(params, "entity_id")?,
-                        parameter(params, "direction")?,
-                        limit,
-                    )
-                    .map_err(index_error)?,
+                "semantic.preview.relations" => {
+                    let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+                    if offset > 0 && expected.is_none() {
+                        return Err(CoreError::new(
+                            "missing_query_version",
+                            "Paging with offset > 0 requires a stable query_version from previous page.",
+                        ));
+                    }
+                    semantic
+                        .preview_relations_page(
+                            job_id,
+                            path,
+                            revision,
+                            parameter(params, "entity_id")?,
+                            parameter(params, "direction")?,
+                            limit,
+                            offset,
+                        )
+                        .map_err(index_error)?
+                }
+                "semantic.project.relations" => {
+                    let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+                    if offset > 0 && expected.is_none() {
+                        return Err(CoreError::new(
+                            "missing_query_version",
+                            "Paging with offset > 0 requires a stable query_version from previous page.",
+                        ));
+                    }
+                    semantic
+                        .project_relations_page(
+                            job_id,
+                            path,
+                            revision,
+                            parameter(params, "entity_id")?,
+                            parameter(params, "direction")?,
+                            limit,
+                            offset,
+                        )
+                        .map_err(index_error)?
+                }
                 _ => {
                     return Err(CoreError::new(
                         "method_not_found",

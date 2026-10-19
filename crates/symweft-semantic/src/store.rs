@@ -561,14 +561,49 @@ impl Store {
         provider: &str,
         limit: usize,
     ) -> Result<Value> {
-        let limit = limit.clamp(1, 1000) as i64;
+        self.symbols_page(configuration, name, provider, limit, 0)
+    }
+    pub fn symbols_page(
+        &self,
+        configuration: &str,
+        name: &str,
+        provider: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value> {
+        let limit_val = limit.clamp(1, 1000) as i64;
+        let offset_val = offset as i64;
+        let count_sql = "SELECT COUNT(*) FROM symbols s JOIN units u ON u.pk=s.unit_pk WHERE u.configuration=?1 AND u.state='current' AND s.name=?2";
+        let sql = "SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current' AND s.name=?2 ORDER BY s.definition DESC,s.path,s.name_start LIMIT ?3 OFFSET ?4";
         let transaction = self.connection.unchecked_transaction()?;
-        let rows=self.rows("SELECT u.id,u.main_file,f.digest,f.payload FROM symbols s JOIN units u ON u.pk=s.unit_pk JOIN facts f ON f.pk=s.fact WHERE u.configuration=?1 AND u.state='current' AND s.name=?2 ORDER BY s.definition DESC,s.path,s.name_start LIMIT ?3",&[&configuration,&name,&limit],provider)?;
+        let total: i64 = transaction.query_row(count_sql, params![configuration, name], |r| r.get(0))?;
+        let rows = self.rows(sql, &[&configuration, &name, &limit_val, &offset_val], provider)?;
         let disk_baseline = self.disk_baseline()?;
         transaction.commit()?;
-        Ok(
-            json!({"evidence":"clang_semantic","rows":rows,"limit":limit,"completeness":"indexed contributions only; unindexed units/changes may exist","disk_baseline":disk_baseline}),
-        )
+        let total = total as usize;
+        let has_more = offset + rows.len() < total;
+        let truncated = has_more;
+        let truncation_reason = if truncated {
+            Some(format!(
+                "results truncated at page limit {limit}; {} row(s) remain; fetch next page with offset {}",
+                total.saturating_sub(offset + rows.len()),
+                offset + rows.len()
+            ))
+        } else {
+            None
+        };
+        Ok(json!({
+            "evidence": "clang_semantic",
+            "rows": rows,
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "has_more": has_more,
+            "truncated": truncated,
+            "truncation_reason": truncation_reason,
+            "completeness": "indexed contributions only; unindexed units/changes may exist",
+            "disk_baseline": disk_baseline
+        }))
     }
     pub fn relations(
         &self,
@@ -578,7 +613,18 @@ impl Store {
         provider: &str,
         limit: usize,
     ) -> Result<Value> {
-        self.relations_inner(configuration, entity, direction, provider, None, limit)
+        self.relations_page(configuration, entity, direction, provider, limit, 0)
+    }
+    pub fn relations_page(
+        &self,
+        configuration: &str,
+        entity: &str,
+        direction: &str,
+        provider: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value> {
+        self.relations_inner(configuration, entity, direction, provider, None, limit, offset)
     }
     pub fn relations_except(
         &self,
@@ -589,6 +635,26 @@ impl Store {
         excluded_unit: &str,
         limit: usize,
     ) -> Result<Value> {
+        self.relations_except_page(
+            configuration,
+            entity,
+            direction,
+            provider,
+            excluded_unit,
+            limit,
+            0,
+        )
+    }
+    pub fn relations_except_page(
+        &self,
+        configuration: &str,
+        entity: &str,
+        direction: &str,
+        provider: &str,
+        excluded_unit: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value> {
         self.relations_inner(
             configuration,
             entity,
@@ -596,6 +662,7 @@ impl Store {
             provider,
             Some(excluded_unit),
             limit,
+            offset,
         )
     }
     fn relations_inner(
@@ -606,6 +673,7 @@ impl Store {
         provider: &str,
         excluded_unit: Option<&str>,
         limit: usize,
+        offset: usize,
     ) -> Result<Value> {
         let (table, predicate) = match direction {
             "definitions" => (
@@ -622,25 +690,81 @@ impl Store {
                 );
             }
         };
-        let limit = limit.clamp(1, 1000) as i64;
+        let limit_val = limit.clamp(0, 1000) as i64;
+        let offset_val = offset as i64;
         let started = Instant::now();
         let exclusion = excluded_unit.map(|_| " AND u.id<>?3").unwrap_or("");
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM {table} x JOIN units u ON u.pk=x.unit_pk WHERE u.configuration=?1 AND u.state='current' AND {predicate}{exclusion}"
+        );
         let limit_parameter = if excluded_unit.is_some() { 4 } else { 3 };
+        let offset_parameter = if excluded_unit.is_some() { 5 } else { 4 };
         let sql = format!(
-            "SELECT u.id,u.main_file,f.digest,f.payload FROM {table} x JOIN units u ON u.pk=x.unit_pk JOIN facts f ON f.pk=x.fact WHERE u.configuration=?1 AND u.state='current' AND {predicate}{exclusion} ORDER BY x.unit_pk,x.n LIMIT ?{limit_parameter}"
+            "SELECT u.id,u.main_file,f.digest,f.payload FROM {table} x JOIN units u ON u.pk=x.unit_pk JOIN facts f ON f.pk=x.fact WHERE u.configuration=?1 AND u.state='current' AND {predicate}{exclusion} ORDER BY x.unit_pk,x.n LIMIT ?{limit_parameter} OFFSET ?{offset_parameter}"
         );
         let mut parameters: Vec<&dyn rusqlite::ToSql> = vec![&configuration, &entity];
         if let Some(excluded_unit) = &excluded_unit {
             parameters.push(excluded_unit);
         }
-        parameters.push(&limit);
+        parameters.push(&limit_val);
+        parameters.push(&offset_val);
         let transaction = self.connection.unchecked_transaction()?;
-        let rows = self.rows(&sql, &parameters, provider)?;
+        let total: i64 = match excluded_unit {
+            Some(ex) => transaction.query_row(&count_sql, params![configuration, entity, ex], |r| r.get(0))?,
+            None => transaction.query_row(&count_sql, params![configuration, entity], |r| r.get(0))?,
+        };
+        let rows = if limit_val > 0 {
+            self.rows(&sql, &parameters, provider)?
+        } else {
+            Vec::new()
+        };
         let disk_baseline = self.disk_baseline()?;
         transaction.commit()?;
-        Ok(
-            json!({"evidence":"clang_semantic","entity_id":entity,"direction":direction,"rows":rows,"limit":limit,"query_micros":started.elapsed().as_micros(),"completeness":"indexed contributions only; virtual/indirect targets are not expanded","disk_baseline":disk_baseline}),
-        )
+        let total = total as usize;
+        let effective_limit = if limit == 0 { 100 } else { limit.clamp(1, 1000) };
+        let has_more = offset + rows.len() < total;
+        let truncated = has_more;
+        let truncation_reason = if truncated {
+            Some(format!(
+                "results truncated at page limit {effective_limit}; {} row(s) remain; fetch next page with offset {}",
+                total.saturating_sub(offset + rows.len()),
+                offset + rows.len()
+            ))
+        } else {
+            None
+        };
+        let completeness = if truncated {
+            let page = (offset / effective_limit) + 1;
+            let total_pages = (total + effective_limit - 1) / effective_limit;
+            format!(
+                "showing rows {}..{} of {total}; page {page} of {total_pages}; indexed contributions only; virtual/indirect targets are not expanded",
+                offset,
+                offset + rows.len()
+            )
+        } else if total > 0 && offset > 0 {
+            format!(
+                "showing rows {}..{} of {total} (final page); indexed contributions only; virtual/indirect targets are not expanded",
+                offset,
+                offset + rows.len()
+            )
+        } else {
+            "indexed contributions only; virtual/indirect targets are not expanded".to_string()
+        };
+        Ok(json!({
+            "evidence": "clang_semantic",
+            "entity_id": entity,
+            "direction": direction,
+            "rows": rows,
+            "limit": effective_limit,
+            "offset": offset,
+            "total": total,
+            "has_more": has_more,
+            "truncated": truncated,
+            "truncation_reason": truncation_reason,
+            "query_micros": started.elapsed().as_micros(),
+            "completeness": completeness,
+            "disk_baseline": disk_baseline
+        }))
     }
     pub fn at(
         &self,

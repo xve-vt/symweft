@@ -847,22 +847,32 @@ impl Controller {
         direction: &str,
         limit: usize,
     ) -> Result<Value> {
+        self.preview_relations_page(job_id, path, revision, entity, direction, limit, 0)
+    }
+    pub fn preview_relations_page(
+        &mut self,
+        job_id: u64,
+        path: &str,
+        revision: u64,
+        entity: &str,
+        direction: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value> {
         self.check_preview(job_id, path, revision)?;
         let snapshot = self.overlay_snapshot()?;
         let limit = limit.clamp(1, 1000);
-        let rows: Vec<_> = match direction {
+        let all_rows: Vec<_> = match direction {
             "definitions" | "declarations" => snapshot
                 .symbols
                 .iter()
                 .filter(|v| v.id == entity && (direction != "definitions" || v.definition))
-                .take(limit)
                 .map(|v| self.overlay_row(v))
                 .collect(),
             "references" => snapshot
                 .references
                 .iter()
                 .filter(|v| v.target == entity)
-                .take(limit)
                 .map(|v| self.overlay_row(v))
                 .collect(),
             "incoming" | "outgoing" => snapshot
@@ -875,7 +885,6 @@ impl Controller {
                         v.caller.as_deref() == Some(entity)
                     }
                 })
-                .take(limit)
                 .map(|v| self.overlay_row(v))
                 .collect(),
             _ => {
@@ -884,9 +893,54 @@ impl Controller {
                 );
             }
         };
+        let total = all_rows.len();
+        let rows = if offset < total {
+            all_rows[offset..std::cmp::min(offset + limit, total)].to_vec()
+        } else {
+            Vec::new()
+        };
+        let has_more = offset + rows.len() < total;
+        let truncated = has_more;
+        let truncation_reason = if truncated {
+            Some(format!(
+                "results truncated at page limit {limit}; {} row(s) remain; fetch next page with offset {}",
+                total.saturating_sub(offset + rows.len()),
+                offset + rows.len()
+            ))
+        } else {
+            None
+        };
+        let completeness = if truncated {
+            let page = (offset / limit) + 1;
+            let total_pages = (total + limit - 1) / limit;
+            format!(
+                "showing rows {}..{} of {total}; page {page} of {total_pages}; {COMPLETENESS}",
+                offset,
+                offset + rows.len()
+            )
+        } else if total > 0 && offset > 0 {
+            format!(
+                "showing rows {}..{} of {total} (final page); {COMPLETENESS}",
+                offset,
+                offset + rows.len()
+            )
+        } else {
+            COMPLETENESS.to_string()
+        };
         let query_version = self.current_overlay_query_version()?;
-        Ok(
-            json!({"evidence":"clang_semantic_overlay","completeness":COMPLETENESS,"rows":rows,"limit":limit,"entity_id":entity,"direction":direction,"query_version":query_version}),
-        )
+        Ok(json!({
+            "evidence": "clang_semantic_overlay",
+            "completeness": completeness,
+            "entity_id": entity,
+            "direction": direction,
+            "rows": rows,
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "has_more": has_more,
+            "truncated": truncated,
+            "truncation_reason": truncation_reason,
+            "query_version": query_version
+        }))
     }
 }

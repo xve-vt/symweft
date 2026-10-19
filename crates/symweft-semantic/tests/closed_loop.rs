@@ -1157,3 +1157,143 @@ fn multi_document_lifecycle_discard_reload_switch_and_preservation() -> Result<(
 
     Ok(())
 }
+
+#[test]
+fn bounded_pagination_stable_query_version_and_stale_rejection() -> Result<()> {
+    let f = Fixture::new();
+    f.write("target.h", "int target_func(void);
+");
+    f.write("a.c", "#include "target.h"
+int a1(void){return target_func();}
+int a2(void){return target_func();}
+int a3(void){return target_func();}
+");
+    f.write("b.c", "#include "target.h"
+int b1(void){return target_func();}
+int b2(void){return target_func();}
+int b3(void){return target_func();}
+");
+    f.write("c.c", "#include "target.h"
+int c1(void){return target_func();}
+int c2(void){return target_func();}
+");
+    let db = f.commands(&["a.c", "b.c", "c.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    let b_snap = analyze(&db, 1)?;
+    let c_snap = analyze(&db, 2)?;
+    store.publish(&a_snap)?;
+    store.publish(&b_snap)?;
+    store.publish(&c_snap)?;
+    drop(store);
+
+    let a_unit = db.commands[0].unit_id.clone();
+    let b_unit = db.commands[1].unit_id.clone();
+    let c_unit = db.commands[2].unit_id.clone();
+    let b_path = f.0.join("b.c").to_string_lossy().into_owned();
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path.clone(),
+        f.0.join("worker-dummy"),
+        Limits::default(),
+    )?;
+
+    // Edit b.c in memory to have 4 calls to target_func
+    let new_b_source = "#include "target.h"
+int b1(void){return target_func();}
+int b2(void){return target_func();}
+int b3(void){return target_func();}
+int b4(void){return target_func();}
+";
+    let docs = vec![
+        PreviewDocument {
+            path: b_path.clone(),
+            revision: 2,
+            content: new_b_source.into(),
+        },
+    ];
+    let status = controller.start_preview_documents(docs, Some(&b_unit), 32)?;
+    let id = status["ticket"]["job_id"].as_u64().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(controller.preview_status()?["state"], "ready");
+
+    let target_sym = a_snap.symbols.iter().find(|s| s.name == "target_func").unwrap();
+
+    // Total callers = 4 (overlay b.c) + 3 (disk a.c) + 2 (disk c.c) = 9
+    // Page 1: limit 3, offset 0 -> 3 rows from overlay
+    let p1 = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 3, 0)?;
+    assert_eq!(p1["offset"], 0);
+    assert_eq!(p1["limit"], 3);
+    assert_eq!(p1["total"], 9);
+    assert_eq!(p1["has_more"], true);
+    assert_eq!(p1["truncated"], true);
+    assert!(p1["truncation_reason"].as_str().unwrap().contains("6 row(s) remain"));
+    assert!(p1["completeness"].as_str().unwrap().contains("page 1 of 3"));
+    let rows1 = p1["rows"].as_array().unwrap();
+    assert_eq!(rows1.len(), 3);
+    assert!(rows1.iter().all(|r| r["evidence"] == "clang_semantic_overlay"));
+    let v1 = p1["query_version"].clone();
+
+    // Page 2: limit 3, offset 3 -> 1 row from overlay, 2 rows from disk
+    let p2 = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 3, 3)?;
+    assert_eq!(p2["offset"], 3);
+    assert_eq!(p2["total"], 9);
+    assert_eq!(p2["has_more"], true);
+    assert_eq!(p2["truncated"], true);
+    assert!(p2["truncation_reason"].as_str().unwrap().contains("3 row(s) remain"));
+    assert!(p2["completeness"].as_str().unwrap().contains("page 2 of 3"));
+    let rows2 = p2["rows"].as_array().unwrap();
+    assert_eq!(rows2.len(), 3);
+    assert_eq!(rows2[0]["evidence"], "clang_semantic_overlay");
+    assert_eq!(rows2[1]["evidence"], "clang_semantic");
+    assert_eq!(rows2[2]["evidence"], "clang_semantic");
+    assert_eq!(p2["query_version"], v1, "query version must remain identical across pages");
+
+    // Page 3: limit 3, offset 6 -> remaining 3 rows from disk
+    let p3 = controller.project_relations_page(id, &b_path, 2, &target_sym.id, "incoming", 3, 6)?;
+    assert_eq!(p3["offset"], 6);
+    assert_eq!(p3["total"], 9);
+    assert_eq!(p3["has_more"], false);
+    assert_eq!(p3["truncated"], false);
+    assert!(p3["truncation_reason"].is_null());
+    assert!(p3["completeness"].as_str().unwrap().contains("final page"));
+    let rows3 = p3["rows"].as_array().unwrap();
+    assert_eq!(rows3.len(), 3);
+    assert!(rows3.iter().all(|r| r["evidence"] == "clang_semantic"));
+    assert_eq!(p3["query_version"], v1);
+
+    // Verify all 9 rows are unique across pages
+    let all_call_locs: HashSet<_> = rows1.iter().chain(rows2.iter()).chain(rows3.iter())
+        .map(|r| (r["main_file"].as_str().unwrap().to_string(), r["location"]["offset"].as_u64().unwrap()))
+        .collect();
+    assert_eq!(all_call_locs.len(), 9, "all 9 call sites must be distinct without duplicates");
+
+    // Test disk direct relations pagination
+    let store = Store::open(&path)?;
+    let disk_p1 = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 4, 0)?;
+    assert_eq!(disk_p1["offset"], 0);
+    assert_eq!(disk_p1["limit"], 4);
+    assert_eq!(disk_p1["total"], 8); // in disk: a(3) + b(3) + c(2) = 8
+    assert_eq!(disk_p1["has_more"], true);
+    assert_eq!(disk_p1["truncated"], true);
+
+    let disk_p2 = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 4, 4)?;
+    assert_eq!(disk_p2["offset"], 4);
+    assert_eq!(disk_p2["has_more"], false);
+    assert_eq!(disk_p2["truncated"], false);
+
+    Ok(())
+}
