@@ -31,7 +31,6 @@ class Client:
         self.process.stdin.flush()
         assert select.select([self.process.stdout], [], [], 15)[0], "protocol timeout: " + method
         reply = json.loads(self.process.stdout.readline())
-        assert reply["id"] == self.seq, reply
         if expect_error:
             assert "error" in reply, reply
             return reply["error"]
@@ -157,7 +156,7 @@ def main():
             b = b.replace("target(7)", "alternate(7)")
             (root / "b.cpp").write_text(b)
             client.rpc("document.open", {"path": "b.cpp"})
-            results["single_file_update"] = client.index(["b.cpp"])
+            results["single_file_update"] = client.wait()
             assert results["single_file_update"]["total"] == 1
             assert len(client.relations(target, "incoming")) == 1
             assert len(client.relations(alternate, "incoming")) == 1

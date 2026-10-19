@@ -167,7 +167,7 @@ fn bump_baseline(transaction: &Transaction<'_>) -> Result<()> {
     Ok(())
 }
 pub struct Store {
-    connection: Connection,
+    pub connection: Connection,
     fingerprints: RefCell<crate::fingerprint::Fingerprints>,
 }
 impl Store {

@@ -20,22 +20,22 @@ const COMPLETENESS: &str =
     "current overlay translation unit only; disk contributions are queried separately";
 
 #[derive(Clone)]
-struct TicketDocument {
-    path: String,
-    revision: u64,
-    hash: [u8; 32],
+pub(super) struct TicketDocument {
+    pub(super) path: String,
+    pub(super) revision: u64,
+    pub(super) hash: [u8; 32],
 }
 #[derive(Clone, Serialize)]
-struct Ticket {
-    job_id: u64,
-    path: String,
-    revision: u64,
-    unit_id: String,
+pub(super) struct Ticket {
+    pub(super) job_id: u64,
+    pub(super) path: String,
+    pub(super) revision: u64,
+    pub(super) unit_id: String,
     #[serde(skip)]
-    epoch: u64,
+    pub(super) epoch: u64,
     #[serde(skip)]
-    documents: Vec<TicketDocument>,
-    includer_coverage: IncluderCoverage,
+    pub(super) documents: Vec<TicketDocument>,
+    pub(super) includer_coverage: IncluderCoverage,
 }
 struct Pending {
     ticket: Ticket,
@@ -49,22 +49,23 @@ struct Running {
     unit_id: String,
     main_file: String,
 }
-struct Completed {
-    reply: WorkerReply,
-    charged: usize,
-    wall_ms: u128,
-    validation_micros: u64,
+#[derive(Clone)]
+pub(super) struct Completed {
+    pub(super) reply: WorkerReply,
+    pub(super) charged: usize,
+    pub(super) wall_ms: u128,
+    pub(super) validation_micros: u64,
 }
 pub const MAX_QUEUED_OVERLAYS: usize = 16;
 
 #[derive(Default)]
 pub(super) struct State {
-    ticket: Option<Ticket>,
+    pub(super) ticket: Option<Ticket>,
     queue: std::collections::VecDeque<Pending>,
     running: Option<Running>,
     result: Option<Completed>,
-    results: std::collections::HashMap<String, Completed>,
-    failed_units: Vec<FailedUnit>,
+    pub(super) results: std::collections::HashMap<String, Completed>,
+    pub(super) failed_units: Vec<FailedUnit>,
     state: &'static str,
     reason: Option<String>,
     budget: usize,
@@ -189,8 +190,17 @@ impl Controller {
             return COMPLETENESS.to_string();
         };
         if self.overlay.state == "queued" || self.overlay.state == "running" {
+            let coverage_detail = match ticket.includer_coverage.scope.as_str() {
+                "partial" => format!(
+                    "; partial includer coverage: {} of {} known includer(s) updated in overlay; {} includer(s) invalidated by unsaved header changes; project not fully updated",
+                    ticket.includer_coverage.updated_includers.len(),
+                    ticket.includer_coverage.known_includers.len(),
+                    ticket.includer_coverage.stale_includers.len(),
+                ),
+                _ => String::new(),
+            };
             return format!(
-                "compilation in progress for revision {}; results incomplete (state: {})",
+                "compilation in progress for revision {}; results incomplete (state: {}){coverage_detail}",
                 ticket.revision, self.overlay.state
             );
         }
@@ -360,10 +370,13 @@ impl Controller {
             scope,
             known_includers: all_affected.into_iter().collect(),
             updated_includers,
-            stale_includers,
+            stale_includers: stale_includers.clone(),
         };
         self.overlay
             .invalidate("superseded", "replaced by a newer preview request");
+        if let Some(running) = self.overlay.running.take() {
+            let _ = running.handle.join();
+        }
         self.defer_index_for_preview();
         let job_id = next_id()?;
         let ticket = Ticket {
@@ -372,8 +385,8 @@ impl Controller {
             revision: primary_revision,
             unit_id: command.unit_id.clone(),
             epoch: self.source_epoch.load(Ordering::SeqCst),
-            documents: ticket_documents,
-            includer_coverage,
+            documents: ticket_documents.clone(),
+            includer_coverage: includer_coverage.clone(),
         };
         self.overlay.ticket = Some(ticket.clone());
         self.overlay.budget = memory_mib as usize * 1024 * 1024;
@@ -428,7 +441,7 @@ impl Controller {
         self.pump_preview();
         self.preview_status()
     }
-    pub(super) fn preview_command(
+    pub fn preview_command(
         &self,
         full: &str,
         unit_id: Option<&str>,
@@ -584,8 +597,12 @@ impl Controller {
                     if let Some(snapshot) = &res.reply.snapshot {
                         let matches_current = self.overlay.ticket.as_ref().map_or(false, |t| {
                             t.epoch == self.source_epoch.load(Ordering::SeqCst)
-                                && t.documents.iter().all(|doc| {
-                                    snapshot.inputs.iter().any(|inp| inp.path == doc.path && inp.hash == doc.hash)
+                                && snapshot.inputs.iter().all(|inp| {
+                                    if let Some(doc) = t.documents.iter().find(|d| d.path == inp.path) {
+                                        inp.hash == doc.hash
+                                    } else {
+                                        true
+                                    }
                                 })
                         });
                         if matches_current {
@@ -650,6 +667,9 @@ impl Controller {
             return;
         }
         let Some(pending) = self.overlay.queue.pop_front() else {
+            if self.overlay.result.is_some() && self.overlay.state == "running" {
+                self.overlay.state = "ready";
+            }
             return;
         };
         let (exe, limits, provider, config_hash) = (
@@ -693,11 +713,7 @@ impl Controller {
                     || s.unit_id != command.unit_id
                     || s.command_key != command.command_key
                     || s.configuration != command.configuration
-                    || !pending.ticket.documents.iter().all(|document| {
-                        s.inputs
-                            .iter()
-                            .any(|input| input.path == document.path && input.hash == document.hash)
-                    })
+                    || !s.inputs.iter().any(|input| input.path == pending.ticket.path)
                     || !s.inputs.iter().all(|input| {
                         if let Some(document) = pending
                             .ticket
@@ -736,9 +752,11 @@ impl Controller {
             unit_id,
             main_file,
         });
-        self.overlay.state = "running";
+        if Some(job_id) == self.overlay.ticket.as_ref().map(|t| t.job_id) {
+            self.overlay.state = "running";
+        }
     }
-    fn overlay_snapshot(&self) -> Result<&Snapshot> {
+    pub(super) fn overlay_snapshot(&self) -> Result<&Snapshot> {
         if self.overlay.state == "queued" || self.overlay.state == "running" {
             return Err(format!(
                 "preview compilation in progress (state: {}); retry after completion or inspect semantic.preview.progress",

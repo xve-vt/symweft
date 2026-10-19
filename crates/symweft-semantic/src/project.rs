@@ -140,48 +140,51 @@ impl Controller {
         let limit = limit.clamp(1, 1000);
 
         let mut all_overlay_rows = Vec::new();
-        if let Ok(primary_snapshot) = self.overlay_snapshot() {
-            let primary_unit = unit_id.clone();
-            let primary_file = primary_snapshot.main_file.clone();
-            let ticket = self.overlay.ticket.as_ref();
-            let rev = ticket.map_or(0, |t| t.revision);
-            let jid = ticket.map_or(0, |t| t.job_id);
-            let p_rows: Vec<_> = match direction {
-                "definitions" | "declarations" => primary_snapshot
-                    .symbols
-                    .iter()
-                    .filter(|v| v.id == entity && (direction != "definitions" || v.definition))
-                    .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
-                    .collect(),
-                "references" => primary_snapshot
-                    .references
-                    .iter()
-                    .filter(|v| v.target == entity)
-                    .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
-                    .collect(),
-                "incoming" | "outgoing" => primary_snapshot
-                    .calls
-                    .iter()
-                    .filter(|v| {
-                        if direction == "incoming" {
-                            v.target.as_deref() == Some(entity)
-                        } else {
-                            v.caller.as_deref() == Some(entity)
-                        }
-                    })
-                    .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
-                    .collect(),
-                _ => Vec::new(),
-            };
-            all_overlay_rows.extend(p_rows);
-        }
+        let primary_snapshot = self.overlay_snapshot()?;
+        let primary_unit = unit_id.clone();
+        let primary_file = primary_snapshot.main_file.clone();
+        let ticket = self.overlay.ticket.as_ref();
+        let rev = ticket.map_or(0, |t| t.revision);
+        let jid = ticket.map_or(0, |t| t.job_id);
+        let p_rows: Vec<_> = match direction {
+            "definitions" | "declarations" => primary_snapshot
+                .symbols
+                .iter()
+                .filter(|v| v.id == entity && (direction != "definitions" || v.definition))
+                .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
+                .collect(),
+            "references" => primary_snapshot
+                .references
+                .iter()
+                .filter(|v| v.target == entity)
+                .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
+                .collect(),
+            "incoming" | "outgoing" => primary_snapshot
+                .calls
+                .iter()
+                .filter(|v| {
+                    if direction == "incoming" {
+                        v.target.as_deref() == Some(entity)
+                    } else {
+                        v.caller.as_deref() == Some(entity)
+                    }
+                })
+                .map(|v| self.overlay_row_for(v, &primary_unit, rev, jid, &primary_file))
+                .collect(),
+            _ => Vec::new(),
+        };
+        all_overlay_rows.extend(p_rows);
 
         if let Some(ticket) = &self.overlay.ticket {
             for (sec_unit_id, completed) in &self.overlay.results {
                 if sec_unit_id != &unit_id {
                     let matches_current = completed.reply.snapshot.as_ref().map_or(false, |s| {
-                        ticket.documents.iter().all(|doc| {
-                            s.inputs.iter().any(|inp| inp.path == doc.path && inp.hash == doc.hash)
+                        s.inputs.iter().all(|inp| {
+                            if let Some(doc) = ticket.documents.iter().find(|d| d.path == inp.path) {
+                                inp.hash == doc.hash
+                            } else {
+                                true
+                            }
                         })
                     });
                     if matches_current {

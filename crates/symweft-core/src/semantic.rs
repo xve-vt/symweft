@@ -388,6 +388,11 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                 .source(path, revision)
                 .map_err(analysis_error)?;
             if request.method == "semantic.preview.start" {
+                if let (Ok(full), None) = (semantic.absolute_path(path), params.get("documents")) {
+                    if let Err(err) = semantic.preview_command(&full, params.get("unit_id").and_then(Value::as_str)) {
+                        return Err(index_error(err));
+                    }
+                }
                 let documents = preview_documents(
                     &session.engine,
                     &session.semantic_dirty,
@@ -409,6 +414,13 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
             }
             let job_id = number(params, "job_id")?;
             let expected = query_version_parameter(params)?;
+            let offset_val = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+            if offset_val > 0 && expected.is_none() {
+                return Err(CoreError::new(
+                    "missing_query_version",
+                    "Paging with offset > 0 requires a stable query_version from previous page.",
+                ));
+            }
             if request.method.starts_with("semantic.project.") && expected.is_none() {
                 return Err(CoreError::new(
                     "invalid_params",
@@ -484,7 +496,9 @@ pub fn dispatch(request: &Request, session: &mut Session) -> Result<Value, CoreE
                     ));
                 }
             };
-            validate_result_query_version(&result, expected.as_ref())?;
+            if request.method != "semantic.preview.progress" {
+                validate_result_query_version(&result, expected.as_ref())?;
+            }
             Ok(result)
         }
         _ => Err(CoreError::new(

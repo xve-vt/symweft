@@ -1,8 +1,12 @@
 use serde_json::json;
 use std::{
+    collections::HashSet,
     fs,
+    os::unix::fs::PermissionsExt,
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
+    thread,
+    time::{Duration, Instant},
 };
 use symweft_semantic::{
     Result,
@@ -12,6 +16,7 @@ use symweft_semantic::{
         WorkerRequest,
     },
     provider,
+    service::{Controller, Limits},
     store::Store,
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -35,6 +40,9 @@ impl Fixture {
         fs::create_dir_all(p.parent().unwrap()).unwrap();
         fs::write(p, source).unwrap();
     }
+    fn read(&self, path: &str) -> String {
+        fs::read_to_string(self.0.join(path)).unwrap()
+    }
     fn commands(&self, files: &[&str]) -> Result<CompileDatabase> {
         let entries:Vec<_>=files.iter().map(|f|json!({"directory":self.0,"file":f,"arguments":[if f.ends_with("cpp"){"clang++"}else{"clang"},if f.ends_with("cpp"){"-std=c++17"}else{"-std=c11"},"-I.","-c",f,"-o","out.o"]})).collect();
         fs::write(
@@ -56,6 +64,20 @@ fn analyze(db: &CompileDatabase, n: usize) -> Result<Snapshot> {
     })?;
     assert!(reply.error.is_none(), "{:?}", reply.diagnostics);
     Ok(reply.snapshot.unwrap())
+}
+
+fn worker_binary() -> PathBuf {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir.parent().unwrap().parent().unwrap();
+    let release_bin = workspace_root.join("target/release/symweft-core");
+    if release_bin.exists() {
+        return release_bin;
+    }
+    let debug_bin = workspace_root.join("target/debug/symweft-core");
+    if debug_bin.exists() {
+        return debug_bin;
+    }
+    release_bin
 }
 
 #[test]
@@ -642,12 +664,12 @@ fn header_invalidation_and_partial_includer_coverage() -> Result<()> {
     f.write("api.h", "#define VAL 1
 int target(void);
 ");
-    f.write("a.c", "#include "api.h"
+    f.write("a.c", r#"#include "api.h"
 int a_call(void){return target() + VAL;}
-");
-    f.write("b.c", "#include "api.h"
+"#);
+    f.write("b.c", r#"#include "api.h"
 int b_call(void){return target() + VAL;}
-");
+"#);
     let db = f.commands(&["a.c", "b.c"])?;
     let path = f.0.join("semantics.sqlite3");
     let mut store = Store::open(&path)?;
@@ -662,7 +684,7 @@ int b_call(void){return target() + VAL;}
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
@@ -719,12 +741,12 @@ fn multi_tu_foreground_scheduler_bounded_coalescing_and_preemption() -> Result<(
     f.write("api.h", "#define VAL 1
 int target(void);
 ");
-    f.write("a.c", "#include "api.h"
+    f.write("a.c", r#"#include "api.h"
 int a_call(void){return target() + VAL;}
-");
-    f.write("b.c", "#include "api.h"
+"#);
+    f.write("b.c", r#"#include "api.h"
 int b_call(void){return target() + VAL;}
-");
+"#);
     f.write("unrelated.c", "int unindexed_stuff(void){return 42;}
 ");
     let db = f.commands(&["a.c", "b.c", "unrelated.c"])?;
@@ -818,9 +840,9 @@ fn atomic_revision_switch_late_result_rejection_and_waiting_state() -> Result<()
     f.write("api.h", "#define VAL 1
 int target(void);
 ");
-    f.write("a.c", "#include "api.h"
+    f.write("a.c", r#"#include "api.h"
 int a_call(void){return target() + VAL;}
-");
+"#);
     let db = f.commands(&["a.c"])?;
     let path = f.0.join("semantics.sqlite3");
     let mut store = Store::open(&path)?;
@@ -931,7 +953,7 @@ fn failed_tu_merge_semantics_masks_old_edges_and_retains_valid_tus() -> Result<(
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
@@ -997,14 +1019,14 @@ fn save_baseline_continuity_and_memory_contribution_retirement() -> Result<()> {
     let initial_baseline = store.disk_baseline()?;
     drop(store);
 
-    let a_unit = db.commands[0].unit_id.clone();
+    let _a_unit = db.commands[0].unit_id.clone();
     let b_unit = db.commands[1].unit_id.clone();
 
     let mut controller = Controller::open(
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
@@ -1097,7 +1119,7 @@ fn multi_document_lifecycle_discard_reload_switch_and_preservation() -> Result<(
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
@@ -1128,7 +1150,7 @@ fn multi_document_lifecycle_discard_reload_switch_and_preservation() -> Result<(
     // 2. Test opening/inspecting another clean file DOES NOT affect active overlay
     assert!(!controller.overlay_affects_path(&clean_path));
     // Overlay for b.c remains ready and queryable
-    let ctx = controller.preview_at(id, &b_path, 2, 0)?;
+    let _ctx = controller.preview_at(id, &b_path, 2, 0)?;
     assert_eq!(controller.preview_status()?["state"], "ready");
 
     // 3. Test closing clean file DOES NOT affect active overlay
@@ -1163,20 +1185,20 @@ fn bounded_pagination_stable_query_version_and_stale_rejection() -> Result<()> {
     let f = Fixture::new();
     f.write("target.h", "int target_func(void);
 ");
-    f.write("a.c", "#include "target.h"
+    f.write("a.c", r#"#include "target.h"
 int a1(void){return target_func();}
 int a2(void){return target_func();}
 int a3(void){return target_func();}
-");
-    f.write("b.c", "#include "target.h"
+"#);
+    f.write("b.c", r#"#include "target.h"
 int b1(void){return target_func();}
 int b2(void){return target_func();}
 int b3(void){return target_func();}
-");
-    f.write("c.c", "#include "target.h"
+"#);
+    f.write("c.c", r#"#include "target.h"
 int c1(void){return target_func();}
 int c2(void){return target_func();}
-");
+"#);
     let db = f.commands(&["a.c", "b.c", "c.c"])?;
     let path = f.0.join("semantics.sqlite3");
     let mut store = Store::open(&path)?;
@@ -1189,26 +1211,26 @@ int c2(void){return target_func();}
     store.publish(&c_snap)?;
     drop(store);
 
-    let a_unit = db.commands[0].unit_id.clone();
+    let _a_unit = db.commands[0].unit_id.clone();
     let b_unit = db.commands[1].unit_id.clone();
-    let c_unit = db.commands[2].unit_id.clone();
+    let _c_unit = db.commands[2].unit_id.clone();
     let b_path = f.0.join("b.c").to_string_lossy().into_owned();
 
     let mut controller = Controller::open(
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
     // Edit b.c in memory to have 4 calls to target_func
-    let new_b_source = "#include "target.h"
+    let new_b_source = r#"#include "target.h"
 int b1(void){return target_func();}
 int b2(void){return target_func();}
 int b3(void){return target_func();}
 int b4(void){return target_func();}
-";
+"#;
     let docs = vec![
         PreviewDocument {
             path: b_path.clone(),
@@ -1286,12 +1308,13 @@ int b4(void){return target_func();}
     let disk_p1 = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 4, 0)?;
     assert_eq!(disk_p1["offset"], 0);
     assert_eq!(disk_p1["limit"], 4);
-    assert_eq!(disk_p1["total"], 8); // in disk: a(3) + b(3) + c(2) = 8
+    assert_eq!(disk_p1["total"], 5); // in disk: a(3) + c(2) = 5 (b is masked by overlay)
     assert_eq!(disk_p1["has_more"], true);
     assert_eq!(disk_p1["truncated"], true);
 
     let disk_p2 = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_snap.provider, 4, 4)?;
     assert_eq!(disk_p2["offset"], 4);
+    assert_eq!(disk_p2["total"], 5);
     assert_eq!(disk_p2["has_more"], false);
     assert_eq!(disk_p2["truncated"], false);
 
@@ -1341,7 +1364,7 @@ int extra_entry(void) {
     let entries = vec![
         json!({"directory": f.0, "file": "variant_a.c", "arguments": ["clang", "-DFEATURE_VARIANT=1", "-I.", "-c", "variant_a.c", "-o", "a.o"]}),
         json!({"directory": f.0, "file": "variant_b.c", "arguments": ["clang", "-DFEATURE_VARIANT=2", "-I.", "-c", "variant_b.c", "-o", "b.o"]}),
-        json!({"directory": f.0, "file": "extra.c", "arguments": ["clang", "-DFEATURE_VARIANT=1", "-I.", "-c", "extra.c", "-o", "c.o"]}),
+        json!({"directory": f.0, "file": "extra.c", "arguments": ["clang", "-I.", "-c", "extra.c", "-o", "c.o"]}),
     ];
     fs::write(f.0.join("compile_commands.json"), serde_json::to_vec(&entries)?)?;
     let db = CompileDatabase::load(&f.0, &f.0.join("compile_commands.json"))?;
@@ -1349,9 +1372,12 @@ int extra_entry(void) {
     let db_path = f.0.join("semantics.sqlite3");
     let mut store = Store::open(&db_path)?;
     store.reconcile(&db)?;
-    let a_snap = analyze(&db, 0)?;
-    let b_snap = analyze(&db, 1)?;
-    let extra_snap = analyze(&db, 2)?;
+    let a_idx = db.commands.iter().position(|c| c.file.ends_with("variant_a.c")).unwrap();
+    let b_idx = db.commands.iter().position(|c| c.file.ends_with("variant_b.c")).unwrap();
+    let extra_idx = db.commands.iter().position(|c| c.file.ends_with("extra.c")).unwrap();
+    let a_snap = analyze(&db, a_idx)?;
+    let b_snap = analyze(&db, b_idx)?;
+    let extra_snap = analyze(&db, extra_idx)?;
     store.publish(&a_snap)?;
     store.publish(&b_snap)?;
     store.publish(&extra_snap)?;
@@ -1363,7 +1389,7 @@ int extra_entry(void) {
         &f.0,
         &db.path,
         db_path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
@@ -1396,7 +1422,7 @@ int a_entry(void) {
 
     let shared_path = f.0.join("shared.h").to_string_lossy().into_owned();
     let a_path = f.0.join("variant_a.c").to_string_lossy().into_owned();
-    let a_unit = db.commands[0].unit_id.clone();
+    let a_unit = db.commands[a_idx].unit_id.clone();
 
     let docs = vec![
         PreviewDocument { path: a_path.clone(), revision: 2, content: new_variant_a.into() },
@@ -1410,7 +1436,7 @@ int a_entry(void) {
     while Instant::now() < deadline {
         controller.maintain(&HashSet::new(), true)?;
         let s = controller.preview_status()?;
-        if s["state"] == "ready" && s["ticket"]["job_id"] == id {
+        if s["state"] == "ready" && s["ticket"]["job_id"] == id && s["queue_len"] == 0 && s["worker_active"] == false {
             break;
         }
         thread::sleep(Duration::from_millis(20));
@@ -1448,7 +1474,7 @@ int a_entry(void) {
     // Either check_preview invalidates or preview status becomes stale
     let s = controller.preview_status()?;
     assert_eq!(s["state"], "stale");
-    assert!(s["reason"].as_deref().unwrap_or("").contains("configuration changed") || fresh.is_err());
+    assert!(s["reason"].as_str().unwrap_or("").contains("configuration changed") || fresh.is_err());
 
     // Restore compile_commands.json
     fs::write(f.0.join("compile_commands.json"), serde_json::to_vec(&entries)?)?;
@@ -1468,10 +1494,15 @@ int a_entry(void) {
     // 6. Re-analyze saved buffers from disk into SQLite
     let db = CompileDatabase::load(&f.0, &f.0.join("compile_commands.json"))?;
     let mut store = Store::open(&db_path)?;
-    let a_new_snap = analyze(&db, 0)?;
-    let b_new_snap = analyze(&db, 1)?;
+    let a_new_idx = db.commands.iter().position(|c| c.file.ends_with("variant_a.c")).unwrap();
+    let b_new_idx = db.commands.iter().position(|c| c.file.ends_with("variant_b.c")).unwrap();
+    let extra_new_idx = db.commands.iter().position(|c| c.file.ends_with("extra.c")).unwrap();
+    let a_new_snap = analyze(&db, a_new_idx)?;
+    let b_new_snap = analyze(&db, b_new_idx)?;
+    let extra_new_snap = analyze(&db, extra_new_idx)?;
     store.publish(&a_new_snap)?;
     store.publish(&b_new_snap)?;
+    store.publish(&extra_new_snap)?;
 
     // 7. Query disk relations and verify 100% normalized equivalence
     let disk_res = store.relations_page(&db.configuration, &target_sym.id, "incoming", &a_new_snap.provider, 100, 0)?;
@@ -1504,16 +1535,16 @@ fn protocol_and_client_ticket_isolation_and_legacy_compatibility() -> Result<()>
     store.publish(&c_snap)?;
     drop(store);
 
-    let a_unit = db.commands[0].unit_id.clone();
+    let _a_unit = db.commands[0].unit_id.clone();
     let b_unit = db.commands[1].unit_id.clone();
-    let c_unit = db.commands[2].unit_id.clone();
+    let _c_unit = db.commands[2].unit_id.clone();
     let target_sym = a_snap.symbols.iter().find(|s| s.name == "target").unwrap();
 
     let mut controller = Controller::open(
         &f.0,
         &db.path,
         path.clone(),
-        f.0.join("worker-dummy"),
+        worker_binary(),
         Limits::default(),
     )?;
 
