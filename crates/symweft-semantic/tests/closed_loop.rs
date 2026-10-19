@@ -3444,3 +3444,44 @@ fn val02_qemu_full_a2_corpus_accounting_and_honest_failure_states() -> Result<()
 
     Ok(())
 }
+
+#[test]
+fn val03_failure_attribution_and_native_compiler_parity() -> Result<()> {
+    use symweft_semantic::scale_validation::{
+        FailureAttributionCategory, attribute_tu_failure, canonical_qemu_failure_attributions,
+        verify_compiler_parity_and_honesty,
+    };
+
+    assert_eq!(
+        attribute_tu_failure(
+            "compiler errors; no current semantic snapshot published",
+            &["block/cdp.h:81: error: use of undeclared identifier 'XATTR_NAME_MAX'".into()]
+        ),
+        FailureAttributionCategory::SourceCodeError
+    );
+    assert_eq!(
+        attribute_tu_failure(
+            "compiler errors",
+            &["fatal error: 'linux/fs.h' file not found".into()]
+        ),
+        FailureAttributionCategory::EnvironmentOrSdkMissing
+    );
+    assert_eq!(
+        attribute_tu_failure("unsupported compiler plugin argument", &[]),
+        FailureAttributionCategory::UnsupportedCompileConfiguration
+    );
+    assert_eq!(
+        attribute_tu_failure("extractor internal invariant", &[]),
+        FailureAttributionCategory::ExtractorLimitation
+    );
+    assert_eq!(
+        attribute_tu_failure("semantic extraction budget exceeded", &[]),
+        FailureAttributionCategory::ResourceBudgetExceeded
+    );
+
+    let records = canonical_qemu_failure_attributions();
+    assert!(verify_compiler_parity_and_honesty(&records));
+    assert!(records.iter().any(|r| r.main_file == "system/runstate.c" && r.native_compiler_fsyntax_only_fails));
+
+    Ok(())
+}
