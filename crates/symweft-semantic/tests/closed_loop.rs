@@ -4647,3 +4647,111 @@ fn rs02_scip_symbol_occurrence_import_dedup_variants_and_honest_call_graph_bound
 
     Ok(())
 }
+
+#[test]
+fn rs03_calls_traits_dyn_candidates_generics_and_bounded_monomorphization() -> Result<()> {
+    use symweft_semantic::rust_semantic::{
+        MAX_RUST_MONOMORPHIZED_INSTANCES_PER_CRATE, RustAssociatedItemKind, RustDispatchKind,
+        RustTraitAndCallResolver, RustTraitImplRecord,
+    };
+
+    let mut resolver = RustTraitAndCallResolver::new(2);
+    assert_eq!(MAX_RUST_MONOMORPHIZED_INSTANCES_PER_CRATE, 512);
+
+    // 1. Register `Storage` trait implementations for `SqliteStore` and `MemStore` with associated types & methods
+    resolver.register_impl(RustTraitImplRecord {
+        impl_id: "impl:Storage_for_SqliteStore".into(),
+        trait_usr: Some("rs-usr:Storage".into()),
+        self_type_usr: "rs-usr:SqliteStore".into(),
+        is_blanket_impl: false,
+        associated_items: vec![
+            (
+                RustAssociatedItemKind::AssociatedType,
+                Some("rs-usr:Storage::Error".into()),
+                "rs-usr:SqliteStore::Error".into(),
+                "Error".into(),
+            ),
+            (
+                RustAssociatedItemKind::Method,
+                Some("rs-usr:Storage::flush".into()),
+                "rs-usr:SqliteStore::flush".into(),
+                "flush".into(),
+            ),
+        ],
+    });
+    resolver.register_impl(RustTraitImplRecord {
+        impl_id: "impl:Storage_for_MemStore".into(),
+        trait_usr: Some("rs-usr:Storage".into()),
+        self_type_usr: "rs-usr:MemStore".into(),
+        is_blanket_impl: false,
+        associated_items: vec![(
+            RustAssociatedItemKind::Method,
+            Some("rs-usr:Storage::flush".into()),
+            "rs-usr:MemStore::flush".into(),
+            "flush".into(),
+        )],
+    });
+
+    // 2. Verify bidirectional jump between trait declaration and implementations (types, methods, associated types)
+    assert_eq!(
+        resolver.jump_to_implementations("rs-usr:Storage"),
+        vec!["rs-usr:MemStore", "rs-usr:SqliteStore"]
+    );
+    assert_eq!(
+        resolver.jump_to_implementations("rs-usr:Storage::flush"),
+        vec!["rs-usr:MemStore::flush", "rs-usr:SqliteStore::flush"]
+    );
+    assert_eq!(
+        resolver.jump_to_trait_declaration("rs-usr:SqliteStore::Error").as_deref(),
+        Some("rs-usr:Storage::Error")
+    );
+
+    // 3. Verify `dyn Storage` candidate dispatch vs static trait impl dispatch
+    let dyn_dispatch = resolver.resolve_dyn_trait_call("rs-usr:Storage::flush");
+    let loc = symweft_semantic::model::Location {
+        path: "src/engine.rs".into(),
+        line: 25,
+        column: 9,
+        start_byte: 420,
+        end_byte: 435,
+        expansion: None,
+    };
+    let dyn_sites = RustTraitAndCallResolver::to_shared_call_sites(
+        &dyn_dispatch,
+        Some("rs-usr:run_dyn".into()),
+        "flush",
+        loc.clone(),
+    );
+    // 1 trait item + 2 concrete impl candidates, all marked `virtual_candidate`
+    assert_eq!(dyn_sites.len(), 3);
+    assert!(dyn_sites.iter().all(|s| s.dispatch == "virtual_candidate"));
+
+    let static_dispatch = RustDispatchKind::StaticTraitImplResolved {
+        trait_item_usr: "rs-usr:Storage::flush".into(),
+        concrete_impl_item_usr: "rs-usr:SqliteStore::flush".into(),
+    };
+    let static_sites = RustTraitAndCallResolver::to_shared_call_sites(
+        &static_dispatch,
+        Some("rs-usr:run_static".into()),
+        "flush",
+        loc,
+    );
+    assert_eq!(static_sites.len(), 1);
+    assert_eq!(static_sites[0].dispatch, "direct");
+    assert_eq!(
+        static_sites[0].target.as_deref(),
+        Some("rs-usr:SqliteStore::flush")
+    );
+
+    // 4. Verify bounded monomorphization prevents unbounded specialization explosion
+    let (_, m1) = resolver.record_or_collapse_generic_instance("rs-usr:parse_generic", &["u32"]);
+    let (_, m2) = resolver.record_or_collapse_generic_instance("rs-usr:parse_generic", &["u64"]);
+    let (primary_usr, m3) =
+        resolver.record_or_collapse_generic_instance("rs-usr:parse_generic", &["String"]);
+    assert!(m1 && m2);
+    assert!(!m3, "3rd instance exceeds budget of 2 and collapses to primary generic symbol");
+    assert_eq!(primary_usr, "rs-usr:parse_generic");
+    assert_eq!(resolver.collapsed_to_primary_generic_count, 1);
+
+    Ok(())
+}

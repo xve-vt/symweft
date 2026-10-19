@@ -27,3 +27,15 @@
 ### 2.2 出现位置索引与完整调用图的诚实边界
 - 纯符号/出现位置导入仅提供定义（`Definition`/`Declaration`）与引用（`Reference`/`TypeReference`/`WriteAccess`），缺乏调用者函数归属与多态分派信息。
 - `claims_complete_call_graph` 恒为 `false`（由 `validate_import_honesty()` 强制验证），且 `into_occurrence_snapshot()` 生成的 `calls` 为空，绝不将符号出现位置索引冒充为完整调用图（完整调用与 trait 分派由 RS-03 专门构建）。
+
+## 3. 调用、Trait 与实现绑定（RS-03）
+
+### 3.1 五类分派模型与双向实现跳转（`RustTraitAndCallResolver`）
+- **固有方法与自由函数（`InherentOrFreeDirect`）**：直接生成 `dispatch = "direct"` 调用边。
+- **静态已知具体类型的 Trait 调用（`StaticTraitImplResolved`）**：精确绑定到具体 `impl Trait for Type` 的方法实现，同时通过 `jump_to_trait_declaration()` 保留回到 Trait 声明的映射。
+- **泛型参数约束调用（`GenericTraitBoundPrimary`）**：在 `fn run<T: Storage>(s: &T)` 内调用 `s.flush()` 时，直接绑定至 `Storage::flush` 主声明。
+- **`dyn Trait` 动态分派候选（`DynTraitCandidates`）**：对 `&dyn Storage` / `Box<dyn Storage>` 调用生成 `dispatch = "virtual_candidate"` 的候选边集合（覆盖工作空间内全部已知 `impl Storage for ...`），并附带 `open_world_note` 声明外部未索引 crate 可能新增实现。
+- **关联项与双向跳转**：完整支持 `Method`、`AssociatedFunction`、`AssociatedType`（如 `type Error = ...`）与 `AssociatedConst` 的声明 $\leftrightarrow$ 实现双向导航。
+
+### 3.2 防单态化爆炸上限（`MAX_RUST_MONOMORPHIZED_INSTANCES_PER_CRATE = 512`）
+- 严禁无界物化泛型单态化组合实例；当特化实例数达到单 crate 预算上限（512）时，`record_or_collapse_generic_instance()` 自动折叠回主泛型定义身份并记录 `collapsed_to_primary_generic_count`。

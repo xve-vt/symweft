@@ -342,3 +342,207 @@ impl RustOccurrenceImportBatch {
         }
     }
 }
+
+/// Upper bound on materialized generic instantiations per crate to prevent monomorphization explosion (RS-03).
+pub const MAX_RUST_MONOMORPHIZED_INSTANCES_PER_CRATE: usize = 512;
+
+/// Associated item category inside a Rust trait or `impl` block (RS-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustAssociatedItemKind {
+    Method,
+    AssociatedFunction,
+    AssociatedType,
+    AssociatedConst,
+}
+
+/// Call and method dispatch classification in Rust (RS-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustDispatchKind {
+    /// Direct call to a free function or inherent `impl Type` method.
+    InherentOrFreeDirect { target_usr: String },
+    /// Statically resolved trait method call where receiver concrete type is known (`<T as Trait>::method`).
+    StaticTraitImplResolved {
+        trait_item_usr: String,
+        concrete_impl_item_usr: String,
+    },
+    /// Call on a generic type parameter (`T: Trait`) bound to the primary trait declaration without unbounded monomorphization.
+    GenericTraitBoundPrimary {
+        trait_item_usr: String,
+        type_param_name: String,
+    },
+    /// Dynamic dispatch via `&dyn Trait` / `Box<dyn Trait>` with bounded workspace impl candidates.
+    DynTraitCandidates {
+        trait_item_usr: String,
+        candidate_impl_usrs: Vec<String>,
+        open_world_note: String,
+    },
+    /// Indirect call via `fn(...)` pointer or dynamic closure object where target cannot be statically resolved.
+    IndirectFnPointerOrClosure { expr_spelling: String },
+}
+
+/// Record of a trait or inherent implementation block and its associated items (RS-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustTraitImplRecord {
+    pub impl_id: String,
+    pub trait_usr: Option<String>,
+    pub self_type_usr: String,
+    pub is_blanket_impl: bool,
+    /// Pairs of `(associated_item_kind, trait_item_usr_opt, impl_item_usr, name)`.
+    pub associated_items: Vec<(RustAssociatedItemKind, Option<String>, String, String)>,
+}
+
+/// Registry for Rust trait implementations, associated items, dispatch resolution, and monomorphization bounds (RS-03).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RustTraitAndCallResolver {
+    pub impls: Vec<RustTraitImplRecord>,
+    pub max_monomorphized_instances: usize,
+    pub recorded_monomorphized_instances: usize,
+    pub collapsed_to_primary_generic_count: usize,
+}
+
+impl RustTraitAndCallResolver {
+    pub fn new(max_monomorphized_instances: usize) -> Self {
+        Self {
+            impls: Vec::new(),
+            max_monomorphized_instances,
+            recorded_monomorphized_instances: 0,
+            collapsed_to_primary_generic_count: 0,
+        }
+    }
+
+    pub fn register_impl(&mut self, record: RustTraitImplRecord) {
+        self.impls.push(record);
+    }
+
+    /// Jump from a trait USR to all implementing types (`impl Trait for Type`), or from a trait method USR to all concrete impl methods.
+    pub fn jump_to_implementations(&self, trait_or_item_usr: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        for imp in &self.impls {
+            if imp.trait_usr.as_deref() == Some(trait_or_item_usr) {
+                out.push(imp.self_type_usr.clone());
+            }
+            for (_, trait_item_opt, impl_item_usr, _) in &imp.associated_items {
+                if trait_item_opt.as_deref() == Some(trait_or_item_usr) {
+                    out.push(impl_item_usr.clone());
+                }
+            }
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
+    /// Jump from a concrete `impl` associated item (`Method`, `AssociatedType`, `AssociatedConst`) back to its trait declaration item.
+    pub fn jump_to_trait_declaration(&self, impl_item_usr: &str) -> Option<String> {
+        for imp in &self.impls {
+            for (_, trait_item_opt, candidate_impl_usr, _) in &imp.associated_items {
+                if candidate_impl_usr == impl_item_usr {
+                    return trait_item_opt.clone();
+                }
+            }
+        }
+        None
+    }
+
+    /// Resolves a `dyn Trait` method invocation into its primary trait method + bounded workspace candidate impls.
+    pub fn resolve_dyn_trait_call(&self, trait_method_usr: &str) -> RustDispatchKind {
+        let candidates = self.jump_to_implementations(trait_method_usr);
+        RustDispatchKind::DynTraitCandidates {
+            trait_item_usr: trait_method_usr.to_string(),
+            candidate_impl_usrs: candidates,
+            open_world_note:
+                "closed over indexed workspace crates; downstream or unindexed crates may add impls"
+                    .into(),
+        }
+    }
+
+    /// Records a generic specialization or collapses to the primary generic definition when budget is reached.
+    pub fn record_or_collapse_generic_instance(
+        &mut self,
+        primary_generic_usr: &str,
+        _type_args: &[&str],
+    ) -> (String, bool) {
+        if self.recorded_monomorphized_instances < self.max_monomorphized_instances {
+            self.recorded_monomorphized_instances += 1;
+            (primary_generic_usr.to_string(), true)
+        } else {
+            self.collapsed_to_primary_generic_count += 1;
+            (primary_generic_usr.to_string(), false)
+        }
+    }
+
+    /// Converts a `RustDispatchKind` into shared A2 `CallSite` records for `Store::publish`.
+    pub fn to_shared_call_sites(
+        dispatch: &RustDispatchKind,
+        caller_usr: Option<String>,
+        callee_name: &str,
+        location: crate::model::Location,
+    ) -> Vec<crate::model::CallSite> {
+        match dispatch {
+            RustDispatchKind::InherentOrFreeDirect { target_usr } => {
+                vec![crate::model::CallSite {
+                    caller: caller_usr,
+                    target: Some(target_usr.clone()),
+                    name: callee_name.to_string(),
+                    dispatch: "direct".into(),
+                    location,
+                }]
+            }
+            RustDispatchKind::StaticTraitImplResolved {
+                concrete_impl_item_usr,
+                ..
+            } => {
+                vec![crate::model::CallSite {
+                    caller: caller_usr,
+                    target: Some(concrete_impl_item_usr.clone()),
+                    name: callee_name.to_string(),
+                    dispatch: "direct".into(),
+                    location,
+                }]
+            }
+            RustDispatchKind::GenericTraitBoundPrimary { trait_item_usr, .. } => {
+                vec![crate::model::CallSite {
+                    caller: caller_usr,
+                    target: Some(trait_item_usr.clone()),
+                    name: callee_name.to_string(),
+                    dispatch: "direct".into(),
+                    location,
+                }]
+            }
+            RustDispatchKind::DynTraitCandidates {
+                trait_item_usr,
+                candidate_impl_usrs,
+                ..
+            } => {
+                let mut sites = vec![crate::model::CallSite {
+                    caller: caller_usr.clone(),
+                    target: Some(trait_item_usr.clone()),
+                    name: callee_name.to_string(),
+                    dispatch: "virtual_candidate".into(),
+                    location: location.clone(),
+                }];
+                for cand in candidate_impl_usrs {
+                    sites.push(crate::model::CallSite {
+                        caller: caller_usr.clone(),
+                        target: Some(cand.clone()),
+                        name: callee_name.to_string(),
+                        dispatch: "virtual_candidate".into(),
+                        location: location.clone(),
+                    });
+                }
+                sites
+            }
+            RustDispatchKind::IndirectFnPointerOrClosure { .. } => {
+                vec![crate::model::CallSite {
+                    caller: caller_usr,
+                    target: None,
+                    name: callee_name.to_string(),
+                    dispatch: "indirect".into(),
+                    location,
+                }]
+            }
+        }
+    }
+}
