@@ -4863,3 +4863,95 @@ fn rs04_macro_dual_anchors_multi_dirty_overlay_and_no_stale_fallback_on_failure(
 
     Ok(())
 }
+
+#[test]
+fn rs05_rust_source_cfg_match_loops_try_operator_closures_await_and_mir_boundary() -> Result<()> {
+    use symweft_semantic::rust_semantic::{RustCfgEdgeKind, RustCfgNodeKind, RustFunctionCfg};
+
+    let mut cfg = RustFunctionCfg::new(
+        "rs-usr:symweft_core:process_stream",
+        "process_stream",
+        "crates/symweft-core/src/stream.rs",
+        15,
+        300,
+        920,
+    );
+
+    let loop_hdr = cfg.add_block(RustCfgNodeKind::LoopHeader, "while let Some(req) = rx", 16, 5, 330, 360);
+    let await_blk = cfg.add_block(
+        RustCfgNodeKind::AsyncAwaitSuspendPoint,
+        "rx.next().await",
+        16,
+        24,
+        345,
+        360,
+    );
+    let try_q = cfg.add_block(
+        RustCfgNodeKind::TryQuestionOperator,
+        "decode(req)?",
+        17,
+        13,
+        375,
+        390,
+    );
+    let match_scrutinee = cfg.add_block(
+        RustCfgNodeKind::MatchScrutinee,
+        "match msg.kind",
+        18,
+        9,
+        400,
+        420,
+    );
+    let arm_stop = cfg.add_block(
+        RustCfgNodeKind::EarlyReturn,
+        "Kind::Stop => return Ok(())",
+        19,
+        13,
+        430,
+        465,
+    );
+    let arm_work = cfg.add_block(
+        RustCfgNodeKind::ClosureCreationSite,
+        "Kind::Work => spawn(|| ...)",
+        20,
+        13,
+        475,
+        525,
+    );
+    let exit_blk = cfg.add_block(RustCfgNodeKind::NormalExit, "exit", 24, 1, 560, 565);
+
+    cfg.register_nested_closure_cfg("rs-usr:symweft_core:process_stream::{closure#0}");
+
+    cfg.add_edge(0, loop_hdr, RustCfgEdgeKind::Sequential);
+    cfg.add_edge(loop_hdr, await_blk, RustCfgEdgeKind::LoopBody);
+    cfg.add_edge(await_blk, try_q, RustCfgEdgeKind::AwaitSuspendResume);
+    cfg.add_edge(try_q, match_scrutinee, RustCfgEdgeKind::TryOkContinue);
+    cfg.add_edge(try_q, exit_blk, RustCfgEdgeKind::TryErrEarlyReturn);
+    cfg.add_edge(
+        match_scrutinee,
+        arm_stop,
+        RustCfgEdgeKind::MatchArmBranch {
+            pattern_label: "Kind::Stop".into(),
+        },
+    );
+    cfg.add_edge(
+        match_scrutinee,
+        arm_work,
+        RustCfgEdgeKind::MatchArmBranch {
+            pattern_label: "Kind::Work".into(),
+        },
+    );
+    cfg.add_edge(arm_stop, exit_blk, RustCfgEdgeKind::ReturnJump);
+    cfg.add_edge(arm_work, loop_hdr, RustCfgEdgeKind::LoopBackEdge);
+    cfg.add_edge(loop_hdr, exit_blk, RustCfgEdgeKind::LoopBreakOrExit);
+
+    assert!(cfg.is_async_fn);
+    assert!(cfg.has_try_question_operator);
+    assert_eq!(cfg.nested_closure_cfgs.len(), 1);
+    assert!(!cfg.claims_mir_drop_or_unwind_semantics);
+    assert!(cfg.validate_rust_cfg_contract().is_ok());
+    assert_eq!(cfg.blocks.len(), 8);
+    assert_eq!(cfg.edges.len(), 10);
+
+    Ok(())
+}

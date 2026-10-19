@@ -50,3 +50,13 @@
 - **跨 Crate 级联失效**：`apply_dirty_documents()` 同时接收多个未保存文档修订，自动失效所属 crate 及 `reverse_crate_deps` 中的下游依赖 crate，同时保留未受影响的干净 crate 快照。
 - **配置与 `proc-macro` 策略切换**：`on_config_or_policy_change()` 在 `variant_fingerprint` 或 `BuildScriptAndProcMacroPolicy` 变化时全量失效旧快照。
 - **失败绝不回退为伪准确结果**：当未保存代码或宏展开失败时，`record_crate_failure()` 立即移除旧快照并记录 `old_disk_facts_masked = true`，绝不回退读取过期的磁盘旧边或将不完整的语法猜测冒充为准确语义。
+
+## 5. Rust 源码控制流图（CFG）（RS-05）
+
+### 5.1 公开源码级控制流构造（`RustFunctionCfg`）
+- **节点类型（`RustCfgNodeKind`）**：覆盖 `Entry`、`BasicBlock`、`MatchScrutinee`、`MatchArm`、`LoopHeader`（`loop` / `while` / `for`）、`TryQuestionOperator`（`?` 提前错误返回）、`EarlyReturn`（`return`）、`ClosureCreationSite`、`AsyncAwaitSuspendPoint`（`.await` 挂起点）与 `NormalExit`。
+- **边类型（`RustCfgEdgeKind`）**：区分 `Sequential`、`MatchArmBranch`、`LoopBody`、`LoopBackEdge`、`LoopBreakOrExit`、`TryOkContinue`、`TryErrEarlyReturn`、`ReturnJump` 与 `AwaitSuspendResume`。
+- **闭包独立子图**：闭包体通过 `nested_closure_cfgs` 独立建模，在外部函数中仅记录 `ClosureCreationSite`，不把延迟执行的闭包体混入外层函数顺序控制流。
+
+### 5.2 源码 CFG 与 MIR / Drop / Unwind 的诚实边界
+- `claims_mir_drop_or_unwind_semantics` 恒为 `false`（由 `validate_rust_cfg_contract()` 强制把关）：明确声明本图为源码级结构控制流，不声称已导出 `rustc` 内部 MIR、隐式 `Drop::drop` 析构胶水或 panic 栈展开（unwind）边。

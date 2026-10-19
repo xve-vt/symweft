@@ -694,3 +694,170 @@ impl RustUnsavedOverlayCoordinator {
         );
     }
 }
+
+/// Control-flow basic block category in a Rust source CFG (RS-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustCfgNodeKind {
+    Entry,
+    BasicBlock,
+    MatchScrutinee,
+    MatchArm,
+    LoopHeader,
+    TryQuestionOperator,
+    EarlyReturn,
+    ClosureCreationSite,
+    AsyncAwaitSuspendPoint,
+    NormalExit,
+}
+
+/// Directed control-flow edge category in a Rust source CFG (RS-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RustCfgEdgeKind {
+    Sequential,
+    MatchArmBranch { pattern_label: String },
+    LoopBody,
+    LoopBackEdge,
+    LoopBreakOrExit,
+    TryOkContinue,
+    TryErrEarlyReturn,
+    ReturnJump,
+    AwaitSuspendResume,
+}
+
+/// Basic block node with source location anchor in a Rust CFG (RS-05).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustCfgBlock {
+    pub block_id: usize,
+    pub kind: RustCfgNodeKind,
+    pub label: String,
+    pub location: crate::model::Location,
+}
+
+/// Directed edge between two basic blocks in a Rust CFG (RS-05).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustCfgEdge {
+    pub from_block: usize,
+    pub to_block: usize,
+    pub kind: RustCfgEdgeKind,
+}
+
+/// Source-level Control Flow Graph for a Rust function, method, or closure body (RS-05).
+/// Models surface control-flow constructs (`match`, loops, `?`, `return`, closure boundaries, `.await`)
+/// and explicitly never claims full rustc MIR, implicit `Drop` glue, or panic unwind semantics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustFunctionCfg {
+    pub function_usr: String,
+    pub function_name: String,
+    pub file_path: String,
+    pub is_async_fn: bool,
+    pub has_try_question_operator: bool,
+    /// Separate CFG identifiers for nested closures created inside this function.
+    pub nested_closure_cfgs: Vec<String>,
+    /// Hard honesty flag: source CFG never claims full MIR / implicit Drop / panic unwind coverage.
+    pub claims_mir_drop_or_unwind_semantics: bool,
+    pub blocks: Vec<RustCfgBlock>,
+    pub edges: Vec<RustCfgEdge>,
+}
+
+impl RustFunctionCfg {
+    pub fn new(
+        function_usr: &str,
+        function_name: &str,
+        file_path: &str,
+        start_line: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> Self {
+        let entry = RustCfgBlock {
+            block_id: 0,
+            kind: RustCfgNodeKind::Entry,
+            label: format!("entry:{function_name}"),
+            location: crate::model::Location {
+                path: file_path.to_string(),
+                line: start_line,
+                column: 1,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        };
+        Self {
+            function_usr: function_usr.to_string(),
+            function_name: function_name.to_string(),
+            file_path: file_path.to_string(),
+            is_async_fn: false,
+            has_try_question_operator: false,
+            nested_closure_cfgs: Vec::new(),
+            claims_mir_drop_or_unwind_semantics: false,
+            blocks: vec![entry],
+            edges: Vec::new(),
+        }
+    }
+
+    pub fn add_block(
+        &mut self,
+        kind: RustCfgNodeKind,
+        label: &str,
+        line: u32,
+        column: u32,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> usize {
+        if kind == RustCfgNodeKind::AsyncAwaitSuspendPoint {
+            self.is_async_fn = true;
+        }
+        if kind == RustCfgNodeKind::TryQuestionOperator {
+            self.has_try_question_operator = true;
+        }
+        let id = self.blocks.len();
+        self.blocks.push(RustCfgBlock {
+            block_id: id,
+            kind,
+            label: label.to_string(),
+            location: crate::model::Location {
+                path: self.file_path.clone(),
+                line,
+                column,
+                start_byte,
+                end_byte,
+                expansion: None,
+            },
+        });
+        id
+    }
+
+    pub fn add_edge(&mut self, from_block: usize, to_block: usize, kind: RustCfgEdgeKind) {
+        self.edges.push(RustCfgEdge {
+            from_block,
+            to_block,
+            kind,
+        });
+    }
+
+    pub fn register_nested_closure_cfg(&mut self, closure_usr: &str) {
+        self.nested_closure_cfgs.push(closure_usr.to_string());
+    }
+
+    /// Validates source spans and ensures the CFG does not claim MIR/Drop/unwind completeness.
+    pub fn validate_rust_cfg_contract(&self) -> std::result::Result<(), String> {
+        if self.claims_mir_drop_or_unwind_semantics {
+            return Err(
+                "RS-05 honesty violation: Rust source CFG must not claim full MIR, Drop, or unwind semantics"
+                    .into(),
+            );
+        }
+        for b in &self.blocks {
+            if b.location.path.is_empty() || b.location.end_byte < b.location.start_byte {
+                return Err(format!("invalid source span on Rust CFG block {}", b.block_id));
+            }
+        }
+        for e in &self.edges {
+            if e.from_block >= self.blocks.len() || e.to_block >= self.blocks.len() {
+                return Err(format!("dangling Rust CFG edge {} -> {}", e.from_block, e.to_block));
+            }
+        }
+        Ok(())
+    }
+}
