@@ -13,3 +13,17 @@
   - 不含 `__init__.py` 但包含子模块的目录（可跨多个搜索根聚合）按 PEP 420 解析为 `NamespacePackagePep420`，完整保留 `namespace_roots`；
   - 同名 `.pyi` 类型存根（无论位于 `typings/` 还是同目录）静态类型优先级高于 `.py`，标记为 `TypeStubModule`，同时通过 `runtime_implementation_path` 关联底层 `.py` 实现文件。
 - **静态安全隔离红线**：`executes_user_code` 恒为 `false`，并在 `validate_static_isolation()` 中强制校验，严禁在分析期间通过 `import`、`setup.py` 或子进程执行任何用户 Python 模块代码。
+
+## 2. 作用域与 Import 绑定（PY-02）
+
+### 2.1 LEGB 词法作用域与类作用域跳过规则（`PythonLexicalScopeTree`）
+- 作用域节点显式区分为 `LocalFunction`（函数/推导式/Lambda 局部）、`EnclosingClosure`（外层闭包函数）、`ClassBody`（类定义体）、`ModuleGlobal`（模块全局）与 `Builtin`。
+- **类体穿透规则**：方法或嵌套函数在向上查找非限定名时，严格遵循 Python 语言规范跳过外层 `ClassBody` 作用域（除非通过 `self.attr` 或 `ClassName.attr` 显式属性访问），避免将同名类属性误绑为方法闭包变量。
+- **显式声明绑定**：`nonlocal x` 强制绑定至最近的外层 `LocalFunction` 作用域；`global y` 直接绑定至根 `ModuleGlobal` 作用域。
+
+### 2.2 绝对/相对 Import、别名与冲突/缺依赖诊断（`PythonImportBinding`）
+- 支持常规模块导入、符号导入（`from ... import sym as alias`）、子模块导入以及多级相对导入（`.` / `..` / `...`，自动区分普通模块与 `__init__.py` 锚点）。
+- **明确边界标注**：
+  - `Resolved`：成功定位目标模块与导出符号，并记录是否命中 `.pyi` 存根（`via_stub`）；
+  - `AmbiguousConflict`：多搜索根存在同名遮蔽冲突时列出全部候选路径（`candidate_paths`）；
+  - `MissingDependency`：当相对导入越过顶层包边界（`beyond top-level package`）、第三方依赖未安装或导出符号缺失时，明确记录诊断原因，绝不静默忽略。

@@ -3896,3 +3896,150 @@ fn py01_environment_and_module_discovery_without_executing_user_code() -> Result
 
     Ok(())
 }
+
+#[test]
+fn py02_legb_scopes_relative_imports_and_conflict_markers() -> Result<()> {
+    use std::collections::{BTreeMap, BTreeSet};
+    use symweft_semantic::python_semantic::{
+        ImportResolutionStatus, PythonImportBinding, PythonLexicalScopeTree,
+        PythonModuleDiscoveryCatalog, PythonScopeKind, PythonSymbolBindingKind,
+    };
+
+    // 1. Verify Python LEGB scope resolution (Local, Enclosing closure, Class body skipped by methods, Module global)
+    let mut tree = PythonLexicalScopeTree::new("pkg.service");
+    let global_x = tree.define_symbol(0, "x", PythonSymbolBindingKind::LocalVariable);
+    let global_cfg = tree.define_symbol(0, "CONFIG", PythonSymbolBindingKind::LocalVariable);
+
+    // Class scope defines its own attribute `x`, which MUST be skipped by methods inside the class
+    let cls_scope = tree.add_child_scope(0, PythonScopeKind::ClassBody, "Worker");
+    let cls_x = tree.define_symbol(cls_scope, "x", PythonSymbolBindingKind::ClassAttribute);
+    assert_eq!(
+        tree.resolve_legb(cls_scope, "x").unwrap().canonical_id,
+        cls_x
+    );
+
+    // Method inside `Worker`: unqualified `x` resolves to module global `x`, NOT `Worker.x`!
+    let method_scope = tree.add_child_scope(cls_scope, PythonScopeKind::LocalFunction, "run");
+    let method_resolved_x = tree.resolve_legb(method_scope, "x").unwrap();
+    assert_eq!(method_resolved_x.canonical_id, global_x);
+    assert_eq!(method_resolved_x.resolved_via, PythonScopeKind::ModuleGlobal);
+
+    // Enclosing closure variable captured by inner function via `nonlocal`
+    let outer_counter = tree.define_symbol(method_scope, "counter", PythonSymbolBindingKind::LocalVariable);
+    let inner_fn = tree.add_child_scope(method_scope, PythonScopeKind::LocalFunction, "step");
+    tree.declare_nonlocal(inner_fn, "counter");
+    tree.declare_global(inner_fn, "CONFIG");
+
+    let resolved_counter = tree.resolve_legb(inner_fn, "counter").unwrap();
+    assert_eq!(resolved_counter.canonical_id, outer_counter);
+    assert_eq!(resolved_counter.resolved_via, PythonScopeKind::EnclosingClosure);
+
+    let resolved_cfg = tree.resolve_legb(inner_fn, "CONFIG").unwrap();
+    assert_eq!(resolved_cfg.canonical_id, global_cfg);
+    assert_eq!(resolved_cfg.resolved_via, PythonScopeKind::ModuleGlobal);
+
+    // 2. Verify relative imports, aliases, conflicts, and missing dependencies
+    let files = [
+        "src/pkg/__init__.py",
+        "src/pkg/common/helpers.py",
+        "src/pkg/sub/__init__.py",
+        "src/pkg/sub/worker.py",
+        "typings/pkg/common/typed_api.pyi",
+    ];
+    let catalog = PythonModuleDiscoveryCatalog::discover_static(
+        "/workspace/py-app",
+        "/usr/bin/python3",
+        "3.12.0",
+        &files,
+        &[],
+    );
+
+    let mut exports: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    exports.insert(
+        "pkg.common.helpers".into(),
+        ["sanitize".to_string(), "format_id".to_string()].into_iter().collect(),
+    );
+    let mut conflicts: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    conflicts.insert(
+        "pkg.duplicate_mod".into(),
+        vec!["src/pkg/duplicate_mod.py".into(), "extra/pkg/duplicate_mod.py".into()],
+    );
+
+    // 2a. Valid relative import `from ..common.helpers import sanitize as clean_fn` inside `pkg.sub.worker`
+    let rel_ok = PythonImportBinding::resolve(
+        "pkg.sub.worker",
+        false,
+        2,
+        "common.helpers",
+        Some("sanitize"),
+        Some("clean_fn"),
+        &catalog,
+        &exports,
+        &conflicts,
+    );
+    assert_eq!(rel_ok.local_alias, "clean_fn");
+    assert_eq!(
+        rel_ok.status,
+        ImportResolutionStatus::Resolved {
+            target_module: "pkg.common.helpers".into(),
+            target_symbol: Some("sanitize".into()),
+            via_stub: false,
+        }
+    );
+
+    // 2b. Relative import beyond top-level package `from ....outside import foo`
+    let rel_overflow = PythonImportBinding::resolve(
+        "pkg.sub.worker",
+        false,
+        4,
+        "outside",
+        Some("foo"),
+        None,
+        &catalog,
+        &exports,
+        &conflicts,
+    );
+    assert!(matches!(
+        rel_overflow.status,
+        ImportResolutionStatus::MissingDependency { ref diagnostic, .. }
+        if diagnostic.contains("beyond top-level package")
+    ));
+
+    // 2c. Ambiguous conflict marker
+    let conflict_imp = PythonImportBinding::resolve(
+        "pkg.sub.worker",
+        false,
+        0,
+        "pkg.duplicate_mod",
+        None,
+        Some("dup"),
+        &catalog,
+        &exports,
+        &conflicts,
+    );
+    assert!(matches!(
+        conflict_imp.status,
+        ImportResolutionStatus::AmbiguousConflict { ref candidate_paths, .. }
+        if candidate_paths.len() == 2
+    ));
+
+    // 2d. Missing third-party dependency marker
+    let missing_dep = PythonImportBinding::resolve(
+        "pkg.sub.worker",
+        false,
+        0,
+        "nonexistent_lib.client",
+        Some("connect"),
+        None,
+        &catalog,
+        &exports,
+        &conflicts,
+    );
+    assert!(matches!(
+        missing_dep.status,
+        ImportResolutionStatus::MissingDependency { ref requested_module, .. }
+        if requested_module == "nonexistent_lib.client"
+    ));
+
+    Ok(())
+}
