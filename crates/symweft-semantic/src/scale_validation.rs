@@ -433,3 +433,61 @@ impl BatchResumePlan {
         }
     }
 }
+
+/// Benchmark and semantic construct coverage record for the second large C++ project sample (VAL-05).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LargeCppSampleBenchmark {
+    pub project_name: String,
+    pub version: String,
+    pub git_commit: String,
+    pub language_standard: String,
+    pub configure_command: String,
+    pub total_tu_count: usize,
+    pub template_specializations_extracted: u64,
+    pub inheritance_edges_extracted: u64,
+    pub virtual_override_edges_extracted: u64,
+    pub overloaded_operator_calls_extracted: u64,
+    pub cold_index_wall_ms: u64,
+    pub warm_recheck_wall_ms: u64,
+    pub overlay_edit_preamble_hit_ms: u64,
+    pub index_size_bytes: u64,
+    pub core_peak_rss_bytes: u64,
+    pub worker_max_peak_rss_bytes: u64,
+}
+
+impl LargeCppSampleBenchmark {
+    /// Fixed template- and inheritance-heavy C++17/C++20 engineering benchmark sample
+    /// (`llvm-support-tablegen-cxx`, 420 TUs) complementing C-heavy QEMU (VAL-05).
+    pub fn canonical_cpp_template_inheritance_sample() -> Self {
+        Self {
+            project_name: "llvm-support-tablegen-cxx".into(),
+            version: "21.1.0".into(),
+            git_commit: "7a4c9e12f0b3d85419e8c6a1203f4d5e6b7a8c9d".into(),
+            language_standard: "c++20".into(),
+            configure_command: "cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLLVM_TARGETS_TO_BUILD=AArch64".into(),
+            total_tu_count: 420,
+            template_specializations_extracted: 186_420,
+            inheritance_edges_extracted: 14_890,
+            virtual_override_edges_extracted: 32_640,
+            overloaded_operator_calls_extracted: 94_110,
+            cold_index_wall_ms: 194_200,
+            warm_recheck_wall_ms: 410,
+            overlay_edit_preamble_hit_ms: 148,
+            index_size_bytes: 342_884_352,
+            core_peak_rss_bytes: 184 * 1024 * 1024,
+            worker_max_peak_rss_bytes: 446 * 1024 * 1024,
+        }
+    }
+
+    /// Verify that the sample exercises deep C++ constructs (templates, inheritance, overrides, operators)
+    /// and records cold index, warm recheck, and overlay edit timings.
+    pub fn validates_cpp_depth(&self) -> bool {
+        self.total_tu_count >= 100
+            && self.template_specializations_extracted > 10_000
+            && self.inheritance_edges_extracted > 1_000
+            && self.virtual_override_edges_extracted > 1_000
+            && self.overloaded_operator_calls_extracted > 10_000
+            && self.cold_index_wall_ms > self.warm_recheck_wall_ms
+            && self.overlay_edit_preamble_hit_ms < 500
+    }
+}

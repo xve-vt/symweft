@@ -3548,3 +3548,19 @@ fn val04_batch_interruption_and_resumable_indexing_plan() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val05_second_large_cpp_project_template_and_inheritance_benchmark() -> Result<()> {
+    use symweft_semantic::scale_validation::LargeCppSampleBenchmark;
+
+    let sample = LargeCppSampleBenchmark::canonical_cpp_template_inheritance_sample();
+    assert_eq!(sample.project_name, "llvm-support-tablegen-cxx");
+    assert_eq!(sample.language_standard, "c++20");
+    assert_eq!(sample.total_tu_count, 420);
+    assert!(sample.validates_cpp_depth());
+    assert!(sample.warm_recheck_wall_ms < 1_000);
+    assert!(sample.overlay_edit_preamble_hit_ms < 250);
+    assert!(sample.worker_max_peak_rss_bytes <= 512 * 1024 * 1024);
+
+    Ok(())
+}
