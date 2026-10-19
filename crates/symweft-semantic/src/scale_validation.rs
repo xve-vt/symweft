@@ -743,7 +743,7 @@ pub enum SoakOperation {
 }
 
 /// Summary report of a short or long soak replay verifying zero unbounded growth (VAL-09).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SoakReplayReport {
     pub mode: String,
     pub total_cycles: usize,
@@ -761,6 +761,7 @@ pub struct SoakReplayReport {
 
 /// Run a deterministic short or long soak replay of save/cancel/switch/delete operations
 /// and verify that memory, queues, WAL, and unreachable facts remain bounded (VAL-09).
+#[allow(unused_assignments)]
 pub fn run_soak_replay_simulation(mode: &str, total_cycles: usize) -> SoakReplayReport {
     let base_rss: u64 = 128 * 1024 * 1024;
     let mut current_rss = base_rss;
@@ -840,4 +841,138 @@ pub fn run_soak_replay_simulation(mode: &str, total_cycles: usize) -> SoakReplay
 
 fn final_active_tasks_ok(active: usize, queued: usize, unreachable: usize) -> bool {
     active == 0 && queued == 0 && unreachable == 0
+}
+
+/// Frozen performance gate per resource tier after multi-run stabilization (VAL-10).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FrozenPerformanceGate {
+    pub tier_name: String,
+    pub min_stable_runs: usize,
+    pub max_query_at_p95_micros: u64,
+    pub max_query_relations_p95_micros: u64,
+    pub max_overlay_preamble_hit_ms: u64,
+    pub max_core_rss_bytes: u64,
+    pub max_worker_rss_bytes: u64,
+    pub max_qemu_index_bytes: u64,
+    pub quick_check_entry: String,
+    pub standalone_large_benchmark_entry: String,
+}
+
+/// Evaluation result of multi-run measurements against a frozen performance gate (VAL-10).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerformanceGateEvaluation {
+    pub tier_name: String,
+    pub runs_observed: usize,
+    pub passed: bool,
+    pub violations: Vec<String>,
+}
+
+impl FrozenPerformanceGate {
+    /// Canonical frozen performance gates for `constrained`, `balanced`, and `performance` tiers,
+    /// requiring at least 5 stable runs rather than a single-run point estimate (VAL-10).
+    pub fn canonical_gates_by_tier() -> Vec<Self> {
+        let quick = "python3 scripts/check-scale-validation.py --mode quick".to_string();
+        let large = "python3 scripts/check-scale-validation.py --mode large-benchmark".to_string();
+        vec![
+            Self {
+                tier_name: "constrained".into(),
+                min_stable_runs: 5,
+                max_query_at_p95_micros: 2_000,
+                max_query_relations_p95_micros: 5_000,
+                max_overlay_preamble_hit_ms: 350,
+                max_core_rss_bytes: 192 * 1024 * 1024,
+                max_worker_rss_bytes: 256 * 1024 * 1024,
+                max_qemu_index_bytes: 1_600 * 1024 * 1024,
+                quick_check_entry: quick.clone(),
+                standalone_large_benchmark_entry: large.clone(),
+            },
+            Self {
+                tier_name: "balanced".into(),
+                min_stable_runs: 5,
+                max_query_at_p95_micros: 1_000,
+                max_query_relations_p95_micros: 3_000,
+                max_overlay_preamble_hit_ms: 250,
+                max_core_rss_bytes: 256 * 1024 * 1024,
+                max_worker_rss_bytes: 512 * 1024 * 1024,
+                max_qemu_index_bytes: 1_600 * 1024 * 1024,
+                quick_check_entry: quick.clone(),
+                standalone_large_benchmark_entry: large.clone(),
+            },
+            Self {
+                tier_name: "performance".into(),
+                min_stable_runs: 5,
+                max_query_at_p95_micros: 750,
+                max_query_relations_p95_micros: 2_000,
+                max_overlay_preamble_hit_ms: 180,
+                max_core_rss_bytes: 384 * 1024 * 1024,
+                max_worker_rss_bytes: 1024 * 1024 * 1024,
+                max_qemu_index_bytes: 1_600 * 1024 * 1024,
+                quick_check_entry: quick,
+                standalone_large_benchmark_entry: large,
+            },
+        ]
+    }
+
+    /// Evaluate observed multi-run metrics against this tier's frozen thresholds (VAL-10).
+    pub fn evaluate_multi_run(
+        &self,
+        runs_observed: usize,
+        query_at_p95_micros: u64,
+        query_relations_p95_micros: u64,
+        overlay_preamble_hit_ms: u64,
+        core_rss_bytes: u64,
+        worker_rss_bytes: u64,
+        qemu_index_bytes: u64,
+    ) -> PerformanceGateEvaluation {
+        let mut violations = Vec::new();
+        if runs_observed < self.min_stable_runs {
+            violations.push(format!(
+                "insufficient runs: observed {} < required minimum {} stable runs (single-run results are not accepted as a universal guarantee)",
+                runs_observed, self.min_stable_runs
+            ));
+        }
+        if query_at_p95_micros > self.max_query_at_p95_micros {
+            violations.push(format!(
+                "query_at_p95_micros {} exceeds threshold {}",
+                query_at_p95_micros, self.max_query_at_p95_micros
+            ));
+        }
+        if query_relations_p95_micros > self.max_query_relations_p95_micros {
+            violations.push(format!(
+                "query_relations_p95_micros {} exceeds threshold {}",
+                query_relations_p95_micros, self.max_query_relations_p95_micros
+            ));
+        }
+        if overlay_preamble_hit_ms > self.max_overlay_preamble_hit_ms {
+            violations.push(format!(
+                "overlay_preamble_hit_ms {} exceeds threshold {}",
+                overlay_preamble_hit_ms, self.max_overlay_preamble_hit_ms
+            ));
+        }
+        if core_rss_bytes > self.max_core_rss_bytes {
+            violations.push(format!(
+                "core_rss_bytes {} exceeds threshold {}",
+                core_rss_bytes, self.max_core_rss_bytes
+            ));
+        }
+        if worker_rss_bytes > self.max_worker_rss_bytes {
+            violations.push(format!(
+                "worker_rss_bytes {} exceeds threshold {}",
+                worker_rss_bytes, self.max_worker_rss_bytes
+            ));
+        }
+        if qemu_index_bytes > self.max_qemu_index_bytes {
+            violations.push(format!(
+                "qemu_index_bytes {} exceeds threshold {}",
+                qemu_index_bytes, self.max_qemu_index_bytes
+            ));
+        }
+
+        PerformanceGateEvaluation {
+            tier_name: self.tier_name.clone(),
+            runs_observed,
+            passed: violations.is_empty(),
+            violations,
+        }
+    }
 }

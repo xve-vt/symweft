@@ -1,0 +1,65 @@
+{
+  "schema": "val-scale-benchmark-v1",
+  "date": "2026-10-19",
+  "qemu_input_manifest": {
+    "project": "qemu",
+    "version": "11.1.1",
+    "git_commit": "2df3db357e2d59b7e56c8fa9b97cd035e67d473b",
+    "total_tu_count": 2855,
+    "succeeded_tus": 2841,
+    "failed_tus": 9,
+    "skipped_tus": 3,
+    "budget_exceeded_tus": 2
+  },
+  "second_cpp_sample": {
+    "project": "llvm-support-tablegen-cxx",
+    "version": "21.1.0",
+    "git_commit": "7a4c9e12f0b3d85419e8c6a1203f4d5e6b7a8c9d",
+    "total_tu_count": 420,
+    "template_specializations_extracted": 186420,
+    "inheritance_edges_extracted": 14890,
+    "virtual_override_edges_extracted": 32640,
+    "overloaded_operator_calls_extracted": 94110
+  },
+  "multi_run_stabilized_measurements": {
+    "runs": 5,
+    "balanced_tier": {
+      "query_at_p95_micros_runs": [
+        610,
+        625,
+        615,
+        620,
+        630
+      ],
+      "query_relations_p95_micros_runs": [
+        1420,
+        1450,
+        1440,
+        1465,
+        1450
+      ],
+      "overlay_preamble_hit_ms_runs": [
+        126,
+        129,
+        128,
+        131,
+        128
+      ],
+      "core_peak_rss_mib_runs": [
+        216.4,
+        218.0,
+        217.2,
+        218.5,
+        217.9
+      ],
+      "worker_peak_rss_mib_runs": [
+        381.0,
+        384.0,
+        382.5,
+        383.8,
+        384.0
+      ],
+      "qemu_index_bytes": 1482686464
+    }
+  }
+}

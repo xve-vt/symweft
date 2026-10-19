@@ -3741,3 +3741,61 @@ fn val09_continuous_soak_replay_and_resource_reclamation() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn val10_frozen_performance_gates_and_multi_run_regression_entry() -> Result<()> {
+    use symweft_semantic::scale_validation::FrozenPerformanceGate;
+
+    let gates = FrozenPerformanceGate::canonical_gates_by_tier();
+    assert_eq!(gates.len(), 3);
+
+    let balanced = gates.iter().find(|g| g.tier_name == "balanced").unwrap();
+    assert_eq!(balanced.min_stable_runs, 5);
+    assert!(balanced.quick_check_entry.contains("--mode quick"));
+    assert!(
+        balanced
+            .standalone_large_benchmark_entry
+            .contains("--mode large-benchmark")
+    );
+
+    // 1. Single-run result is rejected even if numbers are fast
+    let single_run_eval = balanced.evaluate_multi_run(
+        1,
+        620,
+        1_450,
+        128,
+        218 * 1024 * 1024,
+        384 * 1024 * 1024,
+        1_482_686_464,
+    );
+    assert!(!single_run_eval.passed);
+    assert!(single_run_eval.violations[0].contains("insufficient runs"));
+
+    // 2. Five-run stabilized result within thresholds passes
+    let multi_run_eval = balanced.evaluate_multi_run(
+        5,
+        630,
+        1_465,
+        131,
+        219 * 1024 * 1024,
+        384 * 1024 * 1024,
+        1_482_686_464,
+    );
+    assert!(multi_run_eval.passed);
+    assert!(multi_run_eval.violations.is_empty());
+
+    // 3. Exceeding any threshold is flagged
+    let regressed_eval = balanced.evaluate_multi_run(
+        5,
+        1_500,
+        1_465,
+        131,
+        219 * 1024 * 1024,
+        384 * 1024 * 1024,
+        1_482_686_464,
+    );
+    assert!(!regressed_eval.passed);
+    assert!(regressed_eval.violations[0].contains("query_at_p95_micros"));
+
+    Ok(())
+}
