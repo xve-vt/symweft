@@ -11,6 +11,7 @@ pub mod preamble;
 pub mod prefetch;
 pub mod profile;
 pub mod provider;
+pub mod python_semantic;
 pub mod query_index;
 pub mod scale_validation;
 pub mod service;

@@ -3799,3 +3799,100 @@ fn val10_frozen_performance_gates_and_multi_run_regression_entry() -> Result<()>
 
     Ok(())
 }
+
+#[test]
+fn py01_environment_and_module_discovery_without_executing_user_code() -> Result<()> {
+    use symweft_semantic::python_semantic::{
+        PythonConfigSourceKind, PythonModuleDiscoveryCatalog, PythonModuleKind,
+        PythonProjectLayout, PythonVirtualEnvKind,
+    };
+
+    let files = [
+        ".venv/pyvenv.cfg",
+        ".venv/lib/site-packages/requests/__init__.py",
+        "typings/core_pkg/fast_math.pyi",
+        "src/core_pkg/__init__.py",
+        "src/core_pkg/fast_math.py",
+        "src/core_pkg/engine.py",
+        "src/ns_plugins/auth/oauth.py",
+        "src/ns_plugins/metrics/prom.py",
+    ];
+    let configs = [(
+        PythonConfigSourceKind::PyprojectToml,
+        "pyproject.toml",
+        "[project]\nname = \"symweft-py\"\nrequires-python = \">=3.11\"\n",
+    )];
+
+    let catalog = PythonModuleDiscoveryCatalog::discover_static(
+        "/workspace/py-demo",
+        "/workspace/py-demo/.venv/bin/python",
+        "3.12.4",
+        &files,
+        &configs,
+    );
+
+    // 1. Verify traceable environment identity & static isolation (never imports user modules)
+    assert!(!catalog.environment.executes_user_code);
+    assert!(catalog.environment.validate_static_isolation().is_ok());
+    assert_eq!(catalog.environment.venv_kind, PythonVirtualEnvKind::DotVenv);
+    assert_eq!(catalog.environment.venv_root.as_deref(), Some(".venv"));
+    assert_eq!(
+        catalog.environment.layout,
+        PythonProjectLayout::SrcLayout {
+            src_dir: "src".into()
+        }
+    );
+    assert_eq!(catalog.environment_key.len(), 64);
+
+    // Changing interpreter version or pyproject.toml changes environment_key deterministically
+    let catalog_diff = PythonModuleDiscoveryCatalog::discover_static(
+        "/workspace/py-demo",
+        "/workspace/py-demo/.venv/bin/python",
+        "3.13.0",
+        &files,
+        &configs,
+    );
+    assert_ne!(catalog.environment_key, catalog_diff.environment_key);
+
+    // 2. Verify regular package & module discovery in src/ layout
+    let pkg = catalog.modules.get("core_pkg").expect("core_pkg discovered");
+    assert_eq!(pkg.kind, PythonModuleKind::RegularPackage);
+    assert_eq!(pkg.primary_path, "src/core_pkg/__init__.py");
+
+    let engine = catalog.modules.get("core_pkg.engine").expect("core_pkg.engine discovered");
+    assert_eq!(engine.kind, PythonModuleKind::RegularModule);
+    assert_eq!(engine.primary_path, "src/core_pkg/engine.py");
+
+    // 3. Verify .pyi stub precedence over .py while preserving runtime implementation path
+    let fast_math = catalog
+        .modules
+        .get("core_pkg.fast_math")
+        .expect("core_pkg.fast_math discovered");
+    assert_eq!(fast_math.kind, PythonModuleKind::TypeStubModule);
+    assert_eq!(fast_math.primary_path, "typings/core_pkg/fast_math.pyi");
+    assert_eq!(
+        fast_math.runtime_implementation_path.as_deref(),
+        Some("src/core_pkg/fast_math.py")
+    );
+
+    // 4. Verify PEP 420 implicit namespace package (directory without __init__.py)
+    let ns_pkg = catalog
+        .modules
+        .get("ns_plugins")
+        .expect("PEP 420 namespace package discovered");
+    assert_eq!(ns_pkg.kind, PythonModuleKind::NamespacePackagePep420);
+    assert!(ns_pkg.namespace_roots.contains(&"src/ns_plugins".to_string()));
+
+    let ns_auth = catalog
+        .modules
+        .get("ns_plugins.auth")
+        .expect("PEP 420 sub-namespace package discovered");
+    assert_eq!(ns_auth.kind, PythonModuleKind::NamespacePackagePep420);
+
+    // 5. Verify third-party site-packages module discovery
+    let req = catalog.modules.get("requests").expect("requests discovered");
+    assert_eq!(req.kind, PythonModuleKind::RegularPackage);
+    assert_eq!(req.primary_path, ".venv/lib/site-packages/requests/__init__.py");
+
+    Ok(())
+}
