@@ -972,3 +972,182 @@ impl PythonModuleSemanticModel {
         }
     }
 }
+
+/// Cached module entry inside the Python incremental provider (PY-04).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedPythonModuleEntry {
+    pub module_name: String,
+    pub revision: u64,
+    pub content_hash: String,
+    pub is_dirty_overlay: bool,
+    pub estimated_bytes: usize,
+    pub snapshot: crate::model::Snapshot,
+}
+
+/// Incremental scheduler and provider interface for Python semantic analysis (PY-04).
+/// Enforces module-level batch extraction, dirty overlay tracking, cancellation,
+/// environment-change invalidation, and memory budgeting without per-symbol LSP scans.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PythonIncrementalProvider {
+    pub provider_version: String,
+    pub environment_key: String,
+    pub allows_per_symbol_lsp_scan: bool,
+    pub per_symbol_lsp_requests_issued: usize,
+    pub max_cache_bytes: usize,
+    pub current_cache_bytes: usize,
+    pub cached_modules: BTreeMap<String, CachedPythonModuleEntry>,
+    pub dirty_revisions: BTreeMap<String, (u64, String)>,
+    pub reverse_importers: BTreeMap<String, BTreeSet<String>>,
+    pub stale_modules: BTreeSet<String>,
+    pub cancelled_jobs: BTreeSet<u64>,
+}
+
+impl PythonIncrementalProvider {
+    pub fn new(environment_key: &str, max_cache_bytes: usize) -> Self {
+        Self {
+            provider_version: PYTHON_PROVIDER_KEY.to_string(),
+            environment_key: environment_key.to_string(),
+            allows_per_symbol_lsp_scan: false,
+            per_symbol_lsp_requests_issued: 0,
+            max_cache_bytes,
+            current_cache_bytes: 0,
+            cached_modules: BTreeMap::new(),
+            dirty_revisions: BTreeMap::new(),
+            reverse_importers: BTreeMap::new(),
+            stale_modules: BTreeSet::new(),
+            cancelled_jobs: BTreeSet::new(),
+        }
+    }
+
+    /// Guard verifying that unbounded per-symbol LSP fan-out scanning is strictly disabled.
+    pub fn validate_provider_contract(&self) -> std::result::Result<(), String> {
+        if self.provider_version != PYTHON_PROVIDER_KEY {
+            return Err(format!("unsupported Python provider version: {}", self.provider_version));
+        }
+        if self.allows_per_symbol_lsp_scan || self.per_symbol_lsp_requests_issued > 0 {
+            return Err(
+                "provider contract violation: unbounded per-symbol LSP scanning is forbidden"
+                    .into(),
+            );
+        }
+        Ok(())
+    }
+
+    /// Registers a dependency edge `importer_module -> imported_module` for incremental invalidation.
+    pub fn register_import_edge(&mut self, importer_module: &str, imported_module: &str) {
+        self.reverse_importers
+            .entry(imported_module.to_string())
+            .or_default()
+            .insert(importer_module.to_string());
+    }
+
+    /// Marks a module as having an unsaved dirty buffer revision and invalidates its direct importers.
+    pub fn update_dirty_buffer(
+        &mut self,
+        module_name: &str,
+        revision: u64,
+        content_hash: &str,
+    ) -> Vec<String> {
+        self.dirty_revisions
+            .insert(module_name.to_string(), (revision, content_hash.to_string()));
+        let mut affected = vec![module_name.to_string()];
+        self.stale_modules.insert(module_name.to_string());
+        if let Some(importers) = self.reverse_importers.get(module_name) {
+            for imp in importers {
+                self.stale_modules.insert(imp.clone());
+                affected.push(imp.clone());
+            }
+        }
+        affected.sort();
+        affected.dedup();
+        affected
+    }
+
+    /// Requests cancellation of an in-flight analysis job.
+    pub fn cancel_job(&mut self, job_id: u64) {
+        self.cancelled_jobs.insert(job_id);
+    }
+
+    /// Publishes a batch-extracted module snapshot if the job was not cancelled and revision is current.
+    pub fn publish_module_snapshot(
+        &mut self,
+        job_id: u64,
+        module_name: &str,
+        revision: u64,
+        content_hash: &str,
+        is_dirty_overlay: bool,
+        snapshot: crate::model::Snapshot,
+    ) -> std::result::Result<(), String> {
+        self.validate_provider_contract()?;
+        if self.cancelled_jobs.contains(&job_id) {
+            return Err(format!("python analysis job {job_id} was cancelled"));
+        }
+        if let Some((latest_rev, _)) = self.dirty_revisions.get(module_name)
+            && revision < *latest_rev
+        {
+            return Err(format!(
+                "stale revision {revision} for module `{module_name}` (latest dirty revision is {latest_rev})"
+            ));
+        }
+
+        let estimated_bytes = 256
+            + snapshot.symbols.len() * 128
+            + snapshot.references.len() * 96
+            + snapshot.calls.len() * 96;
+
+        // Evict existing entry for same module first
+        if let Some(prev) = self.cached_modules.remove(module_name) {
+            self.current_cache_bytes = self
+                .current_cache_bytes
+                .saturating_sub(prev.estimated_bytes);
+        }
+
+        // Enforce memory budget by evicting clean cached modules first
+        while self.current_cache_bytes + estimated_bytes > self.max_cache_bytes
+            && !self.cached_modules.is_empty()
+        {
+            let victim_key = self
+                .cached_modules
+                .iter()
+                .find(|(_, v)| !v.is_dirty_overlay)
+                .or_else(|| self.cached_modules.iter().next())
+                .map(|(k, _)| k.clone())
+                .unwrap();
+            if let Some(removed) = self.cached_modules.remove(&victim_key) {
+                self.current_cache_bytes = self
+                    .current_cache_bytes
+                    .saturating_sub(removed.estimated_bytes);
+            }
+        }
+
+        self.current_cache_bytes += estimated_bytes;
+        self.stale_modules.remove(module_name);
+        self.cached_modules.insert(
+            module_name.to_string(),
+            CachedPythonModuleEntry {
+                module_name: module_name.to_string(),
+                revision,
+                content_hash: content_hash.to_string(),
+                is_dirty_overlay,
+                estimated_bytes,
+                snapshot,
+            },
+        );
+        Ok(())
+    }
+
+    /// Handles interpreter, virtualenv, or project config changes by invalidating cached snapshots.
+    pub fn on_environment_change(&mut self, new_environment_key: &str) -> usize {
+        if self.environment_key == new_environment_key {
+            return 0;
+        }
+        let invalidated = self.cached_modules.len();
+        for k in self.cached_modules.keys() {
+            self.stale_modules.insert(k.clone());
+        }
+        self.cached_modules.clear();
+        self.current_cache_bytes = 0;
+        self.environment_key = new_environment_key.to_string();
+        invalidated
+    }
+}

@@ -4212,3 +4212,105 @@ fn py03_cross_module_definitions_references_and_honest_dynamic_calls() -> Result
 
     Ok(())
 }
+
+#[test]
+fn py04_python_provider_incremental_scheduling_and_env_invalidation() -> Result<()> {
+    use symweft_semantic::python_semantic::{
+        PYTHON_PROVIDER_KEY, PythonIncrementalProvider, PythonModuleSemanticModel,
+    };
+
+    let mut provider = PythonIncrementalProvider::new("env_hash_py312_venv1", 4096);
+    assert_eq!(provider.provider_version, PYTHON_PROVIDER_KEY);
+    assert!(provider.validate_provider_contract().is_ok());
+    assert!(!provider.allows_per_symbol_lsp_scan);
+    assert_eq!(provider.per_symbol_lsp_requests_issued, 0);
+
+    // 1. Register import dependency `pkg.api -> pkg.core`
+    provider.register_import_edge("pkg.api", "pkg.core");
+
+    // 2. Publish initial snapshots for `pkg.core` and `pkg.api`
+    let mut core_m = PythonModuleSemanticModel::new("u_core", "pkg.core", "src/pkg/core.py", "h1");
+    core_m.add_definition("compute", "compute", "function", 1, 1, 0, 20);
+    provider
+        .publish_module_snapshot(
+            1,
+            "pkg.core",
+            1,
+            "h1",
+            false,
+            core_m.into_shared_snapshot("default", "c1", Vec::new()),
+        )
+        .unwrap();
+
+    let mut api_m = PythonModuleSemanticModel::new("u_api", "pkg.api", "src/pkg/api.py", "h2");
+    api_m.add_definition("endpoint", "endpoint", "function", 1, 1, 0, 25);
+    provider
+        .publish_module_snapshot(
+            2,
+            "pkg.api",
+            1,
+            "h2",
+            false,
+            api_m.into_shared_snapshot("default", "c1", Vec::new()),
+        )
+        .unwrap();
+    assert_eq!(provider.cached_modules.len(), 2);
+    assert!(provider.stale_modules.is_empty());
+
+    // 3. Dirty buffer edit on `pkg.core` marks both `pkg.core` and its importer `pkg.api` as stale
+    let affected = provider.update_dirty_buffer("pkg.core", 2, "h1_dirty_rev2");
+    assert_eq!(affected, vec!["pkg.api".to_string(), "pkg.core".to_string()]);
+    assert!(provider.stale_modules.contains("pkg.core"));
+    assert!(provider.stale_modules.contains("pkg.api"));
+
+    // 4. Stale revision (revision 1 < dirty revision 2) is rejected
+    let stale_res = provider.publish_module_snapshot(
+        3,
+        "pkg.core",
+        1,
+        "h1_old",
+        true,
+        PythonModuleSemanticModel::new("u_core", "pkg.core", "src/pkg/core.py", "h1_old")
+            .into_shared_snapshot("default", "c1", Vec::new()),
+    );
+    assert!(stale_res.is_err());
+    assert!(stale_res.unwrap_err().contains("stale revision"));
+
+    // 5. Cancelled job is rejected
+    provider.cancel_job(4);
+    let cancel_res = provider.publish_module_snapshot(
+        4,
+        "pkg.core",
+        2,
+        "h1_dirty_rev2",
+        true,
+        PythonModuleSemanticModel::new("u_core", "pkg.core", "src/pkg/core.py", "h1_dirty_rev2")
+            .into_shared_snapshot("default", "c1", Vec::new()),
+    );
+    assert!(cancel_res.is_err());
+    assert!(cancel_res.unwrap_err().contains("cancelled"));
+
+    // 6. Publishing current dirty revision 2 succeeds and clears stale marker for `pkg.core`
+    provider
+        .publish_module_snapshot(
+            5,
+            "pkg.core",
+            2,
+            "h1_dirty_rev2",
+            true,
+            PythonModuleSemanticModel::new("u_core", "pkg.core", "src/pkg/core.py", "h1_dirty_rev2")
+                .into_shared_snapshot("default", "c1", Vec::new()),
+        )
+        .unwrap();
+    assert!(!provider.stale_modules.contains("pkg.core"));
+    assert!(provider.stale_modules.contains("pkg.api"));
+
+    // 7. Environment change (e.g. switching virtualenv or pyproject.toml) invalidates all cached modules
+    let invalidated = provider.on_environment_change("env_hash_py313_venv2");
+    assert_eq!(invalidated, 2);
+    assert_eq!(provider.cached_modules.len(), 0);
+    assert_eq!(provider.current_cache_bytes, 0);
+    assert_eq!(provider.per_symbol_lsp_requests_issued, 0);
+
+    Ok(())
+}

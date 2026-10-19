@@ -38,3 +38,14 @@
 - **未知接收者动态属性调用（`DynamicAttributeUnresolved`）**：当接收者缺少静态类型或为动态参数（如 `req.verify()`）时，严禁在全库按同名方法 `verify` 猜测绑定目标，调用边标记为 `target = None, dispatch = "unresolved"`。
 - **反射与动态执行（`ReflectionOrEvalUnresolved`）**：`getattr(obj, name)()`、`setattr`、`eval`、`exec`、`globals()[k]()` 统一归类为 `target = None, dispatch = "indirect"`。
 - **运行时猴子补丁（`RuntimeMonkeyPatchUnresolved`）**：运行期动态替换类或模块属性（如 `Service.run = hook`）明确标记为 `unresolved`，不伪造静态调用目标。
+
+## 4. 提供器与增量调度（PY-04）
+
+### 4.1 固定提供器版本与严禁逐符号 LSP 全库扫描（`PythonIncrementalProvider`）
+- 提供器身份固定为 `PYTHON_PROVIDER_KEY = "a2-python-v1"`，采用按模块单次批量语法/语义提取策略（`module_batch_ast_binding`）。
+- **严禁逐符号 LSP 扇出扫描**：`allows_per_symbol_lsp_scan = false` 且 `per_symbol_lsp_requests_issued == 0`，由 `validate_provider_contract()` 强制把关，绝不通过向外部 LSP 逐符号发起 `textDocument/definition` 或 `textDocument/references` 请求来进行无界全库遍历。
+
+### 4.2 Dirty 覆盖、取消、缓存预算与环境失效
+- **反向依赖级联失效**：`update_dirty_buffer()` 更新模块修订并通过 `reverse_importers` 自动将直接导入者标记为 `stale_modules`。
+- **旧修订与取消拦截**：已被 `cancel_job()` 标记的作业或低于最新 dirty 修订的结果在 `publish_module_snapshot()` 时被直接拒绝。
+- **内存账本与环境切换**：缓存体积受 `max_cache_bytes` 约束（淘汰时优先保留活跃 `is_dirty_overlay` 模块）；当 `on_environment_change()` 检测到解释器、虚拟环境或配置指纹变更时，立即失效全部旧环境缓存。
