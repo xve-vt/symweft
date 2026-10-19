@@ -94,6 +94,11 @@ def check_multiple_buffers(output):
             assert ack["queue_len"] >= 1, ack
             assert any("c.c" in u for u in ack["queued_units"]), ack
             key = dict(path="b.cpp", revision=main_revision, job_id=ack["ticket"]["job_id"], query_version=ack["query_version"], project_query_version=ack["project_query_version"])
+            offset = len(source[:source.index("CHOSEN")].encode())
+            if ack["queued"] or ack["worker_active"]:
+                in_prog = client.rpc("semantic.preview.at", dict(key, byte_offset=offset), expect_error=True)
+                assert in_prog["code"] in ["preview_not_ready", "index_error"], in_prog
+                assert "compilation in progress" in in_prog["message"] or "not ready" in in_prog["message"], in_prog
             status = wait(client, key)
             revisions = {(Path(item["path"]).name, item["revision"]) for item in key["query_version"]["documents"]}
             assert revisions == {("api.h", header_revision), ("b.cpp", main_revision)}, revisions
@@ -111,6 +116,9 @@ def check_multiple_buffers(output):
             assert any(row["main_file"].endswith("a.c") and row["evidence"] == "clang_semantic" for row in definitions), definitions
             assert project_rels["includer_coverage"]["scope"] == "partial", project_rels
             assert "partial includer coverage" in project_rels["completeness"], project_rels
+            for r in project_rels["rows"]:
+                if r["evidence"] == "clang_semantic_overlay":
+                    assert r["revision"] == main_revision, (r, main_revision)
             assert (root / "api.h").read_text() == header
             assert (root / "b.cpp").read_text() == source
 

@@ -29,7 +29,11 @@ struct Session {
 }
 
 fn index_error(error: impl std::fmt::Display) -> CoreError {
-    CoreError::new("index_error", error.to_string())
+    let msg = error.to_string();
+    if msg.contains("preview compilation in progress") || msg.contains("preview is not ready") {
+        return CoreError::new("preview_not_ready", msg);
+    }
+    CoreError::new("index_error", msg)
 }
 
 fn analysis_error(error: AnalysisError) -> CoreError {

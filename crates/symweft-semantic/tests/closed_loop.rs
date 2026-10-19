@@ -811,3 +811,88 @@ json.dump({'snapshot':None,'error':None,'diagnostics':[]},sys.stdout)
 
     Ok(())
 }
+
+#[test]
+fn atomic_revision_switch_late_result_rejection_and_waiting_state() -> Result<()> {
+    let f = Fixture::new();
+    f.write("api.h", "#define VAL 1
+int target(void);
+");
+    f.write("a.c", "#include "api.h"
+int a_call(void){return target() + VAL;}
+");
+    let db = f.commands(&["a.c"])?;
+    let path = f.0.join("semantics.sqlite3");
+    let mut store = Store::open(&path)?;
+    store.reconcile(&db)?;
+    let a_snap = analyze(&db, 0)?;
+    store.publish(&a_snap)?;
+    drop(store);
+
+    f.write("slow-worker", r#"#!/usr/bin/env python3
+import json,sys,time
+request=json.load(sys.stdin)
+time.sleep(.15)
+json.dump({'snapshot':None,'error':'fake-slow','diagnostics':[]},sys.stdout)
+"#);
+    let worker = f.0.join("slow-worker");
+    fs::set_permissions(&worker, fs::Permissions::from_mode(0o700))?;
+
+    let mut controller = Controller::open(
+        &f.0,
+        &db.path,
+        path,
+        worker,
+        Limits::default(),
+    )?;
+
+    let a_unit = &db.commands[0].unit_id;
+    let header_path = f.0.join("api.h").to_string_lossy().into_owned();
+    let a_path = f.0.join("a.c").to_string_lossy().into_owned();
+
+    // 1. Start rev 1 preview (compiling in background with slow worker)
+    let docs1 = vec![
+        PreviewDocument { path: a_path.clone(), revision: 1, content: f.read("a.c") },
+        PreviewDocument { path: header_path.clone(), revision: 1, content: "#define VAL 10
+".into() },
+    ];
+    let status1 = controller.start_preview_documents(docs1, Some(a_unit), 32)?;
+    let id1 = status1["ticket"]["job_id"].as_u64().unwrap();
+    assert_eq!(status1["state"], "running");
+    assert!(status1["completeness"].as_str().unwrap().contains("compilation in progress"));
+
+    // Query during switching returns explicit in-progress waiting error
+    let in_progress_err = controller.preview_at(id1, &a_path, 1, 0).unwrap_err();
+    assert!(in_progress_err.to_string().contains("preview compilation in progress"), "{in_progress_err}");
+
+    // 2. Before rev 1 completes, rev 2 arrives
+    let docs2 = vec![
+        PreviewDocument { path: a_path.clone(), revision: 2, content: f.read("a.c") },
+        PreviewDocument { path: header_path.clone(), revision: 2, content: "#define VAL 20
+".into() },
+    ];
+    let status2 = controller.start_preview_documents(docs2, Some(a_unit), 32)?;
+    let id2 = status2["ticket"]["job_id"].as_u64().unwrap();
+    assert_ne!(id1, id2);
+    assert_eq!(status2["ticket"]["revision"], 2);
+
+    // 3. Late query using old ticket id1 is rejected
+    assert!(controller.preview_at(id1, &a_path, 1, 0).is_err());
+
+    // 4. Wait for rev 2 to finish
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline {
+        controller.maintain(&HashSet::new(), true)?;
+        let s = controller.preview_status()?;
+        if s["state"] == "failed" && s["ticket"]["job_id"] == id2 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    // Verify current state belongs to rev 2 (late rev 1 didn't roll back)
+    let final_status = controller.preview_status()?;
+    assert_eq!(final_status["ticket"]["job_id"], id2);
+    assert_eq!(final_status["ticket"]["revision"], 2);
+
+    Ok(())
+}

@@ -134,8 +134,56 @@ impl Controller {
         )?;
         let query_version = project_query_version(&status, take_disk_baseline(&mut disk)?)?;
         let limit = limit.clamp(1, 1000);
+        let mut overlay_rows = take_rows(&mut overlay, "rows");
+        if let Some(ticket) = &self.overlay.ticket {
+            for (sec_unit_id, completed) in &self.overlay.results {
+                if sec_unit_id != &unit_id {
+                    let matches_current = completed.reply.snapshot.as_ref().map_or(false, |s| {
+                        ticket.documents.iter().all(|doc| {
+                            s.inputs.iter().any(|inp| inp.path == doc.path && inp.hash == doc.hash)
+                        })
+                    });
+                    if matches_current {
+                        if let Some(snapshot) = &completed.reply.snapshot {
+                            let sec_rows: Vec<_> = match direction {
+                                "definitions" | "declarations" => snapshot
+                                    .symbols
+                                    .iter()
+                                    .filter(|v| v.id == entity && (direction != "definitions" || v.definition))
+                                    .take(limit)
+                                    .map(|v| self.overlay_row_for(v, sec_unit_id, ticket.revision, ticket.job_id, &snapshot.main_file))
+                                    .collect(),
+                                "references" => snapshot
+                                    .references
+                                    .iter()
+                                    .filter(|v| v.target == entity)
+                                    .take(limit)
+                                    .map(|v| self.overlay_row_for(v, sec_unit_id, ticket.revision, ticket.job_id, &snapshot.main_file))
+                                    .collect(),
+                                "incoming" => snapshot
+                                    .calls
+                                    .iter()
+                                    .filter(|v| v.target == entity)
+                                    .take(limit)
+                                    .map(|v| self.overlay_row_for(v, sec_unit_id, ticket.revision, ticket.job_id, &snapshot.main_file))
+                                    .collect(),
+                                "outgoing" => snapshot
+                                    .calls
+                                    .iter()
+                                    .filter(|v| v.caller == entity)
+                                    .take(limit)
+                                    .map(|v| self.overlay_row_for(v, sec_unit_id, ticket.revision, ticket.job_id, &snapshot.main_file))
+                                    .collect(),
+                                _ => Vec::new(),
+                            };
+                            overlay_rows.extend(sec_rows);
+                        }
+                    }
+                }
+            }
+        }
         let rows = merge_rows(
-            take_rows(&mut overlay, "rows"),
+            overlay_rows,
             take_rows(&mut disk, "rows"),
             limit,
         );

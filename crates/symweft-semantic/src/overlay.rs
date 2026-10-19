@@ -184,6 +184,12 @@ impl Controller {
         let Some(ticket) = &self.overlay.ticket else {
             return COMPLETENESS.to_string();
         };
+        if self.overlay.state == "queued" || self.overlay.state == "running" {
+            return format!(
+                "compilation in progress for revision {}; results incomplete (state: {})",
+                ticket.revision, self.overlay.state
+            );
+        }
         match ticket.includer_coverage.scope.as_str() {
             "none" => "no known includers found for edited headers; 0 includer units affected; unindexed units/changes may exist and results are not stable pages".to_string(),
             "partial" => format!(
@@ -206,9 +212,9 @@ impl Controller {
         let result = overlay.result.as_ref();
         let completeness = self.completeness_summary();
         let includer_coverage = overlay.ticket.as_ref().map(|t| &t.includer_coverage);
+        let queued_units: Vec<_> = overlay.queue.iter().map(|p| p.ticket.unit_id.clone()).collect();
+        let queue_len = overlay.queue.len();
         Ok(
-            let queued_units: Vec<_> = overlay.queue.iter().map(|p| p.ticket.unit_id.clone()).collect();
-            let queue_len = overlay.queue.len();
             json!({"state":if overlay.state.is_empty(){"idle"}else{overlay.state},
             "ticket":overlay.ticket,"reason":overlay.reason,
             "worker_active":overlay.running.is_some(),"queued":!overlay.queue.is_empty(),
@@ -646,8 +652,17 @@ impl Controller {
         self.overlay.state = "running";
     }
     fn overlay_snapshot(&self) -> Result<&Snapshot> {
+        if self.overlay.state == "queued" || self.overlay.state == "running" {
+            return Err(format!(
+                "preview compilation in progress (state: {}); retry after completion or inspect semantic.preview.progress",
+                self.overlay.state
+            ).into());
+        }
         if self.overlay.state != "ready" {
-            return Err("preview is not ready; inspect semantic.preview.progress".into());
+            return Err(format!(
+                "preview is not ready (state: {}, reason: {:?}); inspect semantic.preview.progress",
+                self.overlay.state, self.overlay.reason
+            ).into());
         }
         self.overlay
             .result
@@ -655,24 +670,35 @@ impl Controller {
             .and_then(|r| r.reply.snapshot.as_ref())
             .ok_or_else(|| "preview snapshot unavailable".into())
     }
-    fn overlay_row(&self, value: impl Serialize) -> Value {
+    pub(super) fn overlay_row_for(
+        &self,
+        value: impl Serialize,
+        unit_id: &str,
+        revision: u64,
+        job_id: u64,
+        main_file: &str,
+    ) -> Value {
         let mut row = serde_json::to_value(value).expect("semantic fact serializes");
-        if let Some(ticket) = &self.overlay.ticket {
-            row["unit_id"] = ticket.unit_id.clone().into();
-            row["revision"] = ticket.revision.into();
-            row["preview_id"] = ticket.job_id.into();
-        }
+        row["unit_id"] = unit_id.to_string().into();
+        row["revision"] = revision.into();
+        row["preview_id"] = job_id.into();
         row["evidence"] = "clang_semantic_overlay".into();
         row["freshness"] = "overlay".into();
-        if let Some(snapshot) = self
+        row["main_file"] = main_file.to_string().into();
+        row
+    }
+    fn overlay_row(&self, value: impl Serialize) -> Value {
+        let (unit_id, revision, job_id) = self.overlay.ticket.as_ref().map_or(
+            ("".to_string(), 0, 0),
+            |t| (t.unit_id.clone(), t.revision, t.job_id),
+        );
+        let main_file = self
             .overlay
             .result
             .as_ref()
             .and_then(|r| r.reply.snapshot.as_ref())
-        {
-            row["main_file"] = snapshot.main_file.clone().into();
-        }
-        row
+            .map_or("", |s| s.main_file.as_str());
+        self.overlay_row_for(value, &unit_id, revision, job_id, main_file)
     }
     pub fn preview_at(
         &mut self,
