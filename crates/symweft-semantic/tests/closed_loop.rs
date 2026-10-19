@@ -3205,3 +3205,65 @@ fn cpp05_variable_references_and_read_write_classification() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn cpp06_macros_generated_code_and_preprocessor_variants() -> Result<()> {
+    use symweft_semantic::{
+        cpp_constructs::{
+            GeneratedHeaderTracker, InactiveBranchPolicy, MacroDualAnchor,
+            PreprocessorVariantIdentity,
+        },
+        model::Location,
+    };
+
+    // 1. Parameterized macro preserves both expansion site and spelling site
+    let expansion = Location {
+        path: "/workspace/src/main.c".into(),
+        offset: 120,
+        end_offset: 142,
+        line: 10,
+        column: 5,
+    };
+    let spelling = Location {
+        path: "/workspace/include/macros.h".into(),
+        offset: 40,
+        end_offset: 55,
+        line: 3,
+        column: 25,
+    };
+    let dual = MacroDualAnchor::new("CALL_WRAP", "c:macros.h@40@macro@CALL_WRAP", expansion, spelling);
+    assert!(dual.has_distinct_spelling_anchor());
+    assert_eq!(dual.expansion_location.path, "/workspace/src/main.c");
+    assert_eq!(
+        dual.spelling_location.as_ref().unwrap().path,
+        "/workspace/include/macros.h"
+    );
+
+    // 2. Build-directory generated header tracked and invalidated upon rebuild hash change
+    let tracker = GeneratedHeaderTracker::new("/workspace", "/workspace/build");
+    let gen_hdr = "/workspace/build/generated/config_autoconf.h";
+    assert!(tracker.is_tracked_generated_file(gen_hdr));
+    assert!(tracker.is_in_project_or_build_scope(gen_hdr));
+    assert!(!tracker.should_invalidate_on_rebuild(gen_hdr, "hash_v1", "hash_v1"));
+    assert!(tracker.should_invalidate_on_rebuild(gen_hdr, "hash_v1", "hash_v2"));
+
+    // 3. Different -D preprocessor variants produce distinct variant unit IDs and never overwrite each other
+    let var_a = PreprocessorVariantIdentity::from_arguments(
+        "/workspace/src/driver.c",
+        &["clang".into(), "-DUSE_FAST_PATH=1".into(), "-c".into(), "driver.c".into()],
+    );
+    let var_b = PreprocessorVariantIdentity::from_arguments(
+        "/workspace/src/driver.c",
+        &["clang".into(), "-DUSE_FAST_PATH=0".into(), "-c".into(), "driver.c".into()],
+    );
+    assert_ne!(var_a.variant_unit_id, var_b.variant_unit_id);
+    assert_eq!(var_a.defines, vec!["USE_FAST_PATH=1"]);
+    assert_eq!(var_b.defines, vec!["USE_FAST_PATH=0"]);
+
+    // 4. Inactive #ifdef branch retains A1 syntax without fabricating A2 edges
+    let inactive = InactiveBranchPolicy::evaluate_inactive_branch("#ifdef UNDEFINED_PLATFORM_FLAG");
+    assert!(inactive.a1_syntax_retained);
+    assert!(!inactive.a2_semantic_edges_emitted);
+
+    Ok(())
+}

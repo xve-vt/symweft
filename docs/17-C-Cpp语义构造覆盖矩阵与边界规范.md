@@ -82,3 +82,15 @@
   - `AddressOf`（一元取地址 `&var`，标记潜在间接访问）
 - **严格防误标保护**：
   - `classify_variable_scope` 与 `classify_variable_access` 首先校验目标游标必须属于 `VarDecl`、`ParmDecl` 或 `FieldDecl`；对于函数调用（`FunctionDecl`/`CXXMethod`，哪怕返回左值引用出现在 `=` 左侧如 `slot() = 1`）、宏定义/宏字面量（`MacroDefinition`）及枚举常量（`EnumConstantDecl`），一律返回 `None`，绝不将函数调用或宏字面量误标为变量写操作。
+
+## 6. 宏、生成代码和预处理变体（CPP-06）
+
+- **带参宏双锚点（`MacroDualAnchor`）**：
+  - 宏展开生成的调用与符号引用同时记录 `expansion_location`（调用点宏展开位置）与 `spelling_location`（宏定义体或宏实参的源码拼写位置），支持在展开点与拼写点之间双向定位。
+- **构建目录生成头文件追踪与重建失效（`GeneratedHeaderTracker`）**：
+  - `Walker::project` 与 `GeneratedHeaderTracker` 同时将 `workspace_root` 与 `build_root`（如 `build/generated/config.h`、`autoconf.h`）纳入项目追踪范围。
+  - 生成头文件写入 `inputs` 与 `input_aliases` 指纹表，当构建系统重新生成头文件导致内容哈希变化时，通过 `should_invalidate_on_rebuild` 自动使所有依赖该生成头文件的 TU 失效。
+- **条件编译与 `-D` 变体隔离（`PreprocessorVariantIdentity`）**：
+  - 同一源码文件在不同 `-D`/`-U` 编译宏组合下拥有独立的 `unit_id`（`variant_unit_id`），在 SQLite 中按 `(unit_id, configuration)` 独立存储并在查询时标注变体来源，绝不相互覆盖。
+- **未激活预处理分支策略（`InactiveBranchPolicy`）**：
+  - 对于当前 TU 未激活的 `#ifdef` / `#if 0` 分支，保留 A1 词法/结构大纲供阅读，绝不凭空猜测或伪造 A2 编译器语义边（`a2_semantic_edges_emitted = false`）。

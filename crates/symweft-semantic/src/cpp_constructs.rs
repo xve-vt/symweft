@@ -586,3 +586,129 @@ pub fn classify_variable_access(
     }
     Some(VariableAccessMode::Read)
 }
+
+/// Dual anchor for parameterized macro invocations preserving both expansion and spelling locations (CPP-06).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacroDualAnchor {
+    pub macro_name: String,
+    pub macro_usr: String,
+    pub expansion_location: crate::model::Location,
+    pub spelling_location: Option<crate::model::Location>,
+}
+
+impl MacroDualAnchor {
+    pub fn new(
+        macro_name: impl Into<String>,
+        macro_usr: impl Into<String>,
+        expansion_location: crate::model::Location,
+        spelling_location: crate::model::Location,
+    ) -> Self {
+        let spelling = if spelling_location.path != expansion_location.path
+            || spelling_location.offset != expansion_location.offset
+        {
+            Some(spelling_location)
+        } else {
+            None
+        };
+        Self {
+            macro_name: macro_name.into(),
+            macro_usr: macro_usr.into(),
+            expansion_location,
+            spelling_location: spelling,
+        }
+    }
+
+    pub fn has_distinct_spelling_anchor(&self) -> bool {
+        self.spelling_location.is_some()
+    }
+}
+
+/// Tracker for build-directory generated headers/sources (`build_root`) and rebuild invalidation (CPP-06).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeneratedHeaderTracker {
+    pub workspace_root: String,
+    pub build_root: String,
+}
+
+impl GeneratedHeaderTracker {
+    pub fn new(workspace_root: impl Into<String>, build_root: impl Into<String>) -> Self {
+        Self {
+            workspace_root: workspace_root.into(),
+            build_root: build_root.into(),
+        }
+    }
+
+    pub fn is_tracked_generated_file(&self, path: &str) -> bool {
+        std::path::Path::new(path).starts_with(&self.build_root)
+    }
+
+    pub fn is_in_project_or_build_scope(&self, path: &str) -> bool {
+        let p = std::path::Path::new(path);
+        p.starts_with(&self.workspace_root) || p.starts_with(&self.build_root)
+    }
+
+    pub fn should_invalidate_on_rebuild(&self, path: &str, old_hash: &str, new_hash: &str) -> bool {
+        self.is_tracked_generated_file(path) && old_hash != new_hash
+    }
+}
+
+/// Preprocessor `-D` / `-U` variant identity ensuring distinct conditional compilation variants never overwrite each other (CPP-06).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreprocessorVariantIdentity {
+    pub main_file: String,
+    pub defines: Vec<String>,
+    pub undefines: Vec<String>,
+    pub variant_unit_id: String,
+}
+
+impl PreprocessorVariantIdentity {
+    pub fn from_arguments(main_file: &str, arguments: &[String]) -> Self {
+        let mut defines = Vec::new();
+        let mut undefines = Vec::new();
+        let mut iter = arguments.iter();
+        while let Some(arg) = iter.next() {
+            if let Some(def) = arg.strip_prefix("-D") {
+                if def.is_empty() {
+                    if let Some(next) = iter.next() {
+                        defines.push(next.clone());
+                    }
+                } else {
+                    defines.push(def.to_string());
+                }
+            } else if let Some(undef) = arg.strip_prefix("-U") {
+                if undef.is_empty() {
+                    if let Some(next) = iter.next() {
+                        undefines.push(next.clone());
+                    }
+                } else {
+                    undefines.push(undef.to_string());
+                }
+            }
+        }
+        let variant_unit_id = crate::compdb::key(&(main_file, &defines, &undefines));
+        Self {
+            main_file: main_file.to_string(),
+            defines,
+            undefines,
+            variant_unit_id,
+        }
+    }
+}
+
+/// Policy for inactive `#ifdef` / `#if 0` preprocessor branches: preserve A1 syntax without fabricating A2 edges (CPP-06).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InactiveBranchPolicy {
+    pub branch_condition: String,
+    pub a1_syntax_retained: bool,
+    pub a2_semantic_edges_emitted: bool,
+}
+
+impl InactiveBranchPolicy {
+    pub fn evaluate_inactive_branch(branch_condition: impl Into<String>) -> Self {
+        Self {
+            branch_condition: branch_condition.into(),
+            a1_syntax_retained: true,
+            a2_semantic_edges_emitted: false,
+        }
+    }
+}
